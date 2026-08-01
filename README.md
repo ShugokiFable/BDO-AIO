@@ -62,21 +62,19 @@ Body size → `files_to_patch\_body_size_limits\` then Meta Inject. Beauty salon
 
 ## End user (quick start)
 
-1. Clone or extract this folder.
+1. Clone or extract this folder (prefer the **full** GitHub release for Midnight + experimental binaries).
 2. Fill **`pack\`** with a Midnight PAZ pack (see `pack/README.md`) if not already present.
 3. Install **Python 3** once if needed: `winget install Python.Python.3.12`
 4. Double-click **`START.bat`**
-5. Press **`6`** (Full Wizard) for mods
-6. Select your game **`PAZ`** folder (`pad00000.meta` inside)
-7. Pick gender / armor options / optional collections
+5. Press **`6`** (Full Wizard) for Midnight + optional RESTORED batch
+6. Or press **`A`** later to apply all configured RESTORED choices only
+7. Select your game **`PAZ`** folder (`pad00000.meta` inside)
 8. Finish **PartCutGen**, then **Meta Injector**
-9. Optional: press **`G`** to apply a GameOption graphics profile  
-10. Optional: press **`N`** to import `Black_Desert_Max_Quality.nip` via NVIDIA Profile Inspector  
-11. Optional **advanced only**: press **`X`** for **EXPERIMENTAL / NOT SAFE** OptiScaler DLSS-style upscaling  
-12. Start Black Desert
+9. Optional: **`G`** GameOption · **`N`** NVIDIA .nip · **`X`** EXPERIMENTAL upscale (DLSS/FSR/DStorage)
+10. Troubleshooting: **`R`** restore/clean · after game patches **`H`** heisha regen helper
 
-After every official game patch: re-run the mod wizard. Re-import **N** after big NVIDIA driver updates if settings reset.  
-If you used **X**, expect breakage after patches — uninstall via **X** if the game fails to start.
+After every official game patch: **H** (if inject breaks) then wizard again.  
+If you used **X**, expect breakage after patches — uninstall via **X** or **R**.
 
 ### Menu X — EXPERIMENTAL DLSS (NOT SAFE)
 

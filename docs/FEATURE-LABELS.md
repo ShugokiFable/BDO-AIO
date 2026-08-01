@@ -22,7 +22,11 @@ Features that **existed in Resorepless-era tooling**, reimplemented or repackage
 | Body size min/default/max | Options **2**/**3** | Classic size patcher; custom numbers are still this feature |
 | Slot hide (gloves/boots/helmets/weapons/stockings) | Options **4**/**5** | Classic granular hide toggles |
 | Pubic hair styles | Options **6**/**7** | Classic bins + offsets |
-| Censorship tiers | Options **C** | Classic under-armor texture packs |
+| Censorship tiers | Options **C** | Classic under-armor texture packs; **expanded** scans live PAZ for new outfits |
+| Apply all RESTORED | Main **[A]** / wizard **6** | Body → slots → pubic → censorship → genitals |
+| Per-class slot hide | Options **4** | Optional class prefix filter (e.g. `pdkl`) |
+| Post-patch regen | Main **[H]** | heisha `run.cmd` helper |
+| Restore / clean | Main **[R]** | Clear AIO patches / experimental DLLs / backup restore |
 | Penis / 3D vagina | Options **V** | Classic mesh packs; old classes |
 | Original resorepless.exe | Options **9** | Reference launcher only |
 
@@ -34,7 +38,7 @@ Features that **existed in Resorepless-era tooling**, reimplemented or repackage
 
 | Feature | Menu | Location |
 |---------|------|----------|
-| OptiScaler / Streamline / DLSS-style inject | Main **[X]** only | `experimental\dlss\` |
+| OptiScaler / Streamline / DLSS / FSR / DirectStorage | Main **[X]** only | `experimental\dlss\` + `upgrades\` |
 
 Hard gates, WARNING.txt, and **NOT SAFE** labeling. Kept out of the RESTORED options list.
 

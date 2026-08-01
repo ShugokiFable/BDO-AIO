@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.0.0
+
+### Censorship expansion
+- New tier **expanded**: legacy medium pack + live PAZ scan for under-armor / decal textures on all classes/outfits
+
+### Polish
+- **[A] Apply ALL RESTORED choices** (body → slots → pubic → censorship → genitals; optional new-females)
+- Full wizard can run RESTORED batch after Midnight
+- **Per-class slot hide** (`slotHideClasses` / `--classes phw,pdkl`)
+- **[H] Post-patch regen helper** (heisha `run.cmd` guidance)
+- **[R] Restore / clean** AIO folders, experimental DLLs, backup restore, verify-game notes
+
+### Experimental upscale pack
+- Bundled **upgrades/**: newer DLSS (nvngx), AMD FidelityFX/FSR, DirectStorage 1.4
+- Installer can **swap FSR** (`fsr31` + upgraded amd_fidelityfx_*) and optional DStorage
+- Full offline release includes OptiScaler + Streamline + upgrades
+
 ## v1.4.2
 
 ### NEW FEMALES genitals + pubic [EXPERIMENTAL-REUSE]

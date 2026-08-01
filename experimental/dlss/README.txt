@@ -11,9 +11,14 @@ Why this exists
 What is bundled
   OptiScaler\     OptiScaler 0.9.4-final (main path)
   Streamline\     NVIDIA Streamline 2.12 DLLs (DLSS helpers)
+  upgrades\       Newer nvngx DLSS + AMD FidelityFX/FSR + DirectStorage 1.4 (from zzDLL)
   optional\       Extra tools (advanced only)
     version.dll                 alternate proxy DLL (optional)
     dlss-enabler-setup.exe      separate installer UI (optional)
+
+FSR swap
+  Menu X install -> pick upscaler [3] fsr31
+  Installer overwrites amd_fidelityfx_* with upgrades\amd and sets OptiScaler.ini to fsr31.
 
 What is NOT included (on purpose)
   SkyrimUpscaler — wrong game (Skyrim SE). Do not put that in BDO.

@@ -20,6 +20,16 @@ $Script:GenitalTool = Join-Path $Script:Root 'tools\bdo_meta\genital_pack_apply.
 $Script:GenitalRoot = Join-Path $Script:Root 'tools\genital_packs'
 $Script:ResoreplessExe = 'Z:\Backup\BDO\heisha\contrib\resorepless-v3.6f\resorepless.exe'
 $Script:PazUnpackerExe = 'Z:\Backup\BDO\PAZ-UnpackerV2.6.0\PAZ-Unpacker.exe'
+$Script:DefaultHeishaRoot = 'Z:\Backup\BDO\heisha'
+$Script:UpgradesDir = Join-Path $Script:ExperimentalDlssDir 'upgrades'
+# AIO-generated folders under files_to_patch (safe to clear on restore)
+$Script:AioPatchFolderPrefixes = @(
+    '_body_size_limits',
+    '_slot_hide_',
+    '_pubic_hair_',
+    '_censorship_',
+    '_genital_'
+)
 
 $Script:PubicHairStyles = [ordered]@{
     'none'               = 'Off (do not apply)'
@@ -147,6 +157,7 @@ function Load-Config {
             hideHelmets     = $false
             hideWeapons     = $false
             hideStockings   = $false
+            slotHideClasses = ''
             pubicHairStyle  = 'none'
             pubicHairReuse  = $false
             censorshipTier  = 'off'
@@ -159,10 +170,11 @@ function Load-Config {
             penisWizard     = 'none'
             penisNinja      = 'none'
             penisStriker    = 'none'
+            heishaRoot      = ''
             lastRun         = $null
         }
     }
-    foreach ($p in @('pazFolder', 'gender', 'armor', 'xyzwCollections', 'npiPath', 'bodySizePreset', 'bodySizeParts', 'bodySizeMin', 'bodySizeDefault', 'bodySizeMax', 'hideGloves', 'hideBoots', 'hideHelmets', 'hideWeapons', 'hideStockings', 'pubicHairStyle', 'pubicHairReuse', 'censorshipTier', 'female3dVagina', 'genitalReuse', 'malePenisMode', 'penisWarrior', 'penisBerserker', 'penisMusa', 'penisWizard', 'penisNinja', 'penisStriker', 'lastRun')) {
+    foreach ($p in @('pazFolder', 'gender', 'armor', 'xyzwCollections', 'npiPath', 'bodySizePreset', 'bodySizeParts', 'bodySizeMin', 'bodySizeDefault', 'bodySizeMax', 'hideGloves', 'hideBoots', 'hideHelmets', 'hideWeapons', 'hideStockings', 'slotHideClasses', 'pubicHairStyle', 'pubicHairReuse', 'censorshipTier', 'female3dVagina', 'genitalReuse', 'malePenisMode', 'penisWarrior', 'penisBerserker', 'penisMusa', 'penisWizard', 'penisNinja', 'penisStriker', 'heishaRoot', 'lastRun')) {
         if (-not ($Script:Config.PSObject.Properties.Name -contains $p)) {
             $val = switch ($p) {
                 'gender' { 'F' }
@@ -175,6 +187,7 @@ function Load-Config {
                 'hideHelmets' { $false }
                 'hideWeapons' { $false }
                 'hideStockings' { $false }
+                'slotHideClasses' { '' }
                 'pubicHairStyle' { 'none' }
                 'pubicHairReuse' { $false }
                 'censorshipTier' { 'off' }
@@ -187,6 +200,7 @@ function Load-Config {
                 'penisWizard' { 'none' }
                 'penisNinja' { 'none' }
                 'penisStriker' { 'none' }
+                'heishaRoot' { '' }
                 default { $null }
             }
             if ($null -eq $val -and $p -notin @('bodySizeMin', 'bodySizeDefault', 'bodySizeMax', 'lastRun')) {
@@ -216,6 +230,7 @@ function Save-Config {
         hideHelmets     = [bool]$Script:Config.hideHelmets
         hideWeapons     = [bool]$Script:Config.hideWeapons
         hideStockings   = [bool]$Script:Config.hideStockings
+        slotHideClasses = [string]$Script:Config.slotHideClasses
         pubicHairStyle  = [string]$Script:Config.pubicHairStyle
         pubicHairReuse  = [bool]$Script:Config.pubicHairReuse
         censorshipTier  = [string]$Script:Config.censorshipTier
@@ -228,6 +243,7 @@ function Save-Config {
         penisWizard     = [string]$Script:Config.penisWizard
         penisNinja      = [string]$Script:Config.penisNinja
         penisStriker    = [string]$Script:Config.penisStriker
+        heishaRoot      = [string]$Script:Config.heishaRoot
         lastRun         = $Script:Config.lastRun
     }
     $json = $out | ConvertTo-Json -Depth 4
@@ -589,21 +605,24 @@ function Configure-ModChoices {
 
 function Configure-CensorshipTier {
     Write-Banner
-    Write-Host '  CENSORSHIP TIER PRESETS  [RESTORED texture packs]' -ForegroundColor Magenta
-    Write-Host '  ----------------------------------------------' -ForegroundColor DarkGray
-    Write-Info 'Resorepless armor under-layer / built-in panty texture swaps.'
-    Write-Warn 'Outfit-specific (not every class/outfit). New pearl gear often needs Armor=All instead.'
+    Write-Host '  CENSORSHIP TIER PRESETS' -ForegroundColor Magenta
+    Write-Host '  ----------------------' -ForegroundColor DarkGray
+    Write-Info 'Legacy = classic Resorepless outfit textures. Expanded = live PAZ under-armor scan.'
+    Write-Warn 'Not perfect on every pearl outfit. Pair with Midnight Armor=All for best coverage.'
     Write-Host ''
     Write-Host '    [0] Off' -ForegroundColor DarkGray
-    Write-Host '    [1] Minimal  — some Tamer/Ranger built-in panties' -ForegroundColor Cyan
-    Write-Host '    [2] Medium   — + upper undercovers / more decals (RECOMMENDED if using)' -ForegroundColor Green
-    Write-Host '    [3] High     — same texture set as medium (full armor hide covers pants models)' -ForegroundColor Cyan
-    $t = Read-Choice 'Tier' @('0', '1', '2', '3')
+    Write-Host '    [1] Minimal  — some Tamer/Ranger built-in panties  [RESTORED]' -ForegroundColor Cyan
+    Write-Host '    [2] Medium   — + upper undercovers / more decals  [RESTORED]' -ForegroundColor Green
+    Write-Host '    [3] High     — same texture set as medium  [RESTORED]' -ForegroundColor Cyan
+    Write-Host '    [4] Expanded — medium + blank new/all-class under-decals from live PAZ' -ForegroundColor Yellow
+    Write-Host '                  (scans *_dec* / under* / cull textures; best-effort)' -ForegroundColor DarkYellow
+    $t = Read-Choice 'Tier' @('0', '1', '2', '3', '4')
     $Script:Config.censorshipTier = switch ($t) {
         '0' { 'off' }
         '1' { 'minimal' }
         '2' { 'medium' }
         '3' { 'high' }
+        '4' { 'expanded' }
     }
     Save-Config
     Write-Ok ("Censorship tier: " + $Script:Config.censorshipTier)
@@ -615,19 +634,27 @@ function Configure-CensorshipTier {
 }
 
 function Apply-CensorshipPack {
+    param([switch]$NoPrompt)
     Write-Banner
     Write-Host '  Apply censorship pack' -ForegroundColor Magenta
-    if (-not (Test-IsPazFolder $Script:Config.pazFolder)) { Write-Err 'Set PAZ first.'; Pause-Any; return }
+    if (-not (Test-IsPazFolder $Script:Config.pazFolder)) { Write-Err 'Set PAZ first.'; if (-not $NoPrompt) { Pause-Any }; return $false }
     $tier = [string]$Script:Config.censorshipTier
-    if (-not $tier -or $tier -eq 'off') { Write-Warn 'Tier is off.'; Pause-Any; return }
-    if (-not (Test-Path $Script:CensorshipRoot)) { Write-Err "Missing $($Script:CensorshipRoot)"; Pause-Any; return }
-    if (-not (Ensure-Python)) { Pause-Any; return }
+    if (-not $tier -or $tier -eq 'off') { Write-Warn 'Tier is off.'; if (-not $NoPrompt) { Pause-Any }; return $false }
+    if (-not (Test-Path $Script:CensorshipRoot)) { Write-Err "Missing $($Script:CensorshipRoot)"; if (-not $NoPrompt) { Pause-Any }; return $false }
+    if (-not (Ensure-Python)) { if (-not $NoPrompt) { Pause-Any }; return $false }
     $out = Join-Path $Script:Config.pazFolder ("files_to_patch\_censorship_" + $tier)
-    Write-Info ("Tier=$tier out=$out")
-    if (-not (Read-YesNo 'Copy texture pack?' $true)) { Pause-Any; return }
-    & python $Script:CensorshipTool --tier $tier --pack-root $Script:CensorshipRoot --out $out
-    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { Write-Err "Exit $LASTEXITCODE" } else { Write-Ok 'Censorship pack ready. Meta Inject after Midnight.'; Ensure-ToolsInPaz }
-    Pause-Any
+    Write-Info ("tier=$tier out=$out")
+    if (-not $NoPrompt -and -not (Read-YesNo 'Copy / expand texture pack?' $true)) { Pause-Any; return $false }
+    $pyArgs = @($Script:CensorshipTool, '--tier', $tier, '--pack-root', $Script:CensorshipRoot, '--out', $out)
+    if ($tier -eq 'expanded') {
+        $pyArgs += @('--paz', [string]$Script:Config.pazFolder)
+        Write-Warn 'Expanded scans full meta (can take a minute)...'
+    }
+    & python @pyArgs
+    $ok = -not ($LASTEXITCODE -and $LASTEXITCODE -ne 0)
+    if ($ok) { Write-Ok 'Censorship pack ready. Meta Inject after Midnight.'; Ensure-ToolsInPaz } else { Write-Err "Exit $LASTEXITCODE" }
+    if (-not $NoPrompt) { Pause-Any }
+    return $ok
 }
 
 function Read-PenisStyle([string]$label, [string]$current) {
@@ -890,12 +917,21 @@ function Configure-SlotHide {
     Write-Host ''
     Write-Host ("  Current: gloves={0} boots={1} helmets={2} weapons={3} stockings={4}" -f `
         $Script:Config.hideGloves, $Script:Config.hideBoots, $Script:Config.hideHelmets, $Script:Config.hideWeapons, $Script:Config.hideStockings) -ForegroundColor DarkCyan
+    Write-Host ("  Classes : " + $(if ([string]$Script:Config.slotHideClasses) { $Script:Config.slotHideClasses } else { 'ALL' })) -ForegroundColor DarkCyan
     Write-Host ''
     $Script:Config.hideGloves = Read-YesNo 'Hide GLOVES / hands gear?' ([bool]$Script:Config.hideGloves)
     $Script:Config.hideBoots = Read-YesNo 'Hide BOOTS / shoes?' ([bool]$Script:Config.hideBoots)
     $Script:Config.hideHelmets = Read-YesNo 'Hide HELMETS (may affect some hair/hel combos)?' ([bool]$Script:Config.hideHelmets)
     $Script:Config.hideWeapons = Read-YesNo 'Hide WEAPONS (main/sub/awakening meshes)?' ([bool]$Script:Config.hideWeapons)
     $Script:Config.hideStockings = Read-YesNo 'Hide STOCKINGS (best-effort name match)?' ([bool]$Script:Config.hideStockings)
+    Write-Host ''
+    Write-Host '  Optional PER-CLASS filter (leave empty = all classes):' -ForegroundColor Yellow
+    Write-Host '  Examples: pdkl          (Seraph only)' -ForegroundColor DarkGray
+    Write-Host '            phw,pew,pdw   (Sorceress, Ranger, Dark Knight)' -ForegroundColor DarkGray
+    Write-Host '            phm,pcm       (Warrior, Striker weapons only if weapons on)' -ForegroundColor DarkGray
+    $cls = Read-Host '  Class prefixes (comma-separated, blank=ALL)'
+    if ($null -eq $cls) { $cls = '' }
+    $Script:Config.slotHideClasses = $cls.Trim()
     Save-Config
     Write-Ok 'Slot hide flags saved.'
     if (Read-YesNo 'Apply slot hide patch now (scans live PAZ)?' $true) {
@@ -916,35 +952,38 @@ function Get-EnabledHideSlots {
 }
 
 function Apply-SlotHidePatch {
+    param([switch]$NoPrompt)
     Write-Banner
     Write-Host '  Apply slot hide patch' -ForegroundColor White
     Write-Host '  ---------------------' -ForegroundColor DarkGray
     if (-not (Test-IsPazFolder $Script:Config.pazFolder)) {
         Write-Err 'Set PAZ first (menu 1).'
-        Pause-Any
-        return
+        if (-not $NoPrompt) { Pause-Any }
+        return $false
     }
     $slots = @(Get-EnabledHideSlots)
     if ($slots.Count -eq 0) {
         Write-Warn 'No slots enabled. Turn some on in menu 2 option 4 first.'
-        Pause-Any
-        return
+        if (-not $NoPrompt) { Pause-Any }
+        return $false
     }
     if (-not (Test-Path -LiteralPath $Script:SlotHideTool)) {
         Write-Err ("Missing " + $Script:SlotHideTool)
-        Pause-Any
-        return
+        if (-not $NoPrompt) { Pause-Any }
+        return $false
     }
-    if (-not (Ensure-Python)) { Pause-Any; return }
+    if (-not (Ensure-Python)) { if (-not $NoPrompt) { Pause-Any }; return $false }
 
     $gender = [string]$Script:Config.gender
     if ($gender -notin @('F', 'M', 'B')) { $gender = 'B' }
     $out = Join-Path $Script:Config.pazFolder 'files_to_patch'
+    $cls = [string]$Script:Config.slotHideClasses
     Write-Info ("Slots  : " + ($slots -join ', '))
     Write-Info ("Gender : " + $gender)
+    Write-Info ("Classes: " + $(if ($cls) { $cls } else { 'ALL' }))
     Write-Info ("Output : " + $out)
     Write-Warn 'Scans full meta (can take a minute). Then run PartCutGen + Meta Injector.'
-    if (-not (Read-YesNo 'Run slot hide patcher?' $true)) { Pause-Any; return }
+    if (-not $NoPrompt -and -not (Read-YesNo 'Run slot hide patcher?' $true)) { Pause-Any; return $false }
 
     $pyArgs = @(
         $Script:SlotHideTool,
@@ -953,6 +992,8 @@ function Apply-SlotHidePatch {
         '--slots', ($slots -join ','),
         '--gender', $gender
     )
+    if ($cls) { $pyArgs += @('--classes', $cls) }
+    $ok = $false
     try {
         & python @pyArgs
         if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
@@ -960,11 +1001,13 @@ function Apply-SlotHidePatch {
         } else {
             Write-Ok 'Slot hide folders written under files_to_patch\_slot_hide_*'
             Ensure-ToolsInPaz
+            $ok = $true
         }
     } catch {
         Write-Err $_.Exception.Message
     }
-    Pause-Any
+    if (-not $NoPrompt) { Pause-Any }
+    return $ok
 }
 
 function Configure-PubicHair {
@@ -1627,11 +1670,343 @@ function Run-MetaInjector {
     Pause-Any
 }
 
+function Apply-AllRestoredChoices {
+    param([switch]$NoPrompt)
+    Write-Banner
+    Write-Host '  APPLY ALL RESTORED CHOICES' -ForegroundColor Green
+    Write-Host '  ==========================' -ForegroundColor DarkGray
+    Write-Info 'Runs enabled RESTORED options from config in order:'
+    Write-Host '    body size -> slot hide -> pubic -> censorship -> genitals' -ForegroundColor Gray
+    Write-Host '    (+ new-females EXPERIMENTAL if genitalReuse/pubicHairReuse on)' -ForegroundColor DarkYellow
+    Write-Host ''
+    if (-not (Test-IsPazFolder $Script:Config.pazFolder)) {
+        Write-Err 'Set PAZ first (menu 1).'
+        if (-not $NoPrompt) { Pause-Any }
+        return $false
+    }
+    if (-not (Ensure-Python)) { if (-not $NoPrompt) { Pause-Any }; return $false }
+
+    Write-Host '  From config:' -ForegroundColor White
+    Write-Host ("    bodySizePreset = " + $Script:Config.bodySizePreset) -ForegroundColor Gray
+    Write-Host ("    slots          = " + ((Get-EnabledHideSlots) -join ', ')) -ForegroundColor Gray
+    Write-Host ("    slot classes   = " + $(if ($Script:Config.slotHideClasses) { $Script:Config.slotHideClasses } else { 'ALL' })) -ForegroundColor Gray
+    Write-Host ("    pubic          = " + $Script:Config.pubicHairStyle + " reuse=" + $Script:Config.pubicHairReuse) -ForegroundColor Gray
+    Write-Host ("    censorship     = " + $Script:Config.censorshipTier) -ForegroundColor Gray
+    Write-Host ("    female3d       = " + $Script:Config.female3dVagina + " genitalReuse=" + $Script:Config.genitalReuse) -ForegroundColor Gray
+    Write-Host ("    malePenisMode  = " + $Script:Config.malePenisMode) -ForegroundColor Gray
+    Write-Host ''
+    if (-not $NoPrompt -and -not (Read-YesNo 'Apply all enabled RESTORED packs now (no further prompts)?' $true)) {
+        Pause-Any
+        return $false
+    }
+
+    $paz = [string]$Script:Config.pazFolder
+    $ftp = Join-Path $paz 'files_to_patch'
+    if (-not (Test-Path $ftp)) { New-Item -ItemType Directory -Path $ftp -Force | Out-Null }
+
+    # 1) Body size
+    if ($Script:Config.bodySizePreset -and $Script:Config.bodySizePreset -ne '') {
+        Write-Info '--- Body size limits ---'
+        $out = Join-Path $ftp '_body_size_limits'
+        $pyArgs = @(
+            $Script:BodySizeTool, '--paz', $paz, '--out', $out,
+            '--preset', [string]$Script:Config.bodySizePreset,
+            '--parts', [string]$Script:Config.bodySizeParts
+        )
+        if ($null -ne $Script:Config.bodySizeMin) { $pyArgs += @('--min', [string]$Script:Config.bodySizeMin) }
+        if ($null -ne $Script:Config.bodySizeDefault) { $pyArgs += @('--default', [string]$Script:Config.bodySizeDefault) }
+        if ($null -ne $Script:Config.bodySizeMax) { $pyArgs += @('--max', [string]$Script:Config.bodySizeMax) }
+        try { & python @pyArgs } catch { Write-Warn $_.Exception.Message }
+    }
+
+    # 2) Slot hide
+    $slots = @(Get-EnabledHideSlots)
+    if ($slots.Count -gt 0) {
+        Write-Info '--- Slot hide ---'
+        [void](Apply-SlotHidePatch -NoPrompt)
+    }
+
+    # 3) Pubic
+    $style = [string]$Script:Config.pubicHairStyle
+    if ($style -and $style -ne 'none') {
+        Write-Info '--- Pubic hair ---'
+        $reuse = [bool]$Script:Config.pubicHairReuse
+        $outName = if ($reuse) { "_pubic_hair_EXPERIMENTAL_reuse\$style" } else { "_pubic_hair_RESTORED_native\$style" }
+        $out = Join-Path $ftp $outName
+        $baseRoots = @(
+            (Join-Path $Script:Root 'pack\midnight_xyzw\_00_suzu_nude'),
+            (Join-Path $Script:Root 'pack\midnight_xyzw\_00_thegreatsage_nude')
+        ) -join ';'
+        $pyArgs = @(
+            $Script:PubicHairTool, '--style', $style, '--hair-root', $Script:PubicHairRoot,
+            '--base-roots', $baseRoots, '--out', $out
+        )
+        if ($reuse) { $pyArgs += '--all-classes' } else { $pyArgs += '--native-only' }
+        try { & python @pyArgs } catch { Write-Warn $_.Exception.Message }
+    }
+
+    # 4) Censorship
+    if ([string]$Script:Config.censorshipTier -and $Script:Config.censorshipTier -ne 'off') {
+        Write-Info '--- Censorship ---'
+        [void](Apply-CensorshipPack -NoPrompt)
+    }
+
+    # 5) Genitals
+    $f3d = [bool]$Script:Config.female3dVagina
+    $maleMode = [string]$Script:Config.malePenisMode
+    $reuseG = [bool]$Script:Config.genitalReuse
+    if ($f3d -or ($maleMode -and $maleMode -ne 'none')) {
+        Write-Info '--- Genitals ---'
+        $maleArg = 'none'
+        if ($maleMode -eq 'perclass') {
+            $maleArg = @(
+                "warrior=$($Script:Config.penisWarrior)",
+                "berserker=$($Script:Config.penisBerserker)",
+                "musa=$($Script:Config.penisMusa)",
+                "wizard=$($Script:Config.penisWizard)",
+                "ninja=$($Script:Config.penisNinja)",
+                "striker=$($Script:Config.penisStriker)"
+            ) -join ','
+        } elseif ($maleMode -in @('normal', 'hard')) {
+            $maleArg = $maleMode
+        }
+        $out = if ($reuseG) {
+            Join-Path $ftp '_genital_EXPERIMENTAL_reuse'
+        } else {
+            Join-Path $ftp '_genital_RESTORED_native'
+        }
+        $pyArgs = @(
+            $Script:GenitalTool, '--pack-root', $Script:GenitalRoot, '--out', $out,
+            '--female-3d-vagina', $(if ($f3d) { 'on' } else { 'off' }),
+            '--male-penis', $maleArg
+        )
+        if ($reuseG) { $pyArgs += '--all-classes' } else { $pyArgs += '--native-only' }
+        try { & python @pyArgs } catch { Write-Warn $_.Exception.Message }
+    }
+
+    # 6) New females package if reuse flags set (explicit experimental)
+    if ($reuseG -or [bool]$Script:Config.pubicHairReuse) {
+        Write-Info '--- New females EXPERIMENTAL (Seraph/etc.) ---'
+        $genOut = Join-Path $ftp '_genital_EXPERIMENTAL_new_females'
+        try {
+            & python $Script:GenitalTool --pack-root $Script:GenitalRoot --out $genOut --new-females
+        } catch { Write-Warn $_.Exception.Message }
+        if ($style -and $style -ne 'none') {
+            $pubOut = Join-Path $ftp ("_pubic_hair_EXPERIMENTAL_new_females\" + $style)
+            $baseRoots = @(
+                (Join-Path $Script:Root 'pack\midnight_xyzw\_00_suzu_nude'),
+                (Join-Path $Script:Root 'pack\midnight_xyzw\_00_thegreatsage_nude')
+            ) -join ';'
+            try {
+                & python $Script:PubicHairTool --style $style --hair-root $Script:PubicHairRoot `
+                    --base-roots $baseRoots --out $pubOut --new-females
+            } catch { Write-Warn $_.Exception.Message }
+        }
+    }
+
+    Ensure-ToolsInPaz
+    Write-Ok 'RESTORED batch finished. Run PartCutGen then Meta Injector.'
+    if (-not $NoPrompt) { Pause-Any }
+    return $true
+}
+
+function Get-HeishaRoot {
+    $c = [string]$Script:Config.heishaRoot
+    if ($c -and (Test-Path -LiteralPath $c)) { return $c }
+    if (Test-Path -LiteralPath $Script:DefaultHeishaRoot) { return $Script:DefaultHeishaRoot }
+    $local = Join-Path $Script:Root 'heisha'
+    if (Test-Path -LiteralPath $local) { return $local }
+    return $null
+}
+
+function Show-HeishaRegenHelper {
+    Write-Banner
+    Write-Host '  POST-PATCH REGEN HELPER (heisha / Midnight)' -ForegroundColor Yellow
+    Write-Host '  ===========================================' -ForegroundColor DarkGray
+    Write-Info 'After a BDO client patch, Meta Injector may fail until packs are regenerated.'
+    Write-Host ''
+    Write-Host '  Recommended flow:' -ForegroundColor White
+    Write-Host '    1. Open heisha (Midnight regenerator)' -ForegroundColor Cyan
+    Write-Host '    2. setupenv.cmd  (once per machine)' -ForegroundColor Cyan
+    Write-Host '    3. run.cmd -i <game\PAZ> -o .\PAZ\midnight_xyzw -m all' -ForegroundColor Cyan
+    Write-Host '    4. Copy regenerated pack into this AIO pack\midnight_xyzw  (or re-point)' -ForegroundColor Cyan
+    Write-Host '    5. AIO menu 3 deploy -> 4 PartCutGen -> 5 Meta Injector' -ForegroundColor Cyan
+    Write-Host '    6. Optional: menu A apply all RESTORED choices' -ForegroundColor Cyan
+    Write-Host ''
+
+    $root = Get-HeishaRoot
+    if ($root) {
+        Write-Ok ("heisha root: " + $root)
+    } else {
+        Write-Warn 'heisha not found at default Z:\Backup\BDO\heisha'
+        if (Read-YesNo 'Browse for heisha folder now?' $true) {
+            Add-Type -AssemblyName System.Windows.Forms
+            $d = New-Object System.Windows.Forms.FolderBrowserDialog
+            $d.Description = 'Select heisha (midnightxyzw) folder'
+            if ($d.ShowDialog() -eq 'OK') {
+                $Script:Config.heishaRoot = $d.SelectedPath
+                Save-Config
+                $root = $d.SelectedPath
+                Write-Ok ("Saved heishaRoot = " + $root)
+            }
+        }
+    }
+
+    Write-Host ''
+    Write-Host '   [1] Open heisha folder in Explorer' -ForegroundColor Cyan
+    Write-Host '   [2] Open run.cmd in notepad (read flags)' -ForegroundColor Cyan
+    Write-Host '   [3] Print suggested run.cmd line for your PAZ' -ForegroundColor Green
+    Write-Host '   [4] Open AIO pack\midnight_xyzw folder' -ForegroundColor Cyan
+    Write-Host '   [0] Back' -ForegroundColor DarkGray
+    $c = (Read-Host '  Select').Trim()
+    switch ($c) {
+        '1' {
+            if ($root -and (Test-Path $root)) { Start-Process explorer.exe -ArgumentList $root }
+            else { Write-Warn 'No heisha root.' }
+        }
+        '2' {
+            $run = if ($root) { Join-Path $root 'run.cmd' } else { $null }
+            if ($run -and (Test-Path $run)) { Start-Process notepad.exe -ArgumentList $run }
+            else { Write-Warn 'run.cmd not found.' }
+        }
+        '3' {
+            $paz = [string]$Script:Config.pazFolder
+            if (-not (Test-IsPazFolder $paz)) { Write-Warn 'Set PAZ first.' }
+            else {
+                Write-Host ''
+                Write-Host '  Suggested (from heisha folder after setupenv):' -ForegroundColor Yellow
+                Write-Host ("  run.cmd -i `"$paz`" -o .\PAZ\midnight_xyzw -m all") -ForegroundColor White
+                Write-Host ''
+                Write-Info 'Then copy regenerated files into BDO-AIO\pack\midnight_xyzw and redeploy.'
+            }
+        }
+        '4' {
+            $p = Join-Path $Script:PackDir 'midnight_xyzw'
+            if (Test-Path $p) { Start-Process explorer.exe -ArgumentList $p } else { Write-Warn 'pack\midnight_xyzw missing.' }
+        }
+    }
+    Pause-Any
+}
+
+function Restore-UneditedGameFiles {
+    Write-Banner
+    Write-Host '  RESTORE / CLEAN AIO CHANGES' -ForegroundColor Yellow
+    Write-Host '  ===========================' -ForegroundColor DarkGray
+    Write-Info 'For troubleshooting and making changes easily.'
+    Write-Warn 'True vanilla meta may still need Pearl Abyss launcher Verify/Repair.'
+    Write-Host ''
+    if (-not (Test-IsPazFolder $Script:Config.pazFolder)) {
+        Write-Err 'Set PAZ first.'
+        Pause-Any
+        return
+    }
+    $paz = [string]$Script:Config.pazFolder
+    $gameRoot = Get-GameRootFromPaz
+    $ftp = Join-Path $paz 'files_to_patch'
+
+    Write-Host '   [1] Clear AIO-generated folders under files_to_patch only' -ForegroundColor Cyan
+    Write-Host '       (_body_size, _slot_hide_*, _pubic_*, _censorship_*, _genital_*)' -ForegroundColor DarkGray
+    Write-Host '   [2] Clear ENTIRE files_to_patch (includes Midnight deploy)' -ForegroundColor Yellow
+    Write-Host '   [3] Uninstall experimental OptiScaler/DLSS/FSR/DStorage from game root' -ForegroundColor Cyan
+    Write-Host '   [4] Restore latest BDO-AIO-backup-dlss-* folder into game root' -ForegroundColor Cyan
+    Write-Host '   [5] Do 1 + 3 (recommended soft reset)' -ForegroundColor Green
+    Write-Host '   [6] Open Pearl Abyss launcher note (verify game files)' -ForegroundColor Magenta
+    Write-Host '   [0] Cancel' -ForegroundColor DarkGray
+    $c = (Read-Host '  Select').Trim()
+    if ($c -eq '0' -or [string]::IsNullOrWhiteSpace($c)) { return }
+
+    function Clear-AioGenerated {
+        if (-not (Test-Path -LiteralPath $ftp)) { Write-Warn 'No files_to_patch.'; return 0 }
+        $n = 0
+        Get-ChildItem -LiteralPath $ftp -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+            $name = $_.Name
+            $hit = $false
+            foreach ($p in $Script:AioPatchFolderPrefixes) {
+                if ($name -eq $p.TrimEnd('_') -or $name.StartsWith($p)) { $hit = $true; break }
+            }
+            if ($hit) {
+                Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+                Write-Host ("  removed: files_to_patch\" + $name) -ForegroundColor DarkGray
+                $n++
+            }
+        }
+        return $n
+    }
+
+    if ($c -in @('1', '5')) {
+        if (Read-YesNo 'Clear AIO-generated files_to_patch folders?' $true) {
+            $n = Clear-AioGenerated
+            Write-Ok ("Cleared $n AIO folder(s). Re-run PartCutGen + Meta Injector if meta was patched.")
+        }
+    }
+    if ($c -eq '2') {
+        if (Read-YesNo 'DELETE entire files_to_patch? This removes Midnight deploy too.' $false) {
+            if (Test-Path -LiteralPath $ftp) {
+                Remove-Item -LiteralPath $ftp -Recurse -Force
+                Write-Ok 'files_to_patch removed.'
+            }
+            Write-Warn 'Run Meta Injector after clearing, or Verify game files for full stock meta.'
+        }
+    }
+    if ($c -in @('3', '5')) {
+        if ($gameRoot) {
+            Write-Info 'Uninstalling experimental client DLLs...'
+            # reuse uninstall without full menu pause path
+            $marker = Join-Path $gameRoot 'BDO-AIO-EXPERIMENTAL-DLSS.txt'
+            $names = @($Script:OptiProxyNames + $Script:OptiExtraFiles + @(
+                'nvngx_dlss.dll', 'nvngx_dlssd.dll', 'nvngx_dlssg.dll',
+                'amd_fidelityfx_framegeneration_dx12.dll', 'amd_fidelityfx_upscaler_dx12.dll',
+                'amd_fidelityfx_loader_dx12.dll', 'amd_fidelityfx_dx12.dll', 'amd_fidelityfx_vk.dll',
+                'dstorage.dll', 'dstoragecore.dll', 'BDO-AIO-EXPERIMENTAL-DLSS.txt'
+            ) | Select-Object -Unique)
+            $removed = 0
+            foreach ($name in $names) {
+                $p = Join-Path $gameRoot $name
+                if (Test-Path -LiteralPath $p) {
+                    Remove-Item -LiteralPath $p -Force -Recurse -ErrorAction SilentlyContinue
+                    $removed++
+                }
+            }
+            $d3 = Join-Path $gameRoot 'D3D12_Optiscaler'
+            if (Test-Path $d3) { Remove-Item $d3 -Recurse -Force -ErrorAction SilentlyContinue; $removed++ }
+            Write-Ok ("Experimental DLL uninstall pass. items touched ~ $removed")
+        }
+    }
+    if ($c -eq '4') {
+        if (-not $gameRoot) { Write-Err 'No game root.'; Pause-Any; return }
+        $backs = @(Get-ChildItem -LiteralPath $gameRoot -Directory -Filter 'BDO-AIO-backup-dlss-*' -ErrorAction SilentlyContinue | Sort-Object Name -Descending)
+        if ($backs.Count -eq 0) { Write-Warn 'No BDO-AIO-backup-dlss-* folders found.'; Pause-Any; return }
+        Write-Info ("Using latest: " + $backs[0].Name)
+        if (Read-YesNo 'Copy backup contents back into game root?' $true) {
+            Get-ChildItem -LiteralPath $backs[0].FullName -Force | ForEach-Object {
+                Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $gameRoot $_.Name) -Recurse -Force
+                Write-Host ("  restored: " + $_.Name) -ForegroundColor DarkGray
+            }
+            Write-Ok 'Backup restored into game root.'
+        }
+    }
+    if ($c -eq '6') {
+        Write-Host ''
+        Write-Host '  To fully restore unedited game PAZ/meta:' -ForegroundColor White
+        Write-Host '    1. Close BDO + launcher helpers' -ForegroundColor Cyan
+        Write-Host '    2. Open Pearl Abyss / Steam / game launcher' -ForegroundColor Cyan
+        Write-Host '    3. Use Verify / Repair / Check integrity of game files' -ForegroundColor Cyan
+        Write-Host '    4. Then re-run AIO wizard if you still want mods' -ForegroundColor Cyan
+        Write-Host ''
+        Write-Info ("PAZ: " + $paz)
+        if ($gameRoot) { Write-Info ("Game root: " + $gameRoot) }
+    }
+
+    Write-Host ''
+    Write-Ok 'Restore menu step finished.'
+    Pause-Any
+}
+
 function Run-FullWizard {
     Write-Banner
     Write-Host '  Full easy install wizard' -ForegroundColor White
     Write-Host '  ------------------------' -ForegroundColor DarkGray
-    Write-Info 'This walks through everything in order.'
+    Write-Info 'This walks through Midnight, optional RESTORED batch, PartCutGen, Meta Injector.'
     Write-Host ''
 
     $pack = Test-PackReady
@@ -1656,11 +2031,17 @@ function Run-FullWizard {
     Write-Host ("    Gender = " + (Get-GenderLabel $Script:Config.gender)) -ForegroundColor Gray
     Write-Host ("    Armor  = " + (Get-ArmorLabel $Script:Config.armor)) -ForegroundColor Gray
     Write-Host ("    XYZW   = " + $Script:Config.xyzwCollections) -ForegroundColor Gray
-    if (Read-YesNo 'Change these choices before deploy?' $false) {
+    if (Read-YesNo 'Change options (Midnight / RESTORED) before deploy?' $false) {
         Configure-ModChoices
     }
 
     if (-not (Deploy-Midnight)) { return }
+
+    Write-Banner
+    Write-Host '  RESTORED batch (optional)' -ForegroundColor Green
+    if (Read-YesNo 'Apply all configured RESTORED choices now (body/slots/pubic/censorship/genitals)?' $true) {
+        [void](Apply-AllRestoredChoices -NoPrompt)
+    }
 
     Write-Banner
     Write-Host '  Next: PartCutGen' -ForegroundColor White
@@ -1686,7 +2067,8 @@ function Run-FullWizard {
 
     Write-Host ''
     Write-Ok 'Wizard finished.'
-    Write-Info 'After every official BDO patch: run this wizard again (or menu 3 then 4 then 5).'
+    Write-Info 'After every official BDO patch: menu H (regen helper) then this wizard again.'
+    Write-Info 'To undo AIO changes: menu R (Restore / clean).'
     Pause-Any
 }
 
@@ -1933,9 +2315,9 @@ function Install-ExperimentalDlss {
 
     Write-Host ''
     Write-Host '  Preferred upscaler in OptiScaler.ini (game still must enable upscale):' -ForegroundColor White
-    Write-Host '    [1] dlss     (NVIDIA DLSS path — what you want if hardware allows)' -ForegroundColor Cyan
+    Write-Host '    [1] dlss     (NVIDIA DLSS — uses upgraded nvngx from upgrades\nvidia)' -ForegroundColor Cyan
     Write-Host '    [2] auto    (OptiScaler default)' -ForegroundColor Cyan
-    Write-Host '    [3] fsr31   (FSR 3.1 — better than game FSR1, no NVIDIA DLSS needed)' -ForegroundColor Cyan
+    Write-Host '    [3] fsr31   (FSR 3.1 — swaps in upgrades\amd FidelityFX DLLs)  [RECOMMENDED AMD/Intel]' -ForegroundColor Green
     Write-Host '    [4] xess    (Intel XeSS)' -ForegroundColor Cyan
     $upPick = Read-Choice 'Upscaler' @('1', '2', '3', '4')
     $upName = switch ($upPick) {
@@ -1945,9 +2327,19 @@ function Install-ExperimentalDlss {
         '4' { 'xess' }
     }
 
+    $useUpgrades = $true
+    if (Test-Path -LiteralPath $Script:UpgradesDir) {
+        Write-Host ''
+        Write-Ok 'Found experimental\dlss\upgrades (newer DLSS / FSR / DirectStorage).'
+        $useUpgrades = Read-YesNo 'Install upgraded nvngx + FidelityFX + DirectStorage into game root?' $true
+    } else {
+        Write-Warn 'upgrades\ folder missing — installing OptiScaler/Streamline only.'
+        $useUpgrades = $false
+    }
+
     Write-Host ''
     Write-Warn ("About to copy EXPERIMENTAL files into: " + $gameRoot)
-    Write-Warn ("Proxy: " + $proxyName + "  |  Upscaler preference: " + $upName)
+    Write-Warn ("Proxy: " + $proxyName + "  |  Upscaler: " + $upName + "  |  upgrades: " + $useUpgrades)
     if (-not (Read-YesNo 'Final confirm — install now?' $false)) {
         Write-Warn 'Cancelled.'
         Pause-Any
@@ -1959,7 +2351,13 @@ function Install-ExperimentalDlss {
     New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
     Write-Info ("Backup folder: " + $backupDir)
 
-    $toBackup = @($Script:OptiProxyNames + $Script:OptiExtraFiles + @('D3D12_Optiscaler')) | Select-Object -Unique
+    $extraUpgrade = @(
+        'nvngx_dlss.dll', 'nvngx_dlssd.dll', 'nvngx_dlssg.dll',
+        'amd_fidelityfx_framegeneration_dx12.dll', 'amd_fidelityfx_upscaler_dx12.dll',
+        'amd_fidelityfx_loader_dx12.dll', 'amd_fidelityfx_dx12.dll', 'amd_fidelityfx_vk.dll',
+        'dstorage.dll', 'dstoragecore.dll'
+    )
+    $toBackup = @($Script:OptiProxyNames + $Script:OptiExtraFiles + $extraUpgrade + @('D3D12_Optiscaler')) | Select-Object -Unique
     foreach ($name in $toBackup) {
         $p = Join-Path $gameRoot $name
         if (Test-Path -LiteralPath $p) {
@@ -1980,7 +2378,6 @@ function Install-ExperimentalDlss {
         if ($_.PSIsContainer) {
             Copy-Item -LiteralPath $_.FullName -Destination $dest -Recurse -Force
         } else {
-            # skip the long readme noise name if needed; still copy
             Copy-Item -LiteralPath $_.FullName -Destination $dest -Force
         }
     }
@@ -1989,6 +2386,39 @@ function Install-ExperimentalDlss {
     Write-Info 'Copying Streamline DLLs...'
     Get-ChildItem -LiteralPath $ready.StreamDir -File -Filter 'sl.*.dll' | ForEach-Object {
         Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $gameRoot $_.Name) -Force
+    }
+
+    # Upgraded DLSS / FSR / DirectStorage from upgrades\
+    if ($useUpgrades) {
+        $nv = Join-Path $Script:UpgradesDir 'nvidia'
+        $amd = Join-Path $Script:UpgradesDir 'amd'
+        $ds = Join-Path $Script:UpgradesDir 'dstorage'
+        if (Test-Path $nv) {
+            Write-Info 'Swapping in upgraded NVIDIA nvngx DLSS DLLs...'
+            Get-ChildItem -LiteralPath $nv -File -Filter '*.dll' | ForEach-Object {
+                Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $gameRoot $_.Name) -Force
+                Write-Host ("  + " + $_.Name) -ForegroundColor DarkGray
+            }
+        }
+        if (Test-Path $amd) {
+            Write-Info 'Swapping in upgraded AMD FidelityFX / FSR DLLs...'
+            Get-ChildItem -LiteralPath $amd -File -Filter '*.dll' | ForEach-Object {
+                Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $gameRoot $_.Name) -Force
+                Write-Host ("  + " + $_.Name) -ForegroundColor DarkGray
+            }
+            # Also overwrite OptiScaler's bundled FSR dlls if present with same names
+            Get-ChildItem -LiteralPath $amd -File -Filter 'amd_fidelityfx*.dll' | ForEach-Object {
+                $also = Join-Path $gameRoot $_.Name
+                Copy-Item -LiteralPath $_.FullName -Destination $also -Force
+            }
+        }
+        if (Test-Path $ds) {
+            Write-Info 'Installing DirectStorage 1.4 x64 (optional performance)...'
+            Get-ChildItem -LiteralPath $ds -File -Filter '*.dll' | ForEach-Object {
+                Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $gameRoot $_.Name) -Force
+                Write-Host ("  + " + $_.Name) -ForegroundColor DarkGray
+            }
+        }
     }
 
     # Rename OptiScaler.dll -> proxy
@@ -2000,7 +2430,6 @@ function Install-ExperimentalDlss {
         return
     }
 
-    # If target proxy already is something else, overwrite after backup
     if (Test-Path -LiteralPath $proxyPath) {
         Remove-Item -LiteralPath $proxyPath -Force
     }
@@ -2015,9 +2444,19 @@ function Install-ExperimentalDlss {
             $ini = [regex]::Replace($ini, '(?m)^Dx11Upscaler=.*$', "Dx11Upscaler=$upName")
             $ini = [regex]::Replace($ini, '(?m)^Dx12Upscaler=.*$', "Dx12Upscaler=$upName")
             $ini = [regex]::Replace($ini, '(?m)^VulkanUpscaler=.*$', "VulkanUpscaler=$upName")
+            # Prefer FSR FG path when fsr31 selected (keys vary by OptiScaler version — best-effort)
+            if ($upName -eq 'fsr31') {
+                $ini = [regex]::Replace($ini, '(?m)^FgType=.*$', 'FgType=optifg')
+            }
             $utf8 = New-Object System.Text.UTF8Encoding $false
             [System.IO.File]::WriteAllText($iniPath, $ini, $utf8)
             Write-Ok ("OptiScaler.ini upscalers set to: " + $upName)
+            if ($upName -eq 'fsr31') {
+                Write-Ok 'FSR path: upgraded amd_fidelityfx_* DLLs in game root (use Opti overlay to confirm).'
+            }
+            if ($upName -eq 'dlss') {
+                Write-Ok 'DLSS path: upgraded nvngx_dlss*.dll in game root if upgrades were installed.'
+            }
         } catch {
             Write-Warn ("Could not edit OptiScaler.ini: " + $_.Exception.Message)
         }
@@ -2026,18 +2465,19 @@ function Install-ExperimentalDlss {
     # Marker for uninstall awareness
     $marker = Join-Path $gameRoot 'BDO-AIO-EXPERIMENTAL-DLSS.txt'
     @(
-        'EXPERIMENTAL / NOT SAFE - installed by BDO-AIO',
+        'EXPERIMENTAL / NOT SAFE - installed by BDO-AIO v2',
         ('Installed: ' + (Get-Date).ToString('s')),
         ('Proxy: ' + $proxyName),
         ('Upscaler: ' + $upName),
+        ('Upgrades: ' + $useUpgrades),
         ('Backup: ' + $backupDir),
-        'Uninstall via BDO-AIO menu X or delete proxy + OptiScaler/Streamline files.'
+        'Uninstall via BDO-AIO menu X / R or delete proxy + OptiScaler/Streamline/upgrade DLLs.'
     ) | Set-Content -LiteralPath $marker -Encoding UTF8
 
     Write-Host ''
     Write-Ok 'Experimental install finished.'
     Write-Host '  NEXT STEPS' -ForegroundColor Yellow
-    Write-Host '  1. Launch BDO. If it fails to start -> menu X Uninstall immediately.' -ForegroundColor Yellow
+    Write-Host '  1. Launch BDO. If it fails to start -> menu X Uninstall or menu R immediately.' -ForegroundColor Yellow
     Write-Host '  2. Enable in-game Upscale / FSR if available so the hook has something to replace.' -ForegroundColor Yellow
     Write-Host '  3. OptiScaler overlay keys are in OptiScaler.ini / OptiScaler wiki.' -ForegroundColor Yellow
     Write-Host '  4. After game patches, reinstall or remove — DLLs often break.' -ForegroundColor Yellow
@@ -2064,8 +2504,13 @@ function Uninstall-ExperimentalDlss {
         return
     }
 
+    $upgradeNames = @(
+        'nvngx_dlss.dll', 'nvngx_dlssd.dll', 'nvngx_dlssg.dll',
+        'amd_fidelityfx_framegeneration_dx12.dll', 'amd_fidelityfx_upscaler_dx12.dll',
+        'amd_fidelityfx_loader_dx12.dll', 'dstorage.dll', 'dstoragecore.dll'
+    )
     $removed = 0
-    foreach ($name in ($Script:OptiProxyNames + $Script:OptiExtraFiles | Select-Object -Unique)) {
+    foreach ($name in ($Script:OptiProxyNames + $Script:OptiExtraFiles + $upgradeNames | Select-Object -Unique)) {
         $p = Join-Path $gameRoot $name
         if (Test-Path -LiteralPath $p) {
             # Only remove proxies if they look like OptiScaler (OriginalFilename) when possible
@@ -2141,12 +2586,21 @@ function Show-ExperimentalDlssMenu {
     }
 
     Write-Host ''
+    $upOk = Test-Path -LiteralPath (Join-Path $Script:UpgradesDir 'nvidia\nvngx_dlss.dll')
+    if ($upOk) {
+        Write-Ok 'upgrades\: newer DLSS + FSR (FidelityFX) + DirectStorage ready'
+    } else {
+        Write-Warn 'upgrades\ incomplete — full release zip includes them; git clone may not.'
+    }
+
+    Write-Host ''
     Write-Host '   [1] Read WARNING.txt' -ForegroundColor Red
     Write-Host '   [2] Read experimental README' -ForegroundColor Yellow
-    Write-Host '   [3] INSTALL OptiScaler + Streamline  (EXPERIMENTAL / NOT SAFE)' -ForegroundColor Red
+    Write-Host '   [3] INSTALL OptiScaler + Streamline + upgrades (DLSS/FSR/DStorage)  *** NOT SAFE ***' -ForegroundColor Red
     Write-Host '   [4] UNINSTALL experimental DLLs from game folder' -ForegroundColor Cyan
     Write-Host '   [5] Open optional DLSS Enabler setup EXE (advanced)' -ForegroundColor DarkYellow
     Write-Host '   [6] Open experimental\dlss folder' -ForegroundColor Cyan
+    Write-Host '   [7] Open upgrades folder (nvngx / FSR / dstorage)' -ForegroundColor Cyan
     Write-Host '   [0] Back' -ForegroundColor DarkGray
     Write-Host ''
     $c = (Read-Host '  Select').Trim()
@@ -2182,6 +2636,15 @@ function Show-ExperimentalDlssMenu {
         '6' {
             if (Test-Path -LiteralPath $Script:ExperimentalDlssDir) {
                 Start-Process explorer.exe -ArgumentList $Script:ExperimentalDlssDir
+            }
+            Pause-Any
+            Show-ExperimentalDlssMenu
+        }
+        '7' {
+            if (Test-Path -LiteralPath $Script:UpgradesDir) {
+                Start-Process explorer.exe -ArgumentList $Script:UpgradesDir
+            } else {
+                Write-Warn 'upgrades folder missing.'
             }
             Pause-Any
             Show-ExperimentalDlssMenu
@@ -2430,18 +2893,21 @@ function Show-MainMenu {
     while ($true) {
         Write-Banner
         Show-Status
-        Write-Host '  MENU' -ForegroundColor White
-        Write-Host '  ----' -ForegroundColor DarkGray
+        Write-Host '  MENU  (BDO-AIO 2.x)' -ForegroundColor White
+        Write-Host '  ------------------' -ForegroundColor DarkGray
         Write-Host '   [1] Set / find game PAZ folder' -ForegroundColor Cyan
-        Write-Host '   [2] Options hub  (MODERN + RESTORED; labels inside)' -ForegroundColor Cyan
+        Write-Host '   [2] Options hub  (MODERN + RESTORED + EXPERIMENTAL-REUSE)' -ForegroundColor Cyan
         Write-Host '   [3] Deploy Midnight mods  ->  files_to_patch     [MODERN]' -ForegroundColor Cyan
         Write-Host '   [4] Run PartCutGen        (required)             [MODERN]' -ForegroundColor Cyan
         Write-Host '   [5] Run Meta Injector     (apply patch)          [MODERN]' -ForegroundColor Cyan
-        Write-Host '   [6] FULL WIZARD           (easy Midnight path)   [MODERN]' -ForegroundColor Green
+        Write-Host '   [6] FULL WIZARD           (Midnight + RESTORED)  [MODERN]' -ForegroundColor Green
+        Write-Host '   [A] Apply ALL RESTORED choices (from config)     [RESTORED]' -ForegroundColor Green
         Write-Host '   [7] Open files_to_patch   (add extra mods)' -ForegroundColor Cyan
+        Write-Host '   [H] Post-patch regen helper (heisha / Midnight)' -ForegroundColor Yellow
+        Write-Host '   [R] Restore / clean AIO changes (troubleshooting)' -ForegroundColor Yellow
         Write-Host '   [G] Graphics profiles (GameOption)               [user pack]' -ForegroundColor Magenta
         Write-Host '   [N] NVIDIA .nip (Profile Inspector)              [user pack]' -ForegroundColor Magenta
-        Write-Host '   [X] EXPERIMENTAL DLSS/OptiScaler  *** NOT SAFE ***  [FROM-SCRATCH]' -ForegroundColor Red
+        Write-Host '   [X] EXPERIMENTAL upscale (OptiScaler/DLSS/FSR/DStorage) *** NOT SAFE ***' -ForegroundColor Red
         Write-Host '   [8] 2026 guide + feature labels' -ForegroundColor Yellow
         Write-Host '   [9] Verify pack integrity' -ForegroundColor Yellow
         Write-Host '   [0] Exit' -ForegroundColor DarkGray
@@ -2454,7 +2920,10 @@ function Show-MainMenu {
             '4' { Run-PartCutGen }
             '5' { Run-MetaInjector }
             '6' { Run-FullWizard }
+            'A' { [void](Apply-AllRestoredChoices) }
             '7' { Open-FilesToPatch }
+            'H' { Show-HeishaRegenHelper }
+            'R' { Restore-UneditedGameFiles }
             'G' { Apply-GraphicsProfile }
             'N' { Apply-NvidiaProfile }
             'X' { Show-ExperimentalDlssMenu }

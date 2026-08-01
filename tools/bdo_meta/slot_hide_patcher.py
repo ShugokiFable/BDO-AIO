@@ -95,6 +95,12 @@ def main() -> int:
         help="Comma list: gloves,boots,helmets,weapons,stockings",
     )
     ap.add_argument("--gender", choices=["F", "M", "B"], default="B")
+    ap.add_argument(
+        "--classes",
+        default="",
+        help="Optional comma list of class prefixes to limit hide "
+        "(e.g. phw,pdkl,phm). Empty = all classes matching gender.",
+    )
     args = ap.parse_args()
 
     slots = [s.strip().lower() for s in args.slots.split(",") if s.strip()]
@@ -102,6 +108,7 @@ def main() -> int:
         if s not in SLOT_RULES:
             log(f"[FATAL] unknown slot: {s}")
             return 2
+    class_filter = [c.strip().lower() for c in args.classes.split(",") if c.strip()]
 
     paz = pathlib.Path(args.paz)
     tool_dir = pathlib.Path(__file__).resolve().parent
@@ -114,6 +121,8 @@ def main() -> int:
     ice = IceDecipher(dll)
     log(f"Reading meta from {paz} ...")
     meta = MetaFile(paz, ice)
+    if class_filter:
+        log(f"Class filter: {', '.join(class_filter)}")
 
     out_root = pathlib.Path(args.out) if args.out else (paz / "files_to_patch")
     dummy_bytes = dummy.read_bytes()
@@ -130,6 +139,18 @@ def main() -> int:
         "phm_", "pgm_", "pkm_", "pwm_", "pwmm", "pnm_", "pcm_", "pam_", "ppm_",
         "_pem", "pem_",
     )
+
+    def matches_class_filter(path_l: str) -> bool:
+        if not class_filter:
+            return True
+        for pref in class_filter:
+            # folder ids like 33_pdkl or file names pdkl_00_...
+            if f"_{pref}" in path_l or f"/{pref}" in path_l or path_l.startswith(pref) or f"{pref}_" in path_l:
+                return True
+            # folder segment 2_phw
+            if f"_{pref}/" in path_l or f"_{pref}\\" in path_l:
+                return True
+        return False
 
     total = 0
     for slot in slots:
@@ -148,6 +169,8 @@ def main() -> int:
             folder = (block.folderName or "").replace("\\", "/").lower()
             name = (block.fileName or "").lower()
             path_l = folder + "/" + name
+            if not matches_class_filter(path_l):
+                continue
             if args.gender == "F":
                 if not any(t in path_l for t in female_tokens):
                     # weapons may not include class in folder the same way — still allow if female class folder id
@@ -184,6 +207,7 @@ def main() -> int:
                 f"Slot hide: {slot}\n"
                 f"Models hidden: {count}\n"
                 f"Gender filter: {args.gender}\n"
+                f"Class filter: {', '.join(class_filter) if class_filter else 'ALL'}\n"
                 "Run PartCutGen then Meta Injector.\n"
             )
         log(f"[{slot}] hid {count} .pac models -> {out_dir}")
