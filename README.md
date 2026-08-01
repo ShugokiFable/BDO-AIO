@@ -71,7 +71,8 @@ Body size → `files_to_patch\_body_size_limits\` then Meta Inject. Beauty salon
 7. Select your game **`PAZ`** folder (`pad00000.meta` inside)
 8. Finish **PartCutGen**, then **Meta Injector**
 9. Optional: **`G`** GameOption · **`N`** NVIDIA .nip · **`X`** EXPERIMENTAL upscale (DLSS/FSR/DStorage)
-10. Troubleshooting: **`R`** restore/clean · after game patches **`H`** heisha regen helper
+10. Check inject state: **`S`** scan PAZ (stock / staged / injected / restored)  
+11. Troubleshooting: **`R`** restore/clean · after game patches **`H`** heisha regen helper
 
 After every official game patch: **H** (if inject breaks) then wizard again.  
 If you used **X**, expect breakage after patches — uninstall via **X** or **R**.

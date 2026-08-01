@@ -18,6 +18,7 @@ $Script:CensorshipTool = Join-Path $Script:Root 'tools\bdo_meta\censorship_pack_
 $Script:CensorshipRoot = Join-Path $Script:Root 'tools\censorship_removal'
 $Script:GenitalTool = Join-Path $Script:Root 'tools\bdo_meta\genital_pack_apply.py'
 $Script:GenitalRoot = Join-Path $Script:Root 'tools\genital_packs'
+$Script:PazStatusTool = Join-Path $Script:Root 'tools\bdo_meta\paz_status_scan.py'
 $Script:ResoreplessExe = 'Z:\Backup\BDO\heisha\contrib\resorepless-v3.6f\resorepless.exe'
 $Script:PazUnpackerExe = 'Z:\Backup\BDO\PAZ-UnpackerV2.6.0\PAZ-Unpacker.exe'
 $Script:DefaultHeishaRoot = 'Z:\Backup\BDO\heisha'
@@ -539,6 +540,87 @@ function Get-ArmorLabel([string]$code) {
     return $code
 }
 
+function Get-PazStatusReport {
+    param([string]$PazFolder)
+    if (-not (Test-IsPazFolder $PazFolder)) { return $null }
+    if (-not (Test-Path -LiteralPath $Script:PazStatusTool)) { return $null }
+    if (-not (Ensure-Python)) { return $null }
+    try {
+        $json = & python $Script:PazStatusTool --paz $PazFolder --json 2>$null
+        if (-not $json) { return $null }
+        return ($json | ConvertFrom-Json)
+    } catch {
+        return $null
+    }
+}
+
+function Show-PazInjectStatus {
+    param(
+        [string]$PazFolder,
+        [switch]$Detailed
+    )
+    Write-Host ''
+    Write-Host '  PAZ inject status (stock vs modded)' -ForegroundColor White
+    Write-Host '  -----------------------------------' -ForegroundColor DarkGray
+    if (-not (Test-IsPazFolder $PazFolder)) {
+        Write-Warn '  Set a valid PAZ folder first (menu 1).'
+        return
+    }
+    if (-not (Test-Path -LiteralPath $Script:PazStatusTool)) {
+        Write-Warn '  paz_status_scan.py missing.'
+        return
+    }
+    if (-not (Ensure-Python)) { return }
+
+    if ($Detailed) {
+        & python $Script:PazStatusTool --paz $PazFolder --write-status auto
+        return
+    }
+
+    $rep = Get-PazStatusReport -PazFolder $PazFolder
+    if (-not $rep) {
+        Write-Warn '  Could not scan PAZ status.'
+        return
+    }
+
+    $overall = [string]$rep.overall
+    $metaState = [string]$rep.meta.state
+    $col = switch -Wildcard ($overall) {
+        '*STOCK*' { 'Green' }
+        '*RESTORED*' { 'Green' }
+        '*STAGED only*' { 'Yellow' }
+        '*INJECTED*' { 'Magenta' }
+        default { 'Cyan' }
+    }
+    Write-Host ("  OVERALL : " + $overall) -ForegroundColor $col
+    if ($rep.overall_detail) {
+        Write-Host ("           " + $rep.overall_detail) -ForegroundColor DarkGray
+    }
+    Write-Host ("  META    : " + $metaState) -ForegroundColor $(if ($metaState -eq 'MODDED') { 'Magenta' } elseif ($metaState -in @('STOCK', 'RESTORED')) { 'Green' } else { 'Yellow' })
+    if ($rep.meta.detail) {
+        Write-Host ("           " + $rep.meta.detail) -ForegroundColor DarkGray
+    }
+    $bc = 0
+    if ($rep.backups) { $bc = @($rep.backups).Count }
+    Write-Host ("  Backups : " + $bc + " Meta Injector *.meta.backup file(s)") -ForegroundColor Gray
+    if ($rep.files_to_patch -and $rep.files_to_patch.exists) {
+        Write-Host ("  Staged  : files_to_patch has " + $rep.files_to_patch.total_files + " file(s)") -ForegroundColor Gray
+        if ($rep.files_to_patch.aio_packages) {
+            foreach ($p in @($rep.files_to_patch.aio_packages)) {
+                Write-Host ("           AIO: " + $p.name + " (" + $p.files + " files)") -ForegroundColor DarkCyan
+            }
+        }
+    } else {
+        Write-Host '  Staged  : no files_to_patch content' -ForegroundColor Gray
+    }
+    if ($rep.experimental_dlss -and $rep.experimental_dlss.installed) {
+        Write-Host '  Exper.  : OptiScaler/DLSS inject MARKED in game root  [EXPERIMENTAL]' -ForegroundColor Red
+    } else {
+        Write-Host '  Exper.  : no experimental client inject marker' -ForegroundColor Gray
+    }
+    Write-Host '  Full report: menu [S]  |  Restore inject: Meta Injector "Restore Backup" or menu [R]' -ForegroundColor DarkGray
+}
+
 function Show-Status {
     Write-Host '  Current setup' -ForegroundColor White
     Write-Host '  -------------' -ForegroundColor DarkGray
@@ -556,6 +638,7 @@ function Show-Status {
     $paz = [string]$Script:Config.pazFolder
     if (Test-IsPazFolder $paz) {
         Write-Ok ("Game PAZ  : " + $paz)
+        Show-PazInjectStatus -PazFolder $paz
     } elseif ($paz) {
         Write-Warn ("Game PAZ  : " + $paz + "  (pad00000.meta missing - check path)")
     } else {
@@ -2128,6 +2211,12 @@ function Restore-UneditedGameFiles {
     $gameRoot = Get-GameRootFromPaz
     $ftp = Join-Path $paz 'files_to_patch'
 
+    Show-PazInjectStatus -PazFolder $paz
+    Write-Host ''
+    Write-Host '  To restore pad00000.meta to pre-inject: run Meta Injector -> Restore Backup' -ForegroundColor Yellow
+    Write-Host '  (menu 5 launches it). Then re-scan with menu [S].' -ForegroundColor Yellow
+    Write-Host ''
+
     Write-Host '   [1] Clear AIO-generated folders under files_to_patch only' -ForegroundColor Cyan
     Write-Host '       (_body_size, _slot_hide_*, _pubic_*, _censorship_*, _genital_*)' -ForegroundColor DarkGray
     Write-Host '   [2] Clear ENTIRE files_to_patch (includes Midnight deploy)' -ForegroundColor Yellow
@@ -3127,6 +3216,7 @@ function Show-MainMenu {
         Write-Host '   [6] FULL WIZARD           (Midnight + RESTORED)  [MODERN]' -ForegroundColor Green
         Write-Host '   [A] Apply ALL RESTORED choices (from config)     [RESTORED]' -ForegroundColor Green
         Write-Host '   [7] Open files_to_patch   (add extra mods)' -ForegroundColor Cyan
+        Write-Host '   [S] Scan PAZ status (stock / staged / injected / restored)' -ForegroundColor Yellow
         Write-Host '   [H] Post-patch regen helper (heisha / Midnight)' -ForegroundColor Yellow
         Write-Host '   [R] Restore / clean AIO changes (troubleshooting)' -ForegroundColor Yellow
         Write-Host '   [G] Graphics profiles (GameOption)               [user pack]' -ForegroundColor Magenta
@@ -3146,6 +3236,15 @@ function Show-MainMenu {
             '6' { Run-FullWizard }
             'A' { [void](Apply-AllRestoredChoices) }
             '7' { Open-FilesToPatch }
+            'S' {
+                Write-Banner
+                if (-not (Test-IsPazFolder $Script:Config.pazFolder)) {
+                    Write-Err 'Set PAZ first (menu 1).'
+                } else {
+                    Show-PazInjectStatus -PazFolder ([string]$Script:Config.pazFolder) -Detailed
+                }
+                Pause-Any
+            }
             'H' { Show-HeishaRegenHelper }
             'R' { Restore-UneditedGameFiles }
             'G' { Apply-GraphicsProfile }

@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.0.3
+
+### PAZ stock vs modded status scan
+- Main menu **[S]** + status line on main screen: detect whether `pad00000.meta` is **STOCK / MODDED / RESTORED**
+- Uses Meta Injector `pad00000[*][*].meta.backup` files + hash compare to current meta
+- Lists **staged** `files_to_patch` AIO packages vs Midnight content
+- Flags experimental OptiScaler/DLSS marker in game root
+- Tool: `tools/bdo_meta/paz_status_scan.py --paz <PAZ> [--json] [--write-status auto]`
+
 ## v2.0.2
 
 ### Per-class pubic hair / female genitals
