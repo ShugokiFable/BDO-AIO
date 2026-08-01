@@ -1,13 +1,12 @@
 # State
 
-- Parent snapshot: v2.0.6 (`ad1534c`)
-- Active snapshot: 2.0.7
-- Runtime status: user reports black characters and previously broken graphics settings; runtime retest required
-- Authority workflow: developed and validated in a full isolated 2.0.7 copy before promotion
-- Graphics root cause: 2.0.6 replaced the complete live `GameOption.txt` with a stale partial template, forced invalid/stale `graphicOption = 7`, and forced low textures (`2`)
-- Donor-texture root cause: generated donor DDS names did not match the material names embedded in the PAC meshes
-- Donor scope: female reuse only; male genital packs remain native-only
-- Research boundary: current installed client and official/current sources are evidence; no invented hidden engine keys
-- Current client evidence: Remastered UI index maps to saved value `9`, Ultra maps to `8`, and High texture UI index maps to saved value `0`
-- Source/asset validation: 30 tests pass; all 22 PAC diffuse bindings and three complete generation modes pass against current read-only NA metadata
-- Release state: tool-validated complete replacement; in-game retest required
+- Parent snapshot: v2.0.7 (`9f57495`)
+- Active snapshot: 2.0.8
+- Runtime status: PartCutGen completed in the user log; Meta Injector launch is contradicted by the user screenshot and awaits retest with this hotfix
+- Authority workflow: full isolated 2.0.8 copy created before editing; 2.0.7 remains untouched
+- Meta Injector root cause: `Prepare-BdoInjectStage` allowed the Python stage-builder report into PowerShell's success pipeline, so `$stage` became `System.Object[]` instead of one path string
+- Fix: route the report to the host, cast the returned stage to one string, and pass one explicit quoted `-files` argument string
+- PartCutGen status: successful; 1,679 exclusions and `partcutdesc.xml` saved, while three optional patterns matched zero files
+- Preserved 2.0.7 scope: graphics, body-slider, XYZW, censorship, and genital fixes are unchanged
+- Source validation: 30 Python tests plus the exact Windows PowerShell stage-output regression pass
+- Release state: tool-validated hotfix candidate; Meta Injector and in-game retest required

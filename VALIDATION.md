@@ -1,6 +1,16 @@
 # Validation
 
-BDO-AIO 2.0.7 is tool-validated against the current read-only NA client and metadata. Structural/tool validation is not runtime confirmation.
+BDO-AIO 2.0.8 is tool-validated as a launcher hotfix. Structural/tool validation is not runtime confirmation.
+
+## 2.0.8 Meta Injector hotfix
+
+- User PartCutGen log: PASS; 1,679 exclusions processed and `partcutdesc.xml` saved. Three optional patterns matching zero files are informational.
+- User Meta Injector screenshot: reproduced root cause in source; the stage-builder's stdout joined the function return and made `$stage` a `System.Object[]`.
+- Windows PowerShell parser: PASS.
+- Windows PowerShell regression: PASS; two simulated builder-output lines remain visible while the returned stage is exactly one `System.String` equal to `X:\BDO_AIO_INJECT`.
+- Meta Injector launch argument: one explicit quoted string, `-files "<stage>"`.
+- Python unit tests: PASS, 30 tests.
+- Live boundary: no game, launcher, PartCutGen, Meta Injector, or PAZ file was launched or modified by this validation.
 
 ## Evidence baseline
 

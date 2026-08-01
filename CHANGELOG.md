@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.0.8 - 2026-08-01
+
+### Work record
+- AI application: Codex desktop
+- Model: GPT-5
+- Reasoning mode: high
+- Parent: v2.0.7 (`9f57495`)
+- Task: hotfix the canonical Meta Injector launcher after Windows PowerShell captured stage-builder console output as the stage path
+- Intended files: `bdo_aio.ps1`, PowerShell regression check, and release/control documentation
+- Runtime status at start: **contradicted** (user screenshot shows `Start-Process -ArgumentList` rejecting `System.Object[]`)
+- PartCutGen evidence: **runtime-evidenced success** (`partcutdesc.xml` saved after 1,679 exclusions; zero-match optional patterns are informational)
+
+### Meta Injector launch hotfix
+- Routed canonical stage-builder stdout to the console instead of PowerShell's function success stream, keeping the returned stage path scalar.
+- Cast the returned path to `System.String` and pass Meta Injector one explicit quoted `-files` argument string for Windows PowerShell compatibility.
+- Added a regression that emits two simulated builder report lines and proves the function still returns only `X:\BDO_AIO_INJECT`.
+
+### Validation
+- Windows PowerShell parser: PASS.
+- Exact PowerShell regression: PASS.
+- Existing Python suite: PASS, 30 tests.
+- Runtime status: **tool-validated**; user Meta Injector rerun and in-game validation remain required.
+
 ## v2.0.7 - 2026-08-01
 
 ### Work record

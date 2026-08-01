@@ -2,6 +2,9 @@
 
 ## 2026-08-01
 
+- Treat external-command stdout inside a value-returning PowerShell function as data contamination unless it is explicitly routed to the host.
+- Pass Meta Injector one explicit quoted `-files` argument string for Windows PowerShell compatibility.
+- Do not change PartCutGen for optional zero-match patterns when its generated `partcutdesc.xml` is saved successfully.
 - Treat the user-reported slider-only crash as a release blocker.
 - Do not attribute the slider crash to the experimental FSR DLL without independent evidence.
 - Do not solve path length by deleting or skipping Midnight XYZW content.

@@ -3,7 +3,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$Script:Version = '2.0.7'
+$Script:Version = '2.0.8'
 $Script:Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script:ConfigPath = Join-Path $Script:Root 'config.json'
 $Script:PackDir = Join-Path $Script:Root 'pack'
@@ -1996,7 +1996,7 @@ function Prepare-BdoInjectStage {
     & $Script:PythonExe $Script:InjectStageTool `
         --paz ($PazDrive + '\') `
         --source ($SourceDrive + '\') `
-        --stage $stage
+        --stage $stage | ForEach-Object { Write-Host $_ }
     if ($LASTEXITCODE -ne 0) {
         throw "Canonical injection stage failed with exit code $LASTEXITCODE. No injection was started."
     }
@@ -2051,11 +2051,11 @@ function Run-MetaInjector {
     try {
         $pazDrive = Mount-BdoTemporaryDrive -Target $paz
         $sourceDrive = Mount-BdoTemporaryDrive -Target $source
-        $stage = Prepare-BdoInjectStage -PazDrive $pazDrive -SourceDrive $sourceDrive
+        $stage = [string](Prepare-BdoInjectStage -PazDrive $pazDrive -SourceDrive $sourceDrive)
         $shortExe = $pazDrive + '\Meta Injector.exe'
         Write-Info ("Launching through short path: " + $shortExe)
         $process = Start-Process -FilePath $shortExe -WorkingDirectory ($pazDrive + '\') `
-            -ArgumentList @('-files', $stage) -PassThru -Wait
+            -ArgumentList ('-files "{0}"' -f $stage) -PassThru -Wait
         Write-Ok ("Meta Injector closed (process exit code " + $process.ExitCode + ").")
         $region = Get-BdoClientRegion
         $metaPatcher = $pazDrive + '\Meta Patcher.exe'
