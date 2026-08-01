@@ -14,6 +14,10 @@ $Script:BodySizeTool = Join-Path $Script:Root 'tools\bdo_meta\body_size_patcher.
 $Script:SlotHideTool = Join-Path $Script:Root 'tools\bdo_meta\slot_hide_patcher.py'
 $Script:PubicHairTool = Join-Path $Script:Root 'tools\bdo_meta\pubic_hair_apply.py'
 $Script:PubicHairRoot = Join-Path $Script:Root 'tools\pubic_hair'
+$Script:CensorshipTool = Join-Path $Script:Root 'tools\bdo_meta\censorship_pack_apply.py'
+$Script:CensorshipRoot = Join-Path $Script:Root 'tools\censorship_removal'
+$Script:GenitalTool = Join-Path $Script:Root 'tools\bdo_meta\genital_pack_apply.py'
+$Script:GenitalRoot = Join-Path $Script:Root 'tools\genital_packs'
 $Script:ResoreplessExe = 'Z:\Backup\BDO\heisha\contrib\resorepless-v3.6f\resorepless.exe'
 $Script:PazUnpackerExe = 'Z:\Backup\BDO\PAZ-UnpackerV2.6.0\PAZ-Unpacker.exe'
 
@@ -144,10 +148,19 @@ function Load-Config {
             hideWeapons     = $false
             hideStockings   = $false
             pubicHairStyle  = 'none'
+            censorshipTier  = 'off'
+            female3dVagina  = $false
+            malePenisMode   = 'none'
+            penisWarrior    = 'none'
+            penisBerserker  = 'none'
+            penisMusa       = 'none'
+            penisWizard     = 'none'
+            penisNinja      = 'none'
+            penisStriker    = 'none'
             lastRun         = $null
         }
     }
-    foreach ($p in @('pazFolder', 'gender', 'armor', 'xyzwCollections', 'npiPath', 'bodySizePreset', 'bodySizeParts', 'bodySizeMin', 'bodySizeDefault', 'bodySizeMax', 'hideGloves', 'hideBoots', 'hideHelmets', 'hideWeapons', 'hideStockings', 'pubicHairStyle', 'lastRun')) {
+    foreach ($p in @('pazFolder', 'gender', 'armor', 'xyzwCollections', 'npiPath', 'bodySizePreset', 'bodySizeParts', 'bodySizeMin', 'bodySizeDefault', 'bodySizeMax', 'hideGloves', 'hideBoots', 'hideHelmets', 'hideWeapons', 'hideStockings', 'pubicHairStyle', 'censorshipTier', 'female3dVagina', 'malePenisMode', 'penisWarrior', 'penisBerserker', 'penisMusa', 'penisWizard', 'penisNinja', 'penisStriker', 'lastRun')) {
         if (-not ($Script:Config.PSObject.Properties.Name -contains $p)) {
             $val = switch ($p) {
                 'gender' { 'F' }
@@ -161,6 +174,15 @@ function Load-Config {
                 'hideWeapons' { $false }
                 'hideStockings' { $false }
                 'pubicHairStyle' { 'none' }
+                'censorshipTier' { 'off' }
+                'female3dVagina' { $false }
+                'malePenisMode' { 'none' }
+                'penisWarrior' { 'none' }
+                'penisBerserker' { 'none' }
+                'penisMusa' { 'none' }
+                'penisWizard' { 'none' }
+                'penisNinja' { 'none' }
+                'penisStriker' { 'none' }
                 default { $null }
             }
             if ($null -eq $val -and $p -notin @('bodySizeMin', 'bodySizeDefault', 'bodySizeMax', 'lastRun')) {
@@ -191,6 +213,15 @@ function Save-Config {
         hideWeapons     = [bool]$Script:Config.hideWeapons
         hideStockings   = [bool]$Script:Config.hideStockings
         pubicHairStyle  = [string]$Script:Config.pubicHairStyle
+        censorshipTier  = [string]$Script:Config.censorshipTier
+        female3dVagina  = [bool]$Script:Config.female3dVagina
+        malePenisMode   = [string]$Script:Config.malePenisMode
+        penisWarrior    = [string]$Script:Config.penisWarrior
+        penisBerserker  = [string]$Script:Config.penisBerserker
+        penisMusa       = [string]$Script:Config.penisMusa
+        penisWizard     = [string]$Script:Config.penisWizard
+        penisNinja      = [string]$Script:Config.penisNinja
+        penisStriker    = [string]$Script:Config.penisStriker
         lastRun         = $Script:Config.lastRun
     }
     $json = $out | ConvertTo-Json -Depth 4
@@ -503,6 +534,8 @@ function Configure-ModChoices {
     Write-Host '   [5] Apply slot hide patch now' -ForegroundColor Green
     Write-Host '   [6] Pubic hair style (LEGACY textures, old classes best)' -ForegroundColor Magenta
     Write-Host '   [7] Apply pubic hair now' -ForegroundColor Magenta
+    Write-Host '   [C] Censorship tier presets (LEGACY texture packs)' -ForegroundColor Magenta
+    Write-Host '   [V] Penis / 3D vagina menus (LEGACY mesh packs)' -ForegroundColor Magenta
     Write-Host '   [8] Show Available vs Legacy option matrix' -ForegroundColor Yellow
     Write-Host '   [9] Launch LEGACY Resorepless.exe (old classes only)' -ForegroundColor DarkYellow
     Write-Host '   [P] Launch PAZ Unpacker' -ForegroundColor Cyan
@@ -517,11 +550,153 @@ function Configure-ModChoices {
         '5' { Apply-SlotHidePatch }
         '6' { Configure-PubicHair }
         '7' { Apply-PubicHair }
+        'C' { Configure-CensorshipTier }
+        'V' { Configure-GenitalMenus }
         '8' { Show-OptionsMatrix }
         '9' { Launch-LegacyResorepless }
         'P' { Launch-PazUnpacker }
         default { return }
     }
+}
+
+function Configure-CensorshipTier {
+    Write-Banner
+    Write-Host '  CENSORSHIP TIER PRESETS (LEGACY texture packs)' -ForegroundColor Magenta
+    Write-Host '  ----------------------------------------------' -ForegroundColor DarkGray
+    Write-Info 'Resorepless armor under-layer / built-in panty texture swaps.'
+    Write-Warn 'Best on older outfits (Tamer/Ranger/DK/Kuno). New pearl gear often needs Armor=All instead.'
+    Write-Host ''
+    Write-Host '    [0] Off' -ForegroundColor DarkGray
+    Write-Host '    [1] Minimal  — some Tamer/Ranger built-in panties' -ForegroundColor Cyan
+    Write-Host '    [2] Medium   — + upper undercovers / more decals (RECOMMENDED if using)' -ForegroundColor Green
+    Write-Host '    [3] High     — same texture set as medium (full armor hide covers pants models)' -ForegroundColor Cyan
+    $t = Read-Choice 'Tier' @('0', '1', '2', '3')
+    $Script:Config.censorshipTier = switch ($t) {
+        '0' { 'off' }
+        '1' { 'minimal' }
+        '2' { 'medium' }
+        '3' { 'high' }
+    }
+    Save-Config
+    Write-Ok ("Censorship tier: " + $Script:Config.censorshipTier)
+    if ($Script:Config.censorshipTier -ne 'off' -and (Read-YesNo 'Apply censorship texture pack now?' $true)) {
+        Apply-CensorshipPack
+    } else {
+        Pause-Any
+    }
+}
+
+function Apply-CensorshipPack {
+    Write-Banner
+    Write-Host '  Apply censorship pack' -ForegroundColor Magenta
+    if (-not (Test-IsPazFolder $Script:Config.pazFolder)) { Write-Err 'Set PAZ first.'; Pause-Any; return }
+    $tier = [string]$Script:Config.censorshipTier
+    if (-not $tier -or $tier -eq 'off') { Write-Warn 'Tier is off.'; Pause-Any; return }
+    if (-not (Test-Path $Script:CensorshipRoot)) { Write-Err "Missing $($Script:CensorshipRoot)"; Pause-Any; return }
+    if (-not (Ensure-Python)) { Pause-Any; return }
+    $out = Join-Path $Script:Config.pazFolder ("files_to_patch\_censorship_" + $tier)
+    Write-Info ("Tier=$tier out=$out")
+    if (-not (Read-YesNo 'Copy texture pack?' $true)) { Pause-Any; return }
+    & python $Script:CensorshipTool --tier $tier --pack-root $Script:CensorshipRoot --out $out
+    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { Write-Err "Exit $LASTEXITCODE" } else { Write-Ok 'Censorship pack ready. Meta Inject after Midnight.'; Ensure-ToolsInPaz }
+    Pause-Any
+}
+
+function Read-PenisStyle([string]$label, [string]$current) {
+    Write-Host ''
+    Write-Host ("  " + $label + " penis style  (current: " + $current + ")") -ForegroundColor White
+    Write-Host '    [0] none   [1] normal   [2] hard' -ForegroundColor Cyan
+    $c = Read-Choice 'Style' @('0', '1', '2')
+    return $(switch ($c) { '0' { 'none' } '1' { 'normal' } '2' { 'hard' } })
+}
+
+function Configure-GenitalMenus {
+    Write-Banner
+    Write-Host '  PENIS / 3D VAGINA (LEGACY mesh packs)' -ForegroundColor Magenta
+    Write-Host '  ------------------------------------' -ForegroundColor DarkGray
+    Write-Warn 'Resorepless-era only. Missing Seraph/Deadeye/Agent/etc. Penis skin often mismatches body tone.'
+    Write-Host ''
+    Write-Host '  FEMALE — 3D vagina nude meshes' -ForegroundColor White
+    $Script:Config.female3dVagina = Read-YesNo 'Enable 3D vagina nude PAC pack (old female classes)?' ([bool]$Script:Config.female3dVagina)
+
+    Write-Host ''
+    Write-Host '  MALE — penis meshes' -ForegroundColor White
+    Write-Host '    [1] All male classes same style (easy)' -ForegroundColor Green
+    Write-Host '    [2] Per-class styles (Warrior/Berserker/Musa/Wizard/Ninja/Striker)' -ForegroundColor Cyan
+    Write-Host '    [3] All off' -ForegroundColor DarkGray
+    $m = Read-Choice 'Male mode' @('1', '2', '3')
+    if ($m -eq '3') {
+        $Script:Config.malePenisMode = 'none'
+        foreach ($k in @('penisWarrior', 'penisBerserker', 'penisMusa', 'penisWizard', 'penisNinja', 'penisStriker')) {
+            $Script:Config.$k = 'none'
+        }
+    } elseif ($m -eq '1') {
+        $all = Read-PenisStyle 'All males' $(if ($Script:Config.malePenisMode -in @('normal', 'hard')) { $Script:Config.malePenisMode } else { 'normal' })
+        $Script:Config.malePenisMode = $all
+        foreach ($k in @('penisWarrior', 'penisBerserker', 'penisMusa', 'penisWizard', 'penisNinja', 'penisStriker')) {
+            $Script:Config.$k = $all
+        }
+    } else {
+        $Script:Config.malePenisMode = 'perclass'
+        $Script:Config.penisWarrior = Read-PenisStyle 'Warrior' ([string]$Script:Config.penisWarrior)
+        $Script:Config.penisBerserker = Read-PenisStyle 'Berserker' ([string]$Script:Config.penisBerserker)
+        $Script:Config.penisMusa = Read-PenisStyle 'Musa' ([string]$Script:Config.penisMusa)
+        $Script:Config.penisWizard = Read-PenisStyle 'Wizard' ([string]$Script:Config.penisWizard)
+        $Script:Config.penisNinja = Read-PenisStyle 'Ninja' ([string]$Script:Config.penisNinja)
+        $Script:Config.penisStriker = Read-PenisStyle 'Striker' ([string]$Script:Config.penisStriker)
+    }
+
+    Save-Config
+    Write-Ok 'Genital options saved.'
+    Write-Host ("  female3dVagina = " + $Script:Config.female3dVagina) -ForegroundColor Gray
+    Write-Host ("  malePenisMode  = " + $Script:Config.malePenisMode) -ForegroundColor Gray
+    if (Read-YesNo 'Apply genital mesh packs to files_to_patch now?' $true) {
+        Apply-GenitalPacks
+    } else {
+        Pause-Any
+    }
+}
+
+function Apply-GenitalPacks {
+    Write-Banner
+    Write-Host '  Apply genital packs (LEGACY)' -ForegroundColor Magenta
+    if (-not (Test-IsPazFolder $Script:Config.pazFolder)) { Write-Err 'Set PAZ first.'; Pause-Any; return }
+    if (-not (Test-Path $Script:GenitalRoot)) { Write-Err "Missing $($Script:GenitalRoot)"; Pause-Any; return }
+    if (-not (Ensure-Python)) { Pause-Any; return }
+
+    $f3d = if ([bool]$Script:Config.female3dVagina) { 'on' } else { 'off' }
+    $maleArg = 'none'
+    if ([string]$Script:Config.malePenisMode -eq 'perclass') {
+        $parts = @(
+            "warrior=$($Script:Config.penisWarrior)",
+            "berserker=$($Script:Config.penisBerserker)",
+            "musa=$($Script:Config.penisMusa)",
+            "wizard=$($Script:Config.penisWizard)",
+            "ninja=$($Script:Config.penisNinja)",
+            "striker=$($Script:Config.penisStriker)"
+        )
+        $maleArg = $parts -join ','
+    } elseif ([string]$Script:Config.malePenisMode -in @('normal', 'hard')) {
+        $maleArg = [string]$Script:Config.malePenisMode
+    }
+
+    if ($f3d -eq 'off' -and $maleArg -eq 'none') {
+        Write-Warn 'Nothing enabled.'
+        Pause-Any
+        return
+    }
+
+    $out = Join-Path $Script:Config.pazFolder 'files_to_patch\_genital_legacy'
+    Write-Info ("female_3d=$f3d male=$maleArg")
+    Write-Info ("out=$out")
+    if (-not (Read-YesNo 'Copy legacy genital packs?' $true)) { Pause-Any; return }
+
+    & python $Script:GenitalTool --pack-root $Script:GenitalRoot --out $out --female-3d-vagina $f3d --male-penis $maleArg
+    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { Write-Err "Exit $LASTEXITCODE" } else {
+        Write-Ok 'Genital packs written. Deploy Midnight underwear hide too, then Meta Inject + PartCutGen.'
+        Ensure-ToolsInPaz
+    }
+    Pause-Any
 }
 
 function Configure-SlotHide {
@@ -1044,19 +1219,20 @@ function Show-OptionsMatrix {
     Write-Host '  XYZW outfit collections on/off'
     Write-Host '  Body size LIMITS min/default/max (+ custom numbers)'
     Write-Host '  Pubic hair styles (legacy bins; best on older female nudes)'
+    Write-Host '  Censorship tiers minimal/medium/high (legacy texture packs)'
+    Write-Host '  3D vagina + penis packs (legacy; old classes; per-class penis styles)'
     Write-Host '  GameOption graphics profiles (menu G)'
     Write-Host '  NVIDIA .nip driver profile (menu N)'
     Write-Host '  PartCutGen + Meta Injector pipeline'
     Write-Host ''
-    Write-Host '  LEGACY / PARTIAL' -ForegroundColor Yellow
-    Write-Host '  ----------------' -ForegroundColor DarkGray
-    Write-Host '  Penis / 3D vagina toggles     -> Resorepless.exe only; broken on new classes'
-    Write-Host '  Fancy weapon mesh swaps       -> hide weapons covers most screenshot needs'
-    Write-Host '  Censorship low/med/high tiers -> mostly superseded by armor/underwear hide'
+    Write-Host '  STILL LIMITED' -ForegroundColor Yellow
+    Write-Host '  -------------' -ForegroundColor DarkGray
+    Write-Host '  Genital packs: no Seraph/Deadeye/Agent; penis skin-tone mismatch'
+    Write-Host '  Censorship textures: old outfits — prefer Armor=All for modern gear'
     Write-Host ''
     Write-Host '  NOT SUPPORTED' -ForegroundColor Red
     Write-Host '  -------------' -ForegroundColor DarkGray
-    Write-Host '  Agent (male, 2026) / Wukong (male) body packs until Midnight updates'
+    Write-Host '  Agent / Wukong full body packs until Midnight updates'
     Write-Host '  Shai nude/underwear (skipped by design)'
     Write-Host '  Anti-cheat stealth for injectors'
     Write-Host ''

@@ -15,5 +15,14 @@
   "hideWeapons": false,
   "hideStockings": false,
   "pubicHairStyle": "none",
+  "censorshipTier": "off",
+  "female3dVagina": false,
+  "malePenisMode": "none",
+  "penisWarrior": "none",
+  "penisBerserker": "none",
+  "penisMusa": "none",
+  "penisWizard": "none",
+  "penisNinja": "none",
+  "penisStriker": "none",
   "lastRun": null
 }
