@@ -37,13 +37,17 @@ def find_pac(pack: pathlib.Path, name: str) -> pathlib.Path | None:
     return hits[0] if hits else None
 
 
-def pick_female_donor(pack: pathlib.Path, want_prefix: str) -> tuple[pathlib.Path, str, bool]:
-    """Return (src_pac, donor_prefix, is_native)."""
+def pick_female_donor(
+    pack: pathlib.Path, want_prefix: str, allow_reuse: bool
+) -> tuple[pathlib.Path, str, bool]:
+    """Return (src_pac, donor_prefix, is_native). Donor path only if allow_reuse."""
     native = FEMALE_CLASSES[want_prefix][2]
     if native:
         p = find_pac(pack, native)
         if p:
             return p, want_prefix, True
+    if not allow_reuse:
+        raise FileNotFoundError(f"no NATIVE female PAC for {want_prefix} (reuse off)")
     for d in FEMALE_DONOR_ORDER:
         n = FEMALE_CLASSES[d][2]
         if not n:
@@ -58,13 +62,17 @@ def pick_female_donor(pack: pathlib.Path, want_prefix: str) -> tuple[pathlib.Pat
     raise FileNotFoundError("no female donor PAC")
 
 
-def pick_male_donor(pack: pathlib.Path, want_prefix: str, style: str) -> tuple[pathlib.Path, str, bool]:
+def pick_male_donor(
+    pack: pathlib.Path, want_prefix: str, style: str, allow_reuse: bool
+) -> tuple[pathlib.Path, str, bool]:
     native_name = MALE_CLASSES.get(want_prefix, (None, None, None))[2]
     style_dir = pack / "male" / style
     if native_name:
         p = style_dir / native_name
         if p.is_file():
             return p, want_prefix, True
+    if not allow_reuse:
+        raise FileNotFoundError(f"no NATIVE male PAC for {want_prefix} (reuse off)")
     for d in MALE_DONOR_ORDER:
         n = MALE_CLASSES[d][2]
         if not n:
@@ -78,12 +86,14 @@ def pick_male_donor(pack: pathlib.Path, want_prefix: str, style: str) -> tuple[p
     raise FileNotFoundError(f"no male {style} donor PAC")
 
 
-def copy_female_class(pack: pathlib.Path, out: pathlib.Path, prefix: str) -> list[str]:
+def copy_female_class(
+    pack: pathlib.Path, out: pathlib.Path, prefix: str, allow_reuse: bool
+) -> list[str]:
     notes = []
     folder = female_folder(prefix)
     dest_dir = out / folder
     dest_dir.mkdir(parents=True, exist_ok=True)
-    src, donor, native = pick_female_donor(pack, prefix)
+    src, donor, native = pick_female_donor(pack, prefix, allow_reuse)
     # target filenames Midnight uses
     targets = [
         f"{prefix}_00_nude_0001.pac",
@@ -98,14 +108,16 @@ def copy_female_class(pack: pathlib.Path, out: pathlib.Path, prefix: str) -> lis
     return notes
 
 
-def copy_male_class(pack: pathlib.Path, out: pathlib.Path, prefix: str, style: str) -> list[str]:
+def copy_male_class(
+    pack: pathlib.Path, out: pathlib.Path, prefix: str, style: str, allow_reuse: bool
+) -> list[str]:
     notes = []
     if prefix not in MALE_CLASSES:
         return notes
     folder = male_folder(prefix)
     dest_dir = out / folder
     dest_dir.mkdir(parents=True, exist_ok=True)
-    src, donor, native = pick_male_donor(pack, prefix, style)
+    src, donor, native = pick_male_donor(pack, prefix, style, allow_reuse)
     for t in (f"{prefix}_00_nude_0001.pac", f"{prefix}_00_uw_0001.pac"):
         shutil.copy2(src, dest_dir / t)
     tag = "NATIVE" if native else f"EXPERIMENTAL-REUSE from {donor}"
@@ -139,10 +151,18 @@ def main() -> int:
     ap.add_argument(
         "--all-classes",
         action="store_true",
-        default=True,
-        help="Cover every known class via EXPERIMENTAL donor reuse when needed (default on)",
+        default=False,
+        help="EXPERIMENTAL: donor mesh reuse for classes with no native pack",
+    )
+    ap.add_argument(
+        "--native-only",
+        action="store_true",
+        default=False,
+        help="RESTORED only — never donor-reuse (default when --all-classes omitted)",
     )
     args = ap.parse_args()
+    # Safe default: NATIVE/RESTORED only. Reuse only with explicit --all-classes.
+    allow_reuse = bool(args.all_classes) and not bool(args.native_only)
 
     pack = pathlib.Path(args.pack_root)
     out = pathlib.Path(args.out)
@@ -152,12 +172,15 @@ def main() -> int:
 
     report: list[str] = []
     copied = 0
+    mode = "NATIVE + EXPERIMENTAL-REUSE" if allow_reuse else "NATIVE only (RESTORED)"
 
     if args.female_3d_vagina == "on":
-        log("=== Female 3D vagina (NATIVE + EXPERIMENTAL reuse) ===")
+        log(f"=== Female 3D vagina ({mode}) ===")
         for pref in FEMALE_CLASSES:
+            if not allow_reuse and not FEMALE_CLASSES[pref][2]:
+                continue  # no native PAC — skip unless EXPERIMENTAL reuse
             try:
-                notes = copy_female_class(pack, out, pref)
+                notes = copy_female_class(pack, out, pref, allow_reuse)
                 report.extend(notes)
                 copied += 2
             except Exception as e:
@@ -180,7 +203,8 @@ def main() -> int:
     elif raw in ("normal", "hard") or raw.startswith("all="):
         style = raw.split("=", 1)[-1] if raw.startswith("all=") else raw
         for pref in MALE_CLASSES:
-            penis_map[pref] = style
+            if allow_reuse or MALE_CLASSES[pref][2]:
+                penis_map[pref] = style
     else:
         # per display name or prefix
         name_to_pref = {v[1].lower(): k for k, v in MALE_CLASSES.items()}
@@ -209,13 +233,16 @@ def main() -> int:
                 continue
             pref = name_to_pref.get(k, k if k in MALE_CLASSES else None)
             if pref:
-                penis_map[pref] = v
+                if allow_reuse or (pref in MALE_CLASSES and MALE_CLASSES[pref][2]):
+                    penis_map[pref] = v
+                else:
+                    log(f"  [SKIP M no-native] {pref} (enable EXPERIMENTAL reuse for donor)")
 
     if penis_map:
-        log("=== Male penis (NATIVE + EXPERIMENTAL reuse) ===")
+        log(f"=== Male penis ({mode}) ===")
         for pref, style in penis_map.items():
             try:
-                notes = copy_male_class(pack, out, pref, style)
+                notes = copy_male_class(pack, out, pref, style, allow_reuse)
                 report.extend(notes)
                 copied += 2
             except Exception as e:
@@ -223,19 +250,21 @@ def main() -> int:
 
     readme = out / "README.txt"
     readme.write_text(
-        "Genital pack apply — all-class best effort\n"
-        "==========================================\n"
-        "NATIVE = original Resorepless mesh for that class\n"
+        "Genital pack apply\n"
+        "==================\n"
+        f"mode={mode}\n"
+        "NATIVE = original Resorepless mesh for that class (RESTORED)\n"
         "EXPERIMENTAL-REUSE = donor mesh renamed for missing class (may clip/mismatch)\n"
         "Shai is not included.\n\n"
         f"female_3d_vagina={args.female_3d_vagina}\n"
         f"male_penis={args.male_penis}\n"
+        f"allow_reuse={allow_reuse}\n"
         f"entries={len(report)}\n\n"
         + "\n".join(report)
         + "\n\nUse with Midnight underwear hide. Meta Inject + PartCutGen.\n",
         encoding="utf-8",
     )
-    log(f"Done. report_lines={len(report)} out={out}")
+    log(f"Done. mode={mode} report_lines={len(report)} out={out}")
     return 0 if report else 1
 
 

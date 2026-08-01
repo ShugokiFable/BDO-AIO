@@ -47,12 +47,14 @@ Hard gates, WARNING.txt, and **NOT SAFE** labeling. Kept out of the RESTORED opt
 
 ## Best-effort all-class coverage
 
-Where classic packs only had old classes, the AIO may **reuse a donor mesh/bin** renamed for Seraph, Deadeye, Woosa, etc.
+Where classic packs only had old classes, the AIO can **optionally** reuse a donor mesh/bin renamed for Seraph, Deadeye, Woosa, etc.
 
-| Apply mode | Label in logs / README under files_to_patch |
-|------------|-----------------------------------------------|
-| Exact classic asset for that class | **NATIVE** (still RESTORED feature) |
-| Donor mesh/texture reused for missing class | **EXPERIMENTAL-REUSE** (must not be sold as native art) |
+| Apply mode | Label / output folder | Default |
+|------------|----------------------|---------|
+| Exact classic asset for that class | **NATIVE** / `_…_RESTORED_native` | **ON** (RESTORED path) |
+| Donor mesh/texture for missing class | **EXPERIMENTAL-REUSE** / `_…_EXPERIMENTAL_reuse` | **OFF** (opt-in in [6]/[V]) |
+
+CLI: `--native-only` (default) vs `--all-classes` (experimental donor reuse).
 
 Body **size limits** already touch every `customizationboneparamdesc` in live PAZ (all classes).
 
@@ -60,4 +62,4 @@ Body **size limits** already touch every `customizationboneparamdesc` in live PA
 
 - Do not rebrand EXPERIMENTAL inject as RESTORED.
 - RESTORED packs that only cover old classes stay labeled limited/legacy in menus.
-- Mesh-reuse for new classes is **EXPERIMENTAL-REUSE**, not NATIVE.
+- Mesh-reuse for new classes is **EXPERIMENTAL-REUSE**, not NATIVE — and stays off unless the user opts in.

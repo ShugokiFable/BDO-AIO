@@ -114,10 +114,18 @@ def main() -> int:
     ap.add_argument(
         "--all-classes",
         action="store_true",
-        default=True,
-        help="Try EXPERIMENTAL bin reuse on every same-size nude DDS (default on)",
+        default=False,
+        help="EXPERIMENTAL: same-size donor bin on other nudes",
+    )
+    ap.add_argument(
+        "--native-only",
+        action="store_true",
+        default=False,
+        help="RESTORED only — exact class bins only (default when --all-classes omitted)",
     )
     args = ap.parse_args()
+    # Safe default: NATIVE only. Donor reuse only with explicit --all-classes.
+    allow_reuse = bool(args.all_classes) and not bool(args.native_only)
 
     hair_root = pathlib.Path(args.hair_root)
     style_dir = hair_root / args.style
@@ -178,8 +186,8 @@ def main() -> int:
             log(f"  [FAIL native] {base.name}")
             skip += 1
 
-    # 2) EXPERIMENTAL: any other nude DDS with same size as a known bin base
-    if args.all_classes:
+    # 2) EXPERIMENTAL-REUSE: any other nude DDS with same size as a known bin base
+    if allow_reuse:
         size_to_bin: dict[int, pathlib.Path] = {}
         for stem, sz in bin_sizes.items():
             if stem in bins:
@@ -218,17 +226,19 @@ def main() -> int:
         log(f"  [COPY] {dds.name}")
         ok += 1
 
+    mode = "NATIVE + EXPERIMENTAL-REUSE" if allow_reuse else "NATIVE only (RESTORED)"
     (out_dir / "README.txt").write_text(
         f"Pubic hair style: {args.style}\n"
+        f"mode={mode}\n"
         f"Applied: {ok}  Skipped: {skip}\n"
-        "NATIVE = exact class bin\n"
+        "NATIVE = exact class bin (RESTORED)\n"
         "EXPERIMENTAL-REUSE = same-size nude DDS used a donor bin (may look wrong if UVs differ)\n"
         "Shai skipped when detected (plw_).\n"
         + "\n".join(report)
         + "\n",
         encoding="utf-8",
     )
-    log(f"Done. ok={ok} skip={skip} out={out_dir}")
+    log(f"Done. mode={mode} ok={ok} skip={skip} out={out_dir}")
     return 0 if ok > 0 else 1
 
 

@@ -43,9 +43,14 @@ Full table: [`docs/FEATURE-LABELS.md`](docs/FEATURE-LABELS.md)
 |------|---------|
 | **Body size limits** | Min / Default / Max presets **or custom numbers** + custom part list |
 | **Slot hide** | Gloves / boots / helmets / weapons / stockings |
-| **Pubic hair** | Resorepless styles (old female bins best) |
+| **Pubic hair** | Resorepless styles; **NATIVE bins only by default** |
 | **Censorship tiers** | minimal / medium / high texture packs |
-| **3D vagina / penis** | Old-class meshes; per-class penis none/normal/hard |
+| **3D vagina / penis** | Old-class meshes by default; per-class penis none/normal/hard |
+
+### EXPERIMENTAL-REUSE (opt-in, not native art)
+| Area | Options |
+|------|---------|
+| Donor mesh/bin for missing classes | Asked inside Options **[6]** / **[V]**; separate output folders; default **OFF** |
 
 ### EXPERIMENTAL (from-scratch only)
 | Area | Options |

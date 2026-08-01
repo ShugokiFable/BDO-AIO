@@ -148,8 +148,10 @@ function Load-Config {
             hideWeapons     = $false
             hideStockings   = $false
             pubicHairStyle  = 'none'
+            pubicHairReuse  = $false
             censorshipTier  = 'off'
             female3dVagina  = $false
+            genitalReuse    = $false
             malePenisMode   = 'none'
             penisWarrior    = 'none'
             penisBerserker  = 'none'
@@ -160,7 +162,7 @@ function Load-Config {
             lastRun         = $null
         }
     }
-    foreach ($p in @('pazFolder', 'gender', 'armor', 'xyzwCollections', 'npiPath', 'bodySizePreset', 'bodySizeParts', 'bodySizeMin', 'bodySizeDefault', 'bodySizeMax', 'hideGloves', 'hideBoots', 'hideHelmets', 'hideWeapons', 'hideStockings', 'pubicHairStyle', 'censorshipTier', 'female3dVagina', 'malePenisMode', 'penisWarrior', 'penisBerserker', 'penisMusa', 'penisWizard', 'penisNinja', 'penisStriker', 'lastRun')) {
+    foreach ($p in @('pazFolder', 'gender', 'armor', 'xyzwCollections', 'npiPath', 'bodySizePreset', 'bodySizeParts', 'bodySizeMin', 'bodySizeDefault', 'bodySizeMax', 'hideGloves', 'hideBoots', 'hideHelmets', 'hideWeapons', 'hideStockings', 'pubicHairStyle', 'pubicHairReuse', 'censorshipTier', 'female3dVagina', 'genitalReuse', 'malePenisMode', 'penisWarrior', 'penisBerserker', 'penisMusa', 'penisWizard', 'penisNinja', 'penisStriker', 'lastRun')) {
         if (-not ($Script:Config.PSObject.Properties.Name -contains $p)) {
             $val = switch ($p) {
                 'gender' { 'F' }
@@ -174,8 +176,10 @@ function Load-Config {
                 'hideWeapons' { $false }
                 'hideStockings' { $false }
                 'pubicHairStyle' { 'none' }
+                'pubicHairReuse' { $false }
                 'censorshipTier' { 'off' }
                 'female3dVagina' { $false }
+                'genitalReuse' { $false }
                 'malePenisMode' { 'none' }
                 'penisWarrior' { 'none' }
                 'penisBerserker' { 'none' }
@@ -213,8 +217,10 @@ function Save-Config {
         hideWeapons     = [bool]$Script:Config.hideWeapons
         hideStockings   = [bool]$Script:Config.hideStockings
         pubicHairStyle  = [string]$Script:Config.pubicHairStyle
+        pubicHairReuse  = [bool]$Script:Config.pubicHairReuse
         censorshipTier  = [string]$Script:Config.censorshipTier
         female3dVagina  = [bool]$Script:Config.female3dVagina
+        genitalReuse    = [bool]$Script:Config.genitalReuse
         malePenisMode   = [string]$Script:Config.malePenisMode
         penisWarrior    = [string]$Script:Config.penisWarrior
         penisBerserker  = [string]$Script:Config.penisBerserker
@@ -528,29 +534,30 @@ function Configure-ModChoices {
     Write-Host ''
     Write-Host '  Labels:' -ForegroundColor White
     Write-Host '    MODERN      = current Midnight / 2026 pipeline (recommended)' -ForegroundColor Cyan
-    Write-Host '    RESTORED    = classic Resorepless-era feature, re-wired for this AIO' -ForegroundColor Green
-    Write-Host '    EXPERIMENTAL= built from scratch here; NOT a restored classic feature' -ForegroundColor Red
+    Write-Host '    RESTORED            = classic feature with NATIVE assets only' -ForegroundColor Green
+    Write-Host '    EXPERIMENTAL-REUSE  = donor mesh/bin for classes that never had art' -ForegroundColor DarkYellow
+    Write-Host '    EXPERIMENTAL        = from-scratch (DLSS inject) — not a classic restore' -ForegroundColor Red
     Write-Host ''
 
     Write-Host '  --- MODERN (Midnight) ---' -ForegroundColor Cyan
     Write-Host '   [1] Gender + armor hide + collections' -ForegroundColor Cyan
     Write-Host ''
 
-    Write-Host '  --- RESTORED (classic features) ---' -ForegroundColor Green
+    Write-Host '  --- RESTORED (classic / NATIVE assets) ---' -ForegroundColor Green
     Write-Host '   [2] Body size LIMITS (min/default/max + custom)  [RESTORED]' -ForegroundColor Green
     Write-Host '   [3] Apply body size patch now' -ForegroundColor Green
     Write-Host '   [4] Slot hide (gloves/boots/helmets/weapons/stockings)  [RESTORED]' -ForegroundColor Green
     Write-Host '   [5] Apply slot hide patch now' -ForegroundColor Green
-    Write-Host '   [6] Pubic hair style  [RESTORED / old-class bins]' -ForegroundColor Green
+    Write-Host '   [6] Pubic hair style  [RESTORED = native bins only by default]' -ForegroundColor Green
     Write-Host '   [7] Apply pubic hair now' -ForegroundColor Green
-    Write-Host '   [C] Censorship tier presets  [RESTORED / old outfits]' -ForegroundColor Green
-    Write-Host '   [V] Penis / 3D vagina menus  [RESTORED / old-class meshes]' -ForegroundColor Green
+    Write-Host '   [C] Censorship tier presets  [RESTORED / old outfit textures]' -ForegroundColor Green
+    Write-Host '   [V] Penis / 3D vagina  [RESTORED = native classes only by default]' -ForegroundColor Green
     Write-Host '   [9] Launch original Resorepless.exe (reference only)' -ForegroundColor DarkYellow
     Write-Host ''
 
-    Write-Host '  --- EXPERIMENTAL (from-scratch / not classic restore) ---' -ForegroundColor Red
-    Write-Host '   [X] Jump to EXPERIMENTAL DLSS/OptiScaler hub  *** NOT SAFE ***' -ForegroundColor Red
-    Write-Host '       (only place for from-scratch client inject; not Resorepless)' -ForegroundColor DarkRed
+    Write-Host '  --- EXPERIMENTAL (not classic NATIVE restore) ---' -ForegroundColor Red
+    Write-Host '   Donor reuse for missing classes is asked inside [6]/[V] as EXPERIMENTAL-REUSE' -ForegroundColor DarkYellow
+    Write-Host '   [X] DLSS/OptiScaler inject hub  *** NOT SAFE / FROM-SCRATCH ***' -ForegroundColor Red
     Write-Host ''
 
     Write-Host '  --- TOOLS / INFO ---' -ForegroundColor Yellow
@@ -630,18 +637,21 @@ function Read-PenisStyle([string]$label, [string]$current) {
 
 function Configure-GenitalMenus {
     Write-Banner
-    Write-Host '  PENIS / 3D VAGINA  [RESTORED + EXPERIMENTAL reuse for missing classes]' -ForegroundColor Magenta
-    Write-Host '  ----------------------------------------------------------------------' -ForegroundColor DarkGray
-    Write-Info 'NATIVE mesh when Resorepless had that class; otherwise EXPERIMENTAL donor rename.'
-    Write-Warn 'Reuse can clip/mismatch bones. Penis skin tone often wrong. Shai skipped.'
+    Write-Host '  PENIS / 3D VAGINA' -ForegroundColor Magenta
+    Write-Host '  ================' -ForegroundColor DarkGray
     Write-Host ''
-    Write-Host '  FEMALE — 3D vagina (all female classes best-effort, not Shai)' -ForegroundColor White
-    $Script:Config.female3dVagina = Read-YesNo 'Enable 3D vagina for ALL female classes (reuse donor mesh where needed)?' ([bool]$Script:Config.female3dVagina)
+    Write-Host '  [RESTORED / NATIVE]  Only classes that had real Resorepless meshes' -ForegroundColor Green
+    Write-Host '  [EXPERIMENTAL-REUSE] Donor mesh renamed for Seraph/Deadeye/etc. (optional)' -ForegroundColor Red
+    Write-Warn 'Penis skin tone often mismatches. Shai never included.'
+    Write-Host ''
+    Write-Host '  --- RESTORED (NATIVE only) ---' -ForegroundColor Green
+    Write-Host '  FEMALE — 3D vagina mesh pack for classic female classes only' -ForegroundColor White
+    $Script:Config.female3dVagina = Read-YesNo 'Enable NATIVE 3D vagina pack (old female classes only)?' ([bool]$Script:Config.female3dVagina)
 
     Write-Host ''
-    Write-Host '  MALE — penis (native + reuse for Hashashin/Sage/Archer/etc.)' -ForegroundColor White
-    Write-Host '    [1] All male classes same style (easy)  [includes experimental reuse]' -ForegroundColor Green
-    Write-Host '    [2] Per-class styles (core 6 classes only in UI)' -ForegroundColor Cyan
+    Write-Host '  MALE — penis meshes (NATIVE classes: Warrior/Berserker/Musa/Wizard/Ninja/Striker)' -ForegroundColor White
+    Write-Host '    [1] All native males same style' -ForegroundColor Green
+    Write-Host '    [2] Per-class styles (those 6 only)' -ForegroundColor Cyan
     Write-Host '    [3] All off' -ForegroundColor DarkGray
     $m = Read-Choice 'Male mode' @('1', '2', '3')
     if ($m -eq '3') {
@@ -650,7 +660,7 @@ function Configure-GenitalMenus {
             $Script:Config.$k = 'none'
         }
     } elseif ($m -eq '1') {
-        $all = Read-PenisStyle 'All males' $(if ($Script:Config.malePenisMode -in @('normal', 'hard')) { $Script:Config.malePenisMode } else { 'normal' })
+        $all = Read-PenisStyle 'All native males' $(if ($Script:Config.malePenisMode -in @('normal', 'hard')) { $Script:Config.malePenisMode } else { 'normal' })
         $Script:Config.malePenisMode = $all
         foreach ($k in @('penisWarrior', 'penisBerserker', 'penisMusa', 'penisWizard', 'penisNinja', 'penisStriker')) {
             $Script:Config.$k = $all
@@ -665,11 +675,18 @@ function Configure-GenitalMenus {
         $Script:Config.penisStriker = Read-PenisStyle 'Striker' ([string]$Script:Config.penisStriker)
     }
 
+    Write-Host ''
+    Write-Host '  --- EXPERIMENTAL-REUSE (optional, separate from NATIVE) ---' -ForegroundColor Red
+    Write-Host '  Copies a donor mesh renamed for missing classes (Seraph, Deadeye, Sage, …).' -ForegroundColor DarkYellow
+    Write-Host '  Can clip/stretch. NOT original class art. Default: OFF.' -ForegroundColor DarkYellow
+    $Script:Config.genitalReuse = Read-YesNo 'Also enable EXPERIMENTAL donor reuse for missing classes?' $false
+
     Save-Config
     Write-Ok 'Genital options saved.'
-    Write-Host ("  female3dVagina = " + $Script:Config.female3dVagina) -ForegroundColor Gray
-    Write-Host ("  malePenisMode  = " + $Script:Config.malePenisMode) -ForegroundColor Gray
-    if (Read-YesNo 'Apply genital mesh packs to files_to_patch now?' $true) {
+    Write-Host ("  female3dVagina (NATIVE) = " + $Script:Config.female3dVagina) -ForegroundColor Gray
+    Write-Host ("  malePenisMode (NATIVE)  = " + $Script:Config.malePenisMode) -ForegroundColor Gray
+    Write-Host ("  genitalReuse (EXPER.)   = " + $Script:Config.genitalReuse) -ForegroundColor Gray
+    if (Read-YesNo 'Apply genital packs to files_to_patch now?' $true) {
         Apply-GenitalPacks
     } else {
         Pause-Any
@@ -678,7 +695,8 @@ function Configure-GenitalMenus {
 
 function Apply-GenitalPacks {
     Write-Banner
-    Write-Host '  Apply genital packs (LEGACY)' -ForegroundColor Magenta
+    Write-Host '  Apply genital packs' -ForegroundColor Magenta
+    Write-Host '  RESTORED/NATIVE always when enabled; EXPERIMENTAL-REUSE only if you opted in' -ForegroundColor DarkGray
     if (-not (Test-IsPazFolder $Script:Config.pazFolder)) { Write-Err 'Set PAZ first.'; Pause-Any; return }
     if (-not (Test-Path $Script:GenitalRoot)) { Write-Err "Missing $($Script:GenitalRoot)"; Pause-Any; return }
     if (-not (Ensure-Python)) { Pause-Any; return }
@@ -705,14 +723,30 @@ function Apply-GenitalPacks {
         return
     }
 
-    $out = Join-Path $Script:Config.pazFolder 'files_to_patch\_genital_legacy'
+    $reuse = [bool]$Script:Config.genitalReuse
+    $out = if ($reuse) {
+        Join-Path $Script:Config.pazFolder 'files_to_patch\_genital_EXPERIMENTAL_reuse'
+    } else {
+        Join-Path $Script:Config.pazFolder 'files_to_patch\_genital_RESTORED_native'
+    }
     Write-Info ("female_3d=$f3d male=$maleArg")
+    Write-Info ("mode=" + $(if ($reuse) { 'NATIVE + EXPERIMENTAL-REUSE' } else { 'NATIVE only (RESTORED)' }))
     Write-Info ("out=$out")
-    if (-not (Read-YesNo 'Copy legacy genital packs?' $true)) { Pause-Any; return }
+    if (-not (Read-YesNo 'Copy genital packs?' $true)) { Pause-Any; return }
 
-    & python $Script:GenitalTool --pack-root $Script:GenitalRoot --out $out --female-3d-vagina $f3d --male-penis $maleArg
+    $pyArgs = @(
+        $Script:GenitalTool,
+        '--pack-root', $Script:GenitalRoot,
+        '--out', $out,
+        '--female-3d-vagina', $f3d,
+        '--male-penis', $maleArg
+    )
+    if ($reuse) { $pyArgs += '--all-classes' } else { $pyArgs += '--native-only' }
+
+    & python @pyArgs
     if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { Write-Err "Exit $LASTEXITCODE" } else {
         Write-Ok 'Genital packs written. Deploy Midnight underwear hide too, then Meta Inject + PartCutGen.'
+        if ($reuse) { Write-Warn 'Output folder name marks EXPERIMENTAL-REUSE. Check README inside for NATIVE vs donor lines.' }
         Ensure-ToolsInPaz
     }
     Pause-Any
@@ -806,10 +840,10 @@ function Apply-SlotHidePatch {
 
 function Configure-PubicHair {
     Write-Banner
-    Write-Host '  PUBIC HAIR  [RESTORED + EXPERIMENTAL same-size reuse]' -ForegroundColor Magenta
-    Write-Host '  ----------------------------------------------------' -ForegroundColor DarkGray
-    Write-Info 'NATIVE bins for classic classes; EXPERIMENTAL reuse on other nude DDS of same file size.'
-    Write-Warn 'Reuse may look wrong if UV layout differs. Shai skipped.'
+    Write-Host '  PUBIC HAIR' -ForegroundColor Magenta
+    Write-Host '  ==========' -ForegroundColor DarkGray
+    Write-Host '  [RESTORED/NATIVE] Exact class bins (pbw/pdw/pew/phw/pww …)' -ForegroundColor Green
+    Write-Host '  [EXPERIMENTAL-REUSE] Same-size donor bin on other nudes (optional, default OFF)' -ForegroundColor Red
     Write-Host ''
     if (-not (Test-Path -LiteralPath (Join-Path $Script:PubicHairRoot 'offsets.bin'))) {
         Write-Err ("Pubic hair pack missing: " + $Script:PubicHairRoot)
@@ -818,6 +852,7 @@ function Configure-PubicHair {
         return
     }
 
+    Write-Host '  --- RESTORED: pick style ---' -ForegroundColor Green
     $keys = @($Script:PubicHairStyles.Keys)
     for ($i = 0; $i -lt $keys.Count; $i++) {
         $k = $keys[$i]
@@ -846,8 +881,15 @@ function Configure-PubicHair {
         return
     }
     $Script:Config.pubicHairStyle = $keys[$idx]
+
+    Write-Host ''
+    Write-Host '  --- EXPERIMENTAL-REUSE (optional) ---' -ForegroundColor Red
+    Write-Host '  Apply same-size donor bins to other class nudes (not original art).' -ForegroundColor DarkYellow
+    $Script:Config.pubicHairReuse = Read-YesNo 'Enable EXPERIMENTAL same-size reuse for other classes?' $false
+
     Save-Config
     Write-Ok ("Pubic hair style: " + $Script:PubicHairStyles[$Script:Config.pubicHairStyle])
+    Write-Host ("  reuse (EXPERIMENTAL) = " + $Script:Config.pubicHairReuse) -ForegroundColor Gray
     if ($Script:Config.pubicHairStyle -ne 'none' -and (Read-YesNo 'Apply pubic hair textures now?' $true)) {
         Apply-PubicHair
     } else {
@@ -858,7 +900,7 @@ function Configure-PubicHair {
 function Apply-PubicHair {
     Write-Banner
     Write-Host '  Apply pubic hair' -ForegroundColor Magenta
-    Write-Host '  ----------------' -ForegroundColor DarkGray
+    Write-Host '  RESTORED/NATIVE by default; EXPERIMENTAL-REUSE only if opted in' -ForegroundColor DarkGray
     $style = [string]$Script:Config.pubicHairStyle
     if (-not $style -or $style -eq 'none') {
         Write-Warn 'Style is none — pick a style first (menu 2 option 6).'
@@ -876,8 +918,11 @@ function Apply-PubicHair {
         (Join-Path $Script:Root 'pack\midnight_xyzw\_00_suzu_nude'),
         (Join-Path $Script:Root 'pack\midnight_xyzw\_00_thegreatsage_nude')
     ) -join ';'
-    $out = Join-Path $Script:Config.pazFolder ("files_to_patch\_pubic_hair\" + $style)
+    $reuse = [bool]$Script:Config.pubicHairReuse
+    $outName = if ($reuse) { "_pubic_hair_EXPERIMENTAL_reuse\$style" } else { "_pubic_hair_RESTORED_native\$style" }
+    $out = Join-Path $Script:Config.pazFolder ("files_to_patch\" + $outName)
     Write-Info ("Style : " + $style)
+    Write-Info ("Mode  : " + $(if ($reuse) { 'NATIVE + EXPERIMENTAL-REUSE' } else { 'NATIVE only (RESTORED)' }))
     Write-Info ("Out   : " + $out)
     if (-not (Read-YesNo 'Merge hair bins onto nude DDS and write files_to_patch?' $true)) {
         Pause-Any
@@ -890,12 +935,14 @@ function Apply-PubicHair {
         '--base-roots', $baseRoots,
         '--out', $out
     )
+    if ($reuse) { $pyArgs += '--all-classes' } else { $pyArgs += '--native-only' }
     try {
         & python @pyArgs
         if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
             Write-Err ("Exit " + $LASTEXITCODE)
         } else {
             Write-Ok 'Pubic hair textures ready. Meta Inject after Midnight deploy (nude body first).'
+            if ($reuse) { Write-Warn 'Folder name marks EXPERIMENTAL-REUSE.' }
             Ensure-ToolsInPaz
         }
     } catch {
