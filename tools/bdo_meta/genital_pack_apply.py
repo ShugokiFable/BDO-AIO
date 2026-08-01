@@ -220,15 +220,35 @@ def main() -> int:
         default=False,
         help="RESTORED only — never donor-reuse (default when reuse flags omitted)",
     )
+    ap.add_argument(
+        "--female-classes",
+        default="",
+        help="Comma female prefixes to include (e.g. phw,pdkl). Empty = all relevant",
+    )
+    ap.add_argument(
+        "--male-classes",
+        default="",
+        help="Comma male prefixes for all= style (e.g. phm,pcm). Empty = all relevant",
+    )
     args = ap.parse_args()
 
     new_females = bool(args.new_females)
     allow_reuse = (bool(args.all_classes) or new_females) and not bool(args.native_only)
     if new_females:
-        # force female on for this mode
         female_on = True
     else:
         female_on = args.female_3d_vagina == "on"
+
+    female_filt = {
+        p.strip().lower()
+        for p in args.female_classes.replace(";", ",").split(",")
+        if p.strip()
+    } or None
+    male_filt = {
+        p.strip().lower()
+        for p in args.male_classes.replace(";", ",").split(",")
+        if p.strip()
+    } or None
 
     pack = pathlib.Path(args.pack_root)
     out = pathlib.Path(args.out)
@@ -243,14 +263,20 @@ def main() -> int:
         mode = "NATIVE + EXPERIMENTAL-REUSE"
     else:
         mode = "NATIVE only (RESTORED)"
+    if female_filt:
+        log(f"Female class filter: {', '.join(sorted(female_filt))}")
+    if male_filt:
+        log(f"Male class filter: {', '.join(sorted(male_filt))}")
 
     if female_on:
         log(f"=== Female 3D vagina ({mode}) ===")
         if new_females:
             targets = list(NEW_FEMALE_PREFIXES)
-            log(f"  targets: {', '.join(targets)}")
         else:
             targets = list(FEMALE_CLASSES.keys())
+        if female_filt is not None:
+            targets = [p for p in targets if p in female_filt]
+        log(f"  targets: {', '.join(targets) if targets else '(none)'}")
         for pref in targets:
             if not new_females and not allow_reuse and not FEMALE_CLASSES[pref][2]:
                 continue
@@ -269,6 +295,8 @@ def main() -> int:
             for dds in (pack / "texture").glob("*nude*.dds"):
                 n = dds.name.lower()
                 if any(n.startswith(p + "_") for p in FEMALE_CLASSES if FEMALE_CLASSES[p][2]):
+                    if female_filt is not None and not any(n.startswith(p + "_") for p in female_filt):
+                        continue
                     dest = tex_out / dds.name
                     if not dest.exists():
                         shutil.copy2(dds, dest)
@@ -283,6 +311,8 @@ def main() -> int:
         elif raw in ("normal", "hard") or raw.startswith("all="):
             style = raw.split("=", 1)[-1] if raw.startswith("all=") else raw
             for pref in MALE_CLASSES:
+                if male_filt is not None and pref not in male_filt:
+                    continue
                 if allow_reuse or MALE_CLASSES[pref][2]:
                     penis_map[pref] = style
         else:
@@ -310,6 +340,8 @@ def main() -> int:
                     continue
                 pref = name_to_pref.get(k, k if k in MALE_CLASSES else None)
                 if pref:
+                    if male_filt is not None and pref not in male_filt:
+                        continue
                     if allow_reuse or (pref in MALE_CLASSES and MALE_CLASSES[pref][2]):
                         penis_map[pref] = v
                     else:

@@ -43,7 +43,7 @@ Full table: [`docs/FEATURE-LABELS.md`](docs/FEATURE-LABELS.md)
 |------|---------|
 | **Body size limits** | Min / Default / Max presets **or custom numbers** + custom part list |
 | **Slot hide** | Gloves / boots / helmets / weapons / stockings |
-| **Pubic hair** | Resorepless styles; **NATIVE bins only by default** |
+| **Pubic hair** | Style + **per-class pick** (ALL / native / new females / custom list) |
 | **Censorship tiers** | minimal / medium / high texture packs |
 | **3D vagina / penis** | Old-class meshes by default; per-class penis none/normal/hard |
 

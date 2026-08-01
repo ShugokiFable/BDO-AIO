@@ -47,6 +47,30 @@ $Script:PubicHairStyles = [ordered]@{
     'trimmed'            = 'Trimmed'
     'wider_trimmed'      = 'Wider trimmed'
 }
+# Female class prefixes for per-class pubic/genital pickers (Shai excluded)
+$Script:FemaleClasses = [ordered]@{
+    'phw'  = 'Sorceress'
+    'pew'  = 'Ranger'
+    'pbw'  = 'Tamer'
+    'pvw'  = 'Valkyrie'
+    'pww'  = 'Witch'
+    'pgw'  = 'Guardian [EXPER.]'
+    'pnw'  = 'Kunoichi'
+    'pdw'  = 'Dark Knight'
+    'pcw'  = 'Mystic'
+    'psw'  = 'Lahn'
+    'ppw'  = 'Nova [EXPER.]'
+    'pkww' = 'Maehwa'
+    'pfw'  = 'Corsair [EXPER.]'
+    'pqw'  = 'Drakania [EXPER.]'
+    'pkow' = 'Maegu [EXPER.]'
+    'pmyf' = 'Woosa [EXPER.]'
+    'pnyw' = 'Scholar [EXPER.]'
+    'pwge' = 'Deadeye [EXPER.]'
+    'pdkl' = 'Seraph [EXPER.]'
+}
+$Script:NativePubicPrefixes = @('pbw', 'pdw', 'pew', 'phw', 'pww')
+$Script:NewFemalePrefixes = @('pgw', 'ppw', 'pfw', 'pqw', 'pkow', 'pmyf', 'pnyw', 'pwge', 'pdkl')
 $Script:Config = $null
 
 $Script:BodySizePresets = [ordered]@{
@@ -131,6 +155,115 @@ function Read-YesNo([string]$prompt, [bool]$defaultYes = $true) {
     }
 }
 
+function Get-FemaleClassKeys {
+    return @($Script:FemaleClasses.Keys)
+}
+
+function Format-ClassList([string]$csv) {
+    if ([string]::IsNullOrWhiteSpace($csv)) { return 'ALL females' }
+    return $csv
+}
+
+function Select-FemaleClasses {
+    param(
+        [string]$Title = 'Select female classes',
+        [string]$CurrentCsv = '',
+        [switch]$DefaultAll
+    )
+    Write-Host ''
+    Write-Host ("  " + $Title) -ForegroundColor White
+    Write-Host '  -----------------------' -ForegroundColor DarkGray
+    Write-Host ("  Current: " + (Format-ClassList $CurrentCsv)) -ForegroundColor DarkCyan
+    Write-Host ''
+    Write-Host '    [A] ALL females' -ForegroundColor Green
+    Write-Host '    [N] NATIVE pubic bins only (Tamer/DK/Ranger/Sorceress/Witch)' -ForegroundColor Cyan
+    Write-Host '    [E] NEW females only (Seraph/Deadeye/Woosa/… EXPERIMENTAL)' -ForegroundColor Yellow
+    Write-Host '    [C] CUSTOM multi-select by number' -ForegroundColor Magenta
+    Write-Host '    [T] Type prefixes (e.g. phw,pdkl,pww)' -ForegroundColor Cyan
+    Write-Host '    [K] Keep current' -ForegroundColor DarkGray
+    $pick = (Read-Host '  Class pick').Trim().ToUpperInvariant()
+    switch ($pick) {
+        'A' { return '' }
+        'N' { return ($Script:NativePubicPrefixes -join ',') }
+        'E' { return ($Script:NewFemalePrefixes -join ',') }
+        'K' { return $CurrentCsv }
+        'T' {
+            $raw = (Read-Host '  Prefixes comma-separated').Trim().ToLowerInvariant()
+            if ([string]::IsNullOrWhiteSpace($raw)) { return '' }
+            $legal = @($Script:FemaleClasses.Keys)
+            $parts = @($raw -split '[,;\s]+' | Where-Object { $_ })
+            $bad = @($parts | Where-Object { $_ -notin $legal })
+            if ($bad.Count -gt 0) {
+                Write-Warn ("Unknown prefixes ignored: " + ($bad -join ', '))
+            }
+            $ok = @($parts | Where-Object { $_ -in $legal } | Select-Object -Unique)
+            if ($ok.Count -eq 0) {
+                Write-Warn 'No valid prefixes — using ALL.'
+                return ''
+            }
+            return ($ok -join ',')
+        }
+        'C' {
+            $keys = @(Get-FemaleClassKeys)
+            $on = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+            if ([string]::IsNullOrWhiteSpace($CurrentCsv)) {
+                if ($DefaultAll) { foreach ($k in $keys) { [void]$on.Add($k) } }
+            } else {
+                foreach ($p in ($CurrentCsv -split '[,;]+')) {
+                    $t = $p.Trim()
+                    if ($t) { [void]$on.Add($t) }
+                }
+            }
+            while ($true) {
+                Write-Host ''
+                Write-Host '  Toggle classes (* = ON). Then D when done.' -ForegroundColor White
+                for ($i = 0; $i -lt $keys.Count; $i++) {
+                    $k = $keys[$i]
+                    $mark = if ($on.Contains($k)) { '*' } else { ' ' }
+                    $tag = if ($k -in $Script:NewFemalePrefixes) { ' EXPER' } elseif ($k -in $Script:NativePubicPrefixes) { ' native-bin' } else { '' }
+                    Write-Host ("    [{0,2}] {1} {2,-6} {3}{4}" -f ($i + 1), $mark, $k, $Script:FemaleClasses[$k], $tag) -ForegroundColor Cyan
+                }
+                Write-Host '    [A] all on   [Z] all off   [N] native bins only   [E] new females only' -ForegroundColor DarkGray
+                Write-Host '    [D] done' -ForegroundColor Green
+                $cmd = (Read-Host '  Number(s) to toggle, or command').Trim().ToUpperInvariant()
+                if ($cmd -eq 'D' -or $cmd -eq '') {
+                    if ($on.Count -eq 0) {
+                        Write-Warn 'None selected — using ALL females.'
+                        return ''
+                    }
+                    if ($on.Count -eq $keys.Count) { return '' }
+                    return (($on | Sort-Object) -join ',')
+                }
+                if ($cmd -eq 'A') { foreach ($k in $keys) { [void]$on.Add($k) }; continue }
+                if ($cmd -eq 'Z') { $on.Clear(); continue }
+                if ($cmd -eq 'N') {
+                    $on.Clear()
+                    foreach ($k in $Script:NativePubicPrefixes) { [void]$on.Add($k) }
+                    continue
+                }
+                if ($cmd -eq 'E') {
+                    $on.Clear()
+                    foreach ($k in $Script:NewFemalePrefixes) { [void]$on.Add($k) }
+                    continue
+                }
+                foreach ($tok in ($cmd -split '[,;\s]+')) {
+                    if ($tok -match '^\d+$') {
+                        $idx = [int]$tok - 1
+                        if ($idx -ge 0 -and $idx -lt $keys.Count) {
+                            $k = $keys[$idx]
+                            if ($on.Contains($k)) { [void]$on.Remove($k) } else { [void]$on.Add($k) }
+                        }
+                    }
+                }
+            }
+        }
+        default {
+            if ($DefaultAll -or [string]::IsNullOrWhiteSpace($CurrentCsv)) { return '' }
+            return $CurrentCsv
+        }
+    }
+}
+
 function Load-Config {
     if (Test-Path -LiteralPath $Script:ConfigPath) {
         try {
@@ -160,8 +293,10 @@ function Load-Config {
             slotHideClasses = ''
             pubicHairStyle  = 'none'
             pubicHairReuse  = $false
+            pubicHairClasses = ''
             censorshipTier  = 'off'
             female3dVagina  = $false
+            genitalFemaleClasses = ''
             genitalReuse    = $false
             malePenisMode   = 'none'
             penisWarrior    = 'none'
@@ -174,7 +309,7 @@ function Load-Config {
             lastRun         = $null
         }
     }
-    foreach ($p in @('pazFolder', 'gender', 'armor', 'xyzwCollections', 'npiPath', 'bodySizePreset', 'bodySizeParts', 'bodySizeMin', 'bodySizeDefault', 'bodySizeMax', 'hideGloves', 'hideBoots', 'hideHelmets', 'hideWeapons', 'hideStockings', 'slotHideClasses', 'pubicHairStyle', 'pubicHairReuse', 'censorshipTier', 'female3dVagina', 'genitalReuse', 'malePenisMode', 'penisWarrior', 'penisBerserker', 'penisMusa', 'penisWizard', 'penisNinja', 'penisStriker', 'heishaRoot', 'lastRun')) {
+    foreach ($p in @('pazFolder', 'gender', 'armor', 'xyzwCollections', 'npiPath', 'bodySizePreset', 'bodySizeParts', 'bodySizeMin', 'bodySizeDefault', 'bodySizeMax', 'hideGloves', 'hideBoots', 'hideHelmets', 'hideWeapons', 'hideStockings', 'slotHideClasses', 'pubicHairStyle', 'pubicHairReuse', 'pubicHairClasses', 'censorshipTier', 'female3dVagina', 'genitalFemaleClasses', 'genitalReuse', 'malePenisMode', 'penisWarrior', 'penisBerserker', 'penisMusa', 'penisWizard', 'penisNinja', 'penisStriker', 'heishaRoot', 'lastRun')) {
         if (-not ($Script:Config.PSObject.Properties.Name -contains $p)) {
             $val = switch ($p) {
                 'gender' { 'F' }
@@ -190,8 +325,10 @@ function Load-Config {
                 'slotHideClasses' { '' }
                 'pubicHairStyle' { 'none' }
                 'pubicHairReuse' { $false }
+                'pubicHairClasses' { '' }
                 'censorshipTier' { 'off' }
                 'female3dVagina' { $false }
+                'genitalFemaleClasses' { '' }
                 'genitalReuse' { $false }
                 'malePenisMode' { 'none' }
                 'penisWarrior' { 'none' }
@@ -233,8 +370,10 @@ function Save-Config {
         slotHideClasses = [string]$Script:Config.slotHideClasses
         pubicHairStyle  = [string]$Script:Config.pubicHairStyle
         pubicHairReuse  = [bool]$Script:Config.pubicHairReuse
+        pubicHairClasses = [string]$Script:Config.pubicHairClasses
         censorshipTier  = [string]$Script:Config.censorshipTier
         female3dVagina  = [bool]$Script:Config.female3dVagina
+        genitalFemaleClasses = [string]$Script:Config.genitalFemaleClasses
         genitalReuse    = [bool]$Script:Config.genitalReuse
         malePenisMode   = [string]$Script:Config.malePenisMode
         penisWarrior    = [string]$Script:Config.penisWarrior
@@ -670,16 +809,10 @@ function Configure-NewFemalesBody {
     Write-Host '  NEW FEMALES — genitals + pubic  [EXPERIMENTAL-REUSE]' -ForegroundColor Red
     Write-Host '  ====================================================' -ForegroundColor DarkGray
     Write-Host ''
-    Write-Host '  Classes (no native Resorepless genital art):' -ForegroundColor White
-    Write-Host '    Guardian, Nova, Corsair, Drakania, Maegu, Woosa,' -ForegroundColor Cyan
-    Write-Host '    Scholar, Deadeye, Seraph' -ForegroundColor Cyan
-    Write-Host ''
     Write-Warn 'This is NOT original class art.'
     Write-Warn '3D vagina: replaces Midnight/TheGreatSage nude PAC with a donor genital body.'
     Write-Warn 'Pubic: invents class-named nude DDS from a preferred classic base + hair bin.'
     Write-Warn 'Can clip, stretch, or mismatch UVs/skin. Shai never included.'
-    Write-Host ''
-    Write-Host '  Prefer classic [V]/[6] NATIVE first for old classes; use this for new females only.' -ForegroundColor DarkGray
     Write-Host ''
 
     if (-not (Test-Path -LiteralPath (Join-Path $Script:PubicHairRoot 'offsets.bin'))) {
@@ -688,7 +821,33 @@ function Configure-NewFemalesBody {
         return
     }
 
-    Write-Host '  --- Pubic style (applied only to new females) ---' -ForegroundColor Red
+    # Default selection = new females only; user can narrow further
+    $curNew = ($Script:NewFemalePrefixes -join ',')
+    if ([string]$Script:Config.genitalFemaleClasses -and ([string]$Script:Config.genitalFemaleClasses -notmatch 'phw|pew|pbw')) {
+        $curNew = [string]$Script:Config.genitalFemaleClasses
+    }
+    $picked = Select-FemaleClasses -Title 'NEW FEMALES package — which classes?' -CurrentCsv $curNew
+    if ([string]::IsNullOrWhiteSpace($picked)) {
+        $picked = ($Script:NewFemalePrefixes -join ',')
+        Write-Info 'ALL selected — limiting package to new-female prefixes only for this menu.'
+    } else {
+        # keep only new-female prefixes if user mixed in natives
+        $onlyNew = @()
+        foreach ($p in ($picked -split ',')) {
+            $t = $p.Trim()
+            if ($t -in $Script:NewFemalePrefixes) { $onlyNew += $t }
+        }
+        if ($onlyNew.Count -eq 0) {
+            Write-Warn 'No new-female prefixes in selection. Using full new-female list.'
+            $picked = ($Script:NewFemalePrefixes -join ',')
+        } else {
+            $picked = ($onlyNew -join ',')
+        }
+    }
+    $Script:Config.genitalFemaleClasses = $picked
+    $Script:Config.pubicHairClasses = $picked
+
+    Write-Host '  --- Pubic style ---' -ForegroundColor Red
     $keys = @($Script:PubicHairStyles.Keys)
     for ($i = 0; $i -lt $keys.Count; $i++) {
         $k = $keys[$i]
@@ -708,6 +867,7 @@ function Configure-NewFemalesBody {
     Save-Config
 
     Write-Ok 'New-females package options saved (EXPERIMENTAL-REUSE).'
+    Write-Host ("  classes = " + $picked) -ForegroundColor Gray
     Write-Host ("  pubic style = " + $Script:PubicHairStyles[$style]) -ForegroundColor Gray
     if (Read-YesNo 'Apply NEW FEMALES genitals + pubic now?' $true) {
         Apply-NewFemalesBody
@@ -739,11 +899,15 @@ function Apply-NewFemalesBody {
         return
     }
 
+    $fClasses = [string]$Script:Config.genitalFemaleClasses
+    if (-not $fClasses) { $fClasses = ($Script:NewFemalePrefixes -join ',') }
+    Write-Info ("classes = " + $fClasses)
     $pyGen = @(
         $Script:GenitalTool,
         '--pack-root', $Script:GenitalRoot,
         '--out', $genOut,
-        '--new-females'
+        '--new-females',
+        '--female-classes', $fClasses
     )
     try {
         & python @pyGen
@@ -758,15 +922,18 @@ function Apply-NewFemalesBody {
 
     if ($style -and $style -ne 'none') {
         $pubOut = Join-Path $paz ("files_to_patch\_pubic_hair_EXPERIMENTAL_new_females\" + $style)
+        $pClasses = [string]$Script:Config.pubicHairClasses
+        if (-not $pClasses) { $pClasses = $fClasses }
         Write-Info "pubic out = $pubOut"
-        if (Read-YesNo ("Apply pubic style '$style' for new females?") $true) {
+        if (Read-YesNo ("Apply pubic style '$style' for selected classes?") $true) {
             $pyPub = @(
                 $Script:PubicHairTool,
                 '--style', $style,
                 '--hair-root', $Script:PubicHairRoot,
                 '--base-roots', $baseRoots,
                 '--out', $pubOut,
-                '--new-females'
+                '--new-females',
+                '--classes', $pClasses
             )
             try {
                 & python @pyPub
@@ -800,12 +967,21 @@ function Configure-GenitalMenus {
     Write-Host '  For new females only, prefer Options hub [F] (targeted package).' -ForegroundColor DarkYellow
     Write-Warn 'Penis skin tone often mismatches. Shai never included.'
     Write-Host ''
-    Write-Host '  --- RESTORED (NATIVE only) ---' -ForegroundColor Green
-    Write-Host '  FEMALE — 3D vagina mesh pack for classic female classes only' -ForegroundColor White
-    $Script:Config.female3dVagina = Read-YesNo 'Enable NATIVE 3D vagina pack (old female classes only)?' ([bool]$Script:Config.female3dVagina)
+    Write-Host '  --- FEMALE 3D vagina ---' -ForegroundColor Green
+    $Script:Config.female3dVagina = Read-YesNo 'Enable female 3D vagina packs?' ([bool]$Script:Config.female3dVagina)
+    if ([bool]$Script:Config.female3dVagina) {
+        $Script:Config.genitalFemaleClasses = Select-FemaleClasses -Title '3D vagina — which females?' -CurrentCsv ([string]$Script:Config.genitalFemaleClasses) -DefaultAll
+        Write-Host ''
+        Write-Host '  --- EXPERIMENTAL-REUSE for selected females without native mesh ---' -ForegroundColor Red
+        Write-Host '  Donor mesh renamed (Seraph etc.). NOT original art.' -ForegroundColor DarkYellow
+        $Script:Config.genitalReuse = Read-YesNo 'Enable EXPERIMENTAL donor reuse for missing selected females?' $true
+    } else {
+        $Script:Config.genitalFemaleClasses = ''
+        $Script:Config.genitalReuse = $false
+    }
 
     Write-Host ''
-    Write-Host '  MALE — penis meshes (NATIVE classes: Warrior/Berserker/Musa/Wizard/Ninja/Striker)' -ForegroundColor White
+    Write-Host '  MALE — penis meshes (Warrior/Berserker/Musa/Wizard/Ninja/Striker + optional reuse)' -ForegroundColor White
     Write-Host '    [1] All native males same style' -ForegroundColor Green
     Write-Host '    [2] Per-class styles (those 6 only)' -ForegroundColor Cyan
     Write-Host '    [3] All off' -ForegroundColor DarkGray
@@ -821,6 +997,9 @@ function Configure-GenitalMenus {
         foreach ($k in @('penisWarrior', 'penisBerserker', 'penisMusa', 'penisWizard', 'penisNinja', 'penisStriker')) {
             $Script:Config.$k = $all
         }
+        if (-not [bool]$Script:Config.genitalReuse) {
+            $Script:Config.genitalReuse = Read-YesNo 'Also EXPERIMENTAL reuse for Archer/Hashashin/Sage males?' $false
+        }
     } else {
         $Script:Config.malePenisMode = 'perclass'
         $Script:Config.penisWarrior = Read-PenisStyle 'Warrior' ([string]$Script:Config.penisWarrior)
@@ -831,17 +1010,12 @@ function Configure-GenitalMenus {
         $Script:Config.penisStriker = Read-PenisStyle 'Striker' ([string]$Script:Config.penisStriker)
     }
 
-    Write-Host ''
-    Write-Host '  --- EXPERIMENTAL-REUSE (optional, separate from NATIVE) ---' -ForegroundColor Red
-    Write-Host '  Copies a donor mesh renamed for missing classes (Seraph, Deadeye, Sage, …).' -ForegroundColor DarkYellow
-    Write-Host '  Can clip/stretch. NOT original class art. Default: OFF.' -ForegroundColor DarkYellow
-    $Script:Config.genitalReuse = Read-YesNo 'Also enable EXPERIMENTAL donor reuse for missing classes?' $false
-
     Save-Config
     Write-Ok 'Genital options saved.'
-    Write-Host ("  female3dVagina (NATIVE) = " + $Script:Config.female3dVagina) -ForegroundColor Gray
-    Write-Host ("  malePenisMode (NATIVE)  = " + $Script:Config.malePenisMode) -ForegroundColor Gray
-    Write-Host ("  genitalReuse (EXPER.)   = " + $Script:Config.genitalReuse) -ForegroundColor Gray
+    Write-Host ("  female3dVagina         = " + $Script:Config.female3dVagina) -ForegroundColor Gray
+    Write-Host ("  female classes        = " + (Format-ClassList $Script:Config.genitalFemaleClasses)) -ForegroundColor Gray
+    Write-Host ("  malePenisMode         = " + $Script:Config.malePenisMode) -ForegroundColor Gray
+    Write-Host ("  genitalReuse (EXPER.) = " + $Script:Config.genitalReuse) -ForegroundColor Gray
     if (Read-YesNo 'Apply genital packs to files_to_patch now?' $true) {
         Apply-GenitalPacks
     } else {
@@ -890,6 +1064,7 @@ function Apply-GenitalPacks {
     Write-Info ("out=$out")
     if (-not (Read-YesNo 'Copy genital packs?' $true)) { Pause-Any; return }
 
+    $fClasses = [string]$Script:Config.genitalFemaleClasses
     $pyArgs = @(
         $Script:GenitalTool,
         '--pack-root', $Script:GenitalRoot,
@@ -897,8 +1072,10 @@ function Apply-GenitalPacks {
         '--female-3d-vagina', $f3d,
         '--male-penis', $maleArg
     )
+    if ($fClasses) { $pyArgs += @('--female-classes', $fClasses) }
     if ($reuse) { $pyArgs += '--all-classes' } else { $pyArgs += '--native-only' }
 
+    Write-Info ("female classes = " + (Format-ClassList $fClasses))
     & python @pyArgs
     if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { Write-Err "Exit $LASTEXITCODE" } else {
         Write-Ok 'Genital packs written. Deploy Midnight underwear hide too, then Meta Inject + PartCutGen.'
@@ -1055,12 +1232,33 @@ function Configure-PubicHair {
     $Script:Config.pubicHairStyle = $keys[$idx]
 
     Write-Host ''
-    Write-Host '  --- EXPERIMENTAL-REUSE (optional) ---' -ForegroundColor Red
-    Write-Host '  Apply same-size donor bins to other class nudes (not original art).' -ForegroundColor DarkYellow
-    $Script:Config.pubicHairReuse = Read-YesNo 'Enable EXPERIMENTAL same-size reuse for other classes?' $false
+    Write-Host '  --- WHICH CLASSES get this style? ---' -ForegroundColor White
+    Write-Host '  Pick one class, several, native-only, new females, or ALL.' -ForegroundColor Gray
+    $Script:Config.pubicHairClasses = Select-FemaleClasses -Title 'Pubic hair — female classes' -CurrentCsv ([string]$Script:Config.pubicHairClasses) -DefaultAll
+
+    Write-Host ''
+    Write-Host '  --- EXPERIMENTAL-REUSE (for selected classes without native bins) ---' -ForegroundColor Red
+    Write-Host '  Needed for Seraph/Deadeye/etc. Uses donor texture + bin (not original art).' -ForegroundColor DarkYellow
+    $needExper = $false
+    $clsCsv = [string]$Script:Config.pubicHairClasses
+    if ([string]::IsNullOrWhiteSpace($clsCsv)) {
+        $needExper = $true  # ALL includes new females
+    } else {
+        foreach ($p in ($clsCsv -split ',')) {
+            if ($p.Trim() -in $Script:NewFemalePrefixes) { $needExper = $true; break }
+            if ($p.Trim() -and ($p.Trim() -notin $Script:NativePubicPrefixes)) { $needExper = $true; break }
+        }
+    }
+    if ($needExper) {
+        Write-Info 'Your class list includes classes without native bins — EXPERIMENTAL reuse is recommended.'
+        $Script:Config.pubicHairReuse = Read-YesNo 'Enable EXPERIMENTAL reuse/synthesize for those classes?' $true
+    } else {
+        $Script:Config.pubicHairReuse = Read-YesNo 'Enable EXPERIMENTAL same-size reuse anyway (usually OFF)?' $false
+    }
 
     Save-Config
     Write-Ok ("Pubic hair style: " + $Script:PubicHairStyles[$Script:Config.pubicHairStyle])
+    Write-Host ("  classes = " + (Format-ClassList $Script:Config.pubicHairClasses)) -ForegroundColor Gray
     Write-Host ("  reuse (EXPERIMENTAL) = " + $Script:Config.pubicHairReuse) -ForegroundColor Gray
     if ($Script:Config.pubicHairStyle -ne 'none' -and (Read-YesNo 'Apply pubic hair textures now?' $true)) {
         Apply-PubicHair
@@ -1072,7 +1270,7 @@ function Configure-PubicHair {
 function Apply-PubicHair {
     Write-Banner
     Write-Host '  Apply pubic hair' -ForegroundColor Magenta
-    Write-Host '  RESTORED/NATIVE by default; EXPERIMENTAL-REUSE only if opted in' -ForegroundColor DarkGray
+    Write-Host '  Per-class selection + optional EXPERIMENTAL-REUSE' -ForegroundColor DarkGray
     $style = [string]$Script:Config.pubicHairStyle
     if (-not $style -or $style -eq 'none') {
         Write-Warn 'Style is none — pick a style first (menu 2 option 6).'
@@ -1091,11 +1289,13 @@ function Apply-PubicHair {
         (Join-Path $Script:Root 'pack\midnight_xyzw\_00_thegreatsage_nude')
     ) -join ';'
     $reuse = [bool]$Script:Config.pubicHairReuse
+    $cls = [string]$Script:Config.pubicHairClasses
     $outName = if ($reuse) { "_pubic_hair_EXPERIMENTAL_reuse\$style" } else { "_pubic_hair_RESTORED_native\$style" }
     $out = Join-Path $Script:Config.pazFolder ("files_to_patch\" + $outName)
-    Write-Info ("Style : " + $style)
-    Write-Info ("Mode  : " + $(if ($reuse) { 'NATIVE + EXPERIMENTAL-REUSE' } else { 'NATIVE only (RESTORED)' }))
-    Write-Info ("Out   : " + $out)
+    Write-Info ("Style   : " + $style)
+    Write-Info ("Classes : " + (Format-ClassList $cls))
+    Write-Info ("Mode    : " + $(if ($reuse) { 'NATIVE + EXPERIMENTAL-REUSE' } else { 'NATIVE only (RESTORED)' }))
+    Write-Info ("Out     : " + $out)
     if (-not (Read-YesNo 'Merge hair bins onto nude DDS and write files_to_patch?' $true)) {
         Pause-Any
         return
@@ -1107,6 +1307,7 @@ function Apply-PubicHair {
         '--base-roots', $baseRoots,
         '--out', $out
     )
+    if ($cls) { $pyArgs += @('--classes', $cls) }
     if ($reuse) { $pyArgs += '--all-classes' } else { $pyArgs += '--native-only' }
     try {
         & python @pyArgs
@@ -1735,11 +1936,13 @@ function Apply-AllRestoredChoices {
         [void](Apply-SlotHidePatch -NoPrompt)
     }
 
-    # 3) Pubic
+    # 3) Pubic (per-class filter)
     $style = [string]$Script:Config.pubicHairStyle
     if ($style -and $style -ne 'none') {
         Write-Info '--- Pubic hair ---'
         $reuse = [bool]$Script:Config.pubicHairReuse
+        $cls = [string]$Script:Config.pubicHairClasses
+        Write-Info ("  classes = " + (Format-ClassList $cls))
         $outName = if ($reuse) { "_pubic_hair_EXPERIMENTAL_reuse\$style" } else { "_pubic_hair_RESTORED_native\$style" }
         $out = Join-Path $ftp $outName
         $baseRoots = @(
@@ -1750,6 +1953,7 @@ function Apply-AllRestoredChoices {
             $Script:PubicHairTool, '--style', $style, '--hair-root', $Script:PubicHairRoot,
             '--base-roots', $baseRoots, '--out', $out
         )
+        if ($cls) { $pyArgs += @('--classes', $cls) }
         if ($reuse) { $pyArgs += '--all-classes' } else { $pyArgs += '--native-only' }
         try { & python @pyArgs } catch { Write-Warn $_.Exception.Message }
     }
@@ -1784,11 +1988,13 @@ function Apply-AllRestoredChoices {
         } else {
             Join-Path $ftp '_genital_RESTORED_native'
         }
+        $fClasses = [string]$Script:Config.genitalFemaleClasses
         $pyArgs = @(
             $Script:GenitalTool, '--pack-root', $Script:GenitalRoot, '--out', $out,
             '--female-3d-vagina', $(if ($f3d) { 'on' } else { 'off' }),
             '--male-penis', $maleArg
         )
+        if ($fClasses) { $pyArgs += @('--female-classes', $fClasses) }
         if ($reuseG) { $pyArgs += '--all-classes' } else { $pyArgs += '--native-only' }
         try { & python @pyArgs } catch { Write-Warn $_.Exception.Message }
     } elseif ($f3d -or ($maleMode -and $maleMode -ne 'none')) {
@@ -1796,25 +2002,30 @@ function Apply-AllRestoredChoices {
     }
 
     # 6) New females dedicated folders when EXPERIMENTAL reuse is enabled
-    #    (genitals: Seraph/etc. donor meshes; pubic: synthesized class-named DDS)
+    $fClasses = [string]$Script:Config.genitalFemaleClasses
+    if (-not $fClasses) { $fClasses = [string]$Script:Config.pubicHairClasses }
     if ($reuseG -and (Test-Path -LiteralPath $Script:GenitalRoot)) {
         Write-Info '--- New females EXPERIMENTAL genitals ---'
         $genOut = Join-Path $ftp '_genital_EXPERIMENTAL_new_females'
-        try {
-            & python $Script:GenitalTool --pack-root $Script:GenitalRoot --out $genOut --new-females
-        } catch { Write-Warn $_.Exception.Message }
+        $pyArgs = @($Script:GenitalTool, '--pack-root', $Script:GenitalRoot, '--out', $genOut, '--new-females')
+        if ($fClasses) { $pyArgs += @('--female-classes', $fClasses) }
+        try { & python @pyArgs } catch { Write-Warn $_.Exception.Message }
     }
     if (([bool]$Script:Config.pubicHairReuse -or $reuseG) -and $style -and $style -ne 'none') {
         Write-Info '--- New females EXPERIMENTAL pubic ---'
         $pubOut = Join-Path $ftp ("_pubic_hair_EXPERIMENTAL_new_females\" + $style)
+        $pClasses = [string]$Script:Config.pubicHairClasses
+        if (-not $pClasses) { $pClasses = $fClasses }
         $baseRoots = @(
             (Join-Path $Script:Root 'pack\midnight_xyzw\_00_suzu_nude'),
             (Join-Path $Script:Root 'pack\midnight_xyzw\_00_thegreatsage_nude')
         ) -join ';'
-        try {
-            & python $Script:PubicHairTool --style $style --hair-root $Script:PubicHairRoot `
-                --base-roots $baseRoots --out $pubOut --new-females
-        } catch { Write-Warn $_.Exception.Message }
+        $pyArgs = @(
+            $Script:PubicHairTool, '--style', $style, '--hair-root', $Script:PubicHairRoot,
+            '--base-roots', $baseRoots, '--out', $pubOut, '--new-females'
+        )
+        if ($pClasses) { $pyArgs += @('--classes', $pClasses) }
+        try { & python @pyArgs } catch { Write-Warn $_.Exception.Message }
     }
 
     Ensure-ToolsInPaz

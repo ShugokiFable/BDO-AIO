@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
-Pubic hair overlays with NATIVE + optional EXPERIMENTAL-REUSE for new females.
+Pubic hair overlays with NATIVE + optional EXPERIMENTAL-REUSE.
 
 NATIVE: exact class bin (pbw/pdw/pew/phw/pww) onto matching base DDS.
-EXPERIMENTAL / --all-classes: same-size donor bin on other nude DDS in base roots.
---new-females: for Seraph/Deadeye/Woosa/… synthesize class-named DDS by applying
-  a preferred donor base + bin (no native class art).
+EXPERIMENTAL / --all-classes: same-size donor bin on other nude DDS + new-female synthesize.
+--classes: comma list of class prefixes to apply (e.g. phw,pdkl). Empty = all.
 
 Shai (plw_) is skipped.
 """
@@ -18,9 +17,11 @@ import struct
 import sys
 
 from class_coverage import (
+    FEMALE_CLASSES,
     NEW_FEMALE_PREFIXES,
     NEW_FEMALE_PUBIC_BASE,
     preferred_female_pubic_base,
+    prefix_from_filename,
 )
 
 STYLES = [
@@ -113,7 +114,6 @@ def find_base_by_stem(bases: list[pathlib.Path], stem: str) -> pathlib.Path | No
     for b in bases:
         if b.name.lower() == want:
             return b
-    # also allow stem without .dds already
     for b in bases:
         if b.stem.lower() == stem.lower():
             return b
@@ -125,7 +125,6 @@ def pick_bin_for_base(
     bins: dict[str, pathlib.Path],
     bin_sizes: dict[str, int],
 ) -> pathlib.Path | None:
-    """Prefer exact stem bin, then same-size bin, else first bin that applies."""
     stem = base.stem.lower()
     if stem in bins:
         return bins[stem]
@@ -136,6 +135,22 @@ def pick_bin_for_base(
     return None
 
 
+def parse_class_filter(raw: str) -> set[str] | None:
+    """None = no filter (all). Empty after parse treated as None."""
+    if not raw or not raw.strip():
+        return None
+    parts = {p.strip().lower() for p in raw.replace(";", ",").split(",") if p.strip()}
+    return parts or None
+
+
+def class_allowed(prefix: str | None, filt: set[str] | None) -> bool:
+    if filt is None:
+        return True
+    if not prefix:
+        return False
+    return prefix in filt
+
+
 def synthesize_new_female(
     prefix: str,
     bases: list[pathlib.Path],
@@ -144,7 +159,6 @@ def synthesize_new_female(
     offsets: list[tuple[int, int]],
     out_tex: pathlib.Path,
 ) -> list[str]:
-    """Create class-named pubic DDS for a new female via preferred donor base."""
     notes: list[str] = []
     donor_stem = preferred_female_pubic_base(prefix)
     if not donor_stem:
@@ -160,17 +174,14 @@ def synthesize_new_female(
     tried: list[pathlib.Path] = []
     if bpath:
         tried.append(bpath)
-    # trial all bins if preferred fails
     for bp in bins.values():
         if bp not in tried:
             tried.append(bp)
 
-    # Write both common naming patterns games use
     out_names = [
         f"{prefix}_00_nude_0001.dds",
         f"{prefix}_01_nude_0001.dds",
     ]
-    # if donor was _01_, keep that pattern first
     if "_01_" in donor_stem:
         out_names = [
             f"{prefix}_01_nude_0001.dds",
@@ -179,14 +190,12 @@ def synthesize_new_female(
 
     applied_any = False
     for bpath in tried:
-        # test apply into temp memory via first dest
         dest0 = out_tex / out_names[0]
         if apply_bin_to_dds(base, bpath, offsets, dest0):
             notes.append(
                 f"EXPERIMENTAL-REUSE new-female {out_names[0]} <- {base.name} + {bpath.name} ({prefix})"
             )
             log(f"  [EXPERIMENTAL-REUSE new-F] {out_names[0]} <- {base.name} + {bpath.name}")
-            # clone to alternate name
             for extra in out_names[1:]:
                 shutil.copy2(dest0, out_tex / extra)
                 log(f"  [EXPERIMENTAL-REUSE new-F] {extra} (clone)")
@@ -205,6 +214,11 @@ def main() -> int:
     ap.add_argument("--base-roots", required=True, help="Semicolon-separated Midnight nude roots")
     ap.add_argument("--out", required=True)
     ap.add_argument(
+        "--classes",
+        default="",
+        help="Comma class prefixes to apply (e.g. phw,pdkl,pww). Empty = all females",
+    )
+    ap.add_argument(
         "--all-classes",
         action="store_true",
         default=False,
@@ -214,7 +228,7 @@ def main() -> int:
         "--new-females",
         action="store_true",
         default=False,
-        help="EXPERIMENTAL: synthesize pubic DDS for Seraph/Deadeye/Woosa/… only",
+        help="EXPERIMENTAL: synthesize pubic DDS for new females (filtered by --classes)",
     )
     ap.add_argument(
         "--native-only",
@@ -225,6 +239,13 @@ def main() -> int:
     args = ap.parse_args()
     new_females = bool(args.new_females)
     allow_reuse = (bool(args.all_classes) or new_females) and not bool(args.native_only)
+    class_filt = parse_class_filter(args.classes)
+    if class_filt:
+        log(f"Class filter: {', '.join(sorted(class_filt))}")
+        # warn unknown
+        for p in sorted(class_filt):
+            if p not in FEMALE_CLASSES and p != "plw":
+                log(f"  [WARN] unknown female prefix in filter: {p}")
 
     hair_root = pathlib.Path(args.hair_root)
     style_dir = hair_root / args.style
@@ -270,6 +291,11 @@ def main() -> int:
     # 1) NATIVE exact name matches (skip when --new-females only)
     if not new_females:
         for stem, bpath in bins.items():
+            pref = prefix_from_filename(stem + ".dds")
+            if not class_allowed(pref, class_filt):
+                log(f"  [SKIP filter] NATIVE {stem} ({pref})")
+                skip += 1
+                continue
             dds_name = stem + ".dds"
             base = next((b for b in bases if b.name.lower() == dds_name), None)
             if not base:
@@ -298,6 +324,9 @@ def main() -> int:
                 log(f"  [SKIP Shai] {base.name}")
                 skip += 1
                 continue
+            pref = prefix_from_filename(base.name)
+            if not class_allowed(pref, class_filt):
+                continue
             sz = base.stat().st_size
             donor = size_to_bin.get(sz)
             tried = [donor] if donor else list(bins.values())
@@ -317,10 +346,10 @@ def main() -> int:
 
     # 3) NEW FEMALES: invent class-named textures from preferred donor bases
     if new_females or (allow_reuse and args.all_classes):
+        targets = [p for p in NEW_FEMALE_PREFIXES if class_allowed(p, class_filt)]
         log("=== NEW FEMALES pubic synthesize (EXPERIMENTAL-REUSE) ===")
-        log(f"  classes: {', '.join(NEW_FEMALE_PREFIXES)}")
-        for pref in NEW_FEMALE_PREFIXES:
-            # skip if we already wrote something for this prefix
+        log(f"  classes: {', '.join(targets) if targets else '(none after filter)'}")
+        for pref in targets:
             already = any(
                 (out_tex / n).is_file()
                 for n in (f"{pref}_00_nude_0001.dds", f"{pref}_01_nude_0001.dds")
@@ -335,21 +364,24 @@ def main() -> int:
             else:
                 skip += 1
 
+    # only copy style preview dds if we applied something (or no filter)
     for dds in style_dir.glob("*.dds"):
         shutil.copy2(dds, out_tex / dds.name)
         log(f"  [COPY] {dds.name}")
         ok += 1
 
     if new_females:
-        mode = "NEW-FEMALES EXPERIMENTAL-REUSE only"
+        mode = "NEW-FEMALES EXPERIMENTAL-REUSE"
     elif allow_reuse:
         mode = "NATIVE + EXPERIMENTAL-REUSE"
     else:
         mode = "NATIVE only (RESTORED)"
+    filt_s = ",".join(sorted(class_filt)) if class_filt else "ALL"
 
     (out_dir / "README.txt").write_text(
         f"Pubic hair style: {args.style}\n"
         f"mode={mode}\n"
+        f"classes={filt_s}\n"
         f"Applied: {ok}  Skipped: {skip}\n"
         "NATIVE = exact class bin (RESTORED)\n"
         "EXPERIMENTAL-REUSE = same-size / new-female synthesized DDS (may look wrong if UVs differ)\n"
@@ -359,7 +391,7 @@ def main() -> int:
         + "\n",
         encoding="utf-8",
     )
-    log(f"Done. mode={mode} ok={ok} skip={skip} out={out_dir}")
+    log(f"Done. mode={mode} classes={filt_s} ok={ok} skip={skip} out={out_dir}")
     return 0 if ok > 0 else 1
 
 

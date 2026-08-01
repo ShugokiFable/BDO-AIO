@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.0.2
+
+### Per-class pubic hair / female genitals
+- Options **[6]** pubic: pick **which females** get the style (ALL / native bins / new females / custom multi-select / type prefixes)
+- Options **[V]** female 3D vagina: same per-class picker
+- Options **[F]** new-females package: choose which of Seraph/Deadeye/… to apply
+- CLI: `pubic_hair_apply.py --classes phw,pdkl` · `genital_pack_apply.py --female-classes …`
+- Config: `pubicHairClasses`, `genitalFemaleClasses` (empty = all)
+
 ## v2.0.1
 
 ### Hotfix (post-2.0.0 audit)

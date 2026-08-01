@@ -108,3 +108,30 @@ def preferred_female_genital_donor(prefix: str) -> str | None:
 
 def preferred_female_pubic_base(prefix: str) -> str | None:
     return NEW_FEMALE_PUBIC_BASE.get(prefix)
+
+
+# Class prefixes that have exact Resorepless pubic .bin files (native)
+NATIVE_PUBIC_PREFIXES = ("pbw", "pdw", "pew", "phw", "pww")
+
+
+def all_female_prefixes() -> list[str]:
+    return list(FEMALE_CLASSES.keys())
+
+
+def female_display(prefix: str) -> str:
+    if prefix in FEMALE_CLASSES:
+        return FEMALE_CLASSES[prefix][1]
+    return prefix
+
+
+def prefix_from_filename(name: str) -> str | None:
+    """Best-effort class prefix from a nude texture/mesh filename."""
+    n = name.lower()
+    # longest first so pkww wins over pkw
+    for p in sorted(FEMALE_CLASSES.keys(), key=len, reverse=True):
+        if n.startswith(p + "_"):
+            return p
+    for p in sorted(MALE_CLASSES.keys(), key=len, reverse=True):
+        if n.startswith(p + "_"):
+            return p
+    return None
