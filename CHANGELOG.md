@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.0.4
+
+### Meta Injector path-length guard
+- Pre-check `files_to_patch` for Windows **MAX_PATH (~260)** before launching Meta Injector
+- Warns when XYZW collections create deep paths under Program Files
+- Offers to delete `_midnight_xyzw\_01_xyzw_collections` before inject
+- Tool: `tools/bdo_meta/path_length_check.py`
+
 ## v2.0.3
 
 ### PAZ stock vs modded status scan

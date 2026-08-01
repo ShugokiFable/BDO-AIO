@@ -19,6 +19,7 @@ $Script:CensorshipRoot = Join-Path $Script:Root 'tools\censorship_removal'
 $Script:GenitalTool = Join-Path $Script:Root 'tools\bdo_meta\genital_pack_apply.py'
 $Script:GenitalRoot = Join-Path $Script:Root 'tools\genital_packs'
 $Script:PazStatusTool = Join-Path $Script:Root 'tools\bdo_meta\paz_status_scan.py'
+$Script:PathLengthTool = Join-Path $Script:Root 'tools\bdo_meta\path_length_check.py'
 $Script:ResoreplessExe = 'Z:\Backup\BDO\heisha\contrib\resorepless-v3.6f\resorepless.exe'
 $Script:PazUnpackerExe = 'Z:\Backup\BDO\PAZ-UnpackerV2.6.0\PAZ-Unpacker.exe'
 $Script:DefaultHeishaRoot = 'Z:\Backup\BDO\heisha'
@@ -1859,6 +1860,17 @@ function Deploy-Midnight {
     Write-Info ("Pack     : " + $Script:PackDir)
     Write-Info ("Target   : " + $Script:Config.pazFolder)
     Write-Info ("Args     : -g " + $g + " -a " + $a + " " + $xyzwArg)
+    if ([bool]$Script:Config.xyzwCollections) {
+        Write-Warn 'XYZW collections use VERY deep folder names.'
+        Write-Warn 'Under Program Files this often hits the 260-char path limit in Meta Injector.'
+        Write-Warn 'If inject failed near the end, turn XYZW OFF and re-deploy.'
+        if (-not (Read-YesNo 'Keep XYZW collections enabled for this deploy?' $false)) {
+            $Script:Config.xyzwCollections = $false
+            $xyzwArg = '--no-xyzw'
+            Save-Config
+            Write-Ok 'XYZW collections disabled for this deploy.'
+        }
+    }
     Write-Host ''
     if (-not (Read-YesNo 'Deploy now?' $true)) {
         Write-Warn 'Cancelled.'
@@ -1928,6 +1940,45 @@ function Run-PartCutGen {
     Pause-Any
 }
 
+function Test-FilesToPatchPathLengths {
+    param([string]$PazFolder)
+    $ftp = Join-Path $PazFolder 'files_to_patch'
+    if (-not (Test-Path -LiteralPath $ftp)) { return $true }
+    if (-not (Test-Path -LiteralPath $Script:PathLengthTool)) { return $true }
+    if (-not (Ensure-Python)) { return $true }
+    Write-Info 'Checking files_to_patch for Windows path-length limit (MAX_PATH ~260)...'
+    & python $Script:PathLengthTool --root $ftp --limit 240 --hard 260
+    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+        Write-Err 'Long paths detected — Meta Injector often fails near the end with a filename length error.'
+        Write-Warn 'Usual cause: XYZW collections with deep folder names under Program Files.'
+        Write-Host ''
+        Write-Host '  Recommended fix before inject:' -ForegroundColor Yellow
+        Write-Host '    1) Delete files_to_patch\_midnight_xyzw\_01_xyzw_collections' -ForegroundColor Cyan
+        Write-Host '    2) Re-deploy Midnight with XYZW collections OFF' -ForegroundColor Cyan
+        Write-Host '    3) Re-run PartCutGen, then Meta Injector' -ForegroundColor Cyan
+        Write-Host ''
+        if (Read-YesNo 'Delete the long-path XYZW collections folder now?' $true) {
+            $col = Join-Path $ftp '_midnight_xyzw\_01_xyzw_collections'
+            if (Test-Path -LiteralPath $col) {
+                Remove-Item -LiteralPath $col -Recurse -Force
+                Write-Ok 'Removed _01_xyzw_collections (long paths).'
+            } else {
+                Write-Warn 'Collections folder not found; run path check again after cleanup.'
+            }
+            & python $Script:PathLengthTool --root $ftp --limit 240 --hard 260
+            if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+                Write-Warn 'Still have long paths. Launch Meta Injector only if you accept failed files.'
+                return (Read-YesNo 'Launch Meta Injector anyway?' $false)
+            }
+            Write-Ok 'Path length check passed after cleanup.'
+            return $true
+        }
+        return (Read-YesNo 'Launch Meta Injector anyway (expect filename-length failures)?' $false)
+    }
+    Write-Ok 'Path length check OK.'
+    return $true
+}
+
 function Run-MetaInjector {
     Write-Banner
     Write-Host '  Step 3 - Meta Injector (applies the patch)' -ForegroundColor White
@@ -1941,6 +1992,11 @@ function Run-MetaInjector {
         Pause-Any
         return
     }
+    if (-not (Test-FilesToPatchPathLengths -PazFolder ([string]$Script:Config.pazFolder))) {
+        Write-Warn 'Meta Injector launch cancelled.'
+        Pause-Any
+        return
+    }
     Ensure-ToolsInPaz
     $exe = Join-Path $Script:Config.pazFolder 'Meta Injector.exe'
     if (-not (Test-Path -LiteralPath $exe)) {
@@ -1949,8 +2005,13 @@ function Run-MetaInjector {
         return
     }
     Write-Info ("Launching: " + $exe)
+    Write-Host ''
+    Write-Host '  In Meta Injector if game is broken:' -ForegroundColor Yellow
+    Write-Host '    choose 3 - Restore Backup   (undos pad00000.meta inject)' -ForegroundColor Cyan
+    Write-Host '  Then fix long paths / re-deploy, PartCutGen, inject again.' -ForegroundColor Yellow
+    Write-Host ''
     Start-Process -FilePath $exe -WorkingDirectory $Script:Config.pazFolder
-    Write-Ok 'Meta Injector launched. Use its UI to patch, then start the game.'
+    Write-Ok 'Meta Injector launched. Use its UI to patch or Restore Backup.'
     Pause-Any
 }
 
