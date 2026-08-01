@@ -84,7 +84,7 @@ function Write-Banner {
     Write-Host ''
     Write-Host '  ============================================================' -ForegroundColor Cyan
     Write-Host '   BDO MODDING AIO  |  Self-contained  |  2026 pipeline' -ForegroundColor White
-    Write-Host '   Mods + GFX + NIP  |  [X] EXPERIMENTAL DLSS = NOT SAFE' -ForegroundColor DarkCyan
+    Write-Host '   MODERN + RESTORED options  |  [X] EXPERIMENTAL only = from-scratch' -ForegroundColor DarkCyan
     Write-Host '  ============================================================' -ForegroundColor Cyan
     Write-Host ''
 }
@@ -523,22 +523,39 @@ function Set-PazFolder {
 
 function Configure-ModChoices {
     Write-Banner
-    Write-Host '  FULL OPTIONS HUB (Restored + modern)' -ForegroundColor White
-    Write-Host '  ------------------------------------' -ForegroundColor DarkGray
-    Write-Info 'Combines Midnight 2026 choices + Resorepless-style body size limits.'
+    Write-Host '  OPTIONS HUB  (clearly labeled by origin)' -ForegroundColor White
+    Write-Host '  ========================================' -ForegroundColor DarkGray
     Write-Host ''
-    Write-Host '   [1] Gender + armor hide + collections  (Midnight)' -ForegroundColor Cyan
-    Write-Host '   [2] Body size LIMITS (raise max breast/hip/etc)' -ForegroundColor Green
+    Write-Host '  Labels:' -ForegroundColor White
+    Write-Host '    MODERN      = current Midnight / 2026 pipeline (recommended)' -ForegroundColor Cyan
+    Write-Host '    RESTORED    = classic Resorepless-era feature, re-wired for this AIO' -ForegroundColor Green
+    Write-Host '    EXPERIMENTAL= built from scratch here; NOT a restored classic feature' -ForegroundColor Red
+    Write-Host ''
+
+    Write-Host '  --- MODERN (Midnight) ---' -ForegroundColor Cyan
+    Write-Host '   [1] Gender + armor hide + collections' -ForegroundColor Cyan
+    Write-Host ''
+
+    Write-Host '  --- RESTORED (classic features) ---' -ForegroundColor Green
+    Write-Host '   [2] Body size LIMITS (min/default/max + custom)  [RESTORED]' -ForegroundColor Green
     Write-Host '   [3] Apply body size patch now' -ForegroundColor Green
-    Write-Host '   [4] Slot hide toggles (gloves/boots/helmets/weapons/stockings)' -ForegroundColor Green
+    Write-Host '   [4] Slot hide (gloves/boots/helmets/weapons/stockings)  [RESTORED]' -ForegroundColor Green
     Write-Host '   [5] Apply slot hide patch now' -ForegroundColor Green
-    Write-Host '   [6] Pubic hair style (LEGACY textures, old classes best)' -ForegroundColor Magenta
-    Write-Host '   [7] Apply pubic hair now' -ForegroundColor Magenta
-    Write-Host '   [C] Censorship tier presets (LEGACY texture packs)' -ForegroundColor Magenta
-    Write-Host '   [V] Penis / 3D vagina menus (LEGACY mesh packs)' -ForegroundColor Magenta
-    Write-Host '   [8] Show Available vs Legacy option matrix' -ForegroundColor Yellow
-    Write-Host '   [9] Launch LEGACY Resorepless.exe (old classes only)' -ForegroundColor DarkYellow
-    Write-Host '   [P] Launch PAZ Unpacker' -ForegroundColor Cyan
+    Write-Host '   [6] Pubic hair style  [RESTORED / old-class bins]' -ForegroundColor Green
+    Write-Host '   [7] Apply pubic hair now' -ForegroundColor Green
+    Write-Host '   [C] Censorship tier presets  [RESTORED / old outfits]' -ForegroundColor Green
+    Write-Host '   [V] Penis / 3D vagina menus  [RESTORED / old-class meshes]' -ForegroundColor Green
+    Write-Host '   [9] Launch original Resorepless.exe (reference only)' -ForegroundColor DarkYellow
+    Write-Host ''
+
+    Write-Host '  --- EXPERIMENTAL (from-scratch / not classic restore) ---' -ForegroundColor Red
+    Write-Host '   [X] Jump to EXPERIMENTAL DLSS/OptiScaler hub  *** NOT SAFE ***' -ForegroundColor Red
+    Write-Host '       (only place for from-scratch client inject; not Resorepless)' -ForegroundColor DarkRed
+    Write-Host ''
+
+    Write-Host '  --- TOOLS / INFO ---' -ForegroundColor Yellow
+    Write-Host '   [8] Feature origin matrix (modern / restored / experimental)' -ForegroundColor Yellow
+    Write-Host '   [P] Launch PAZ Unpacker' -ForegroundColor Yellow
     Write-Host '   [0] Back' -ForegroundColor DarkGray
     Write-Host ''
     $c = (Read-Host '  Select').Trim().ToUpperInvariant()
@@ -552,6 +569,7 @@ function Configure-ModChoices {
         '7' { Apply-PubicHair }
         'C' { Configure-CensorshipTier }
         'V' { Configure-GenitalMenus }
+        'X' { Show-ExperimentalDlssMenu }
         '8' { Show-OptionsMatrix }
         '9' { Launch-LegacyResorepless }
         'P' { Launch-PazUnpacker }
@@ -1207,34 +1225,40 @@ function Apply-BodySizePatch {
 
 function Show-OptionsMatrix {
     Write-Banner
-    Write-Host '  Available vs Legacy options' -ForegroundColor White
-    Write-Host '  ---------------------------' -ForegroundColor DarkGray
+    Write-Host '  FEATURE ORIGIN MATRIX' -ForegroundColor White
+    Write-Host '  =====================' -ForegroundColor DarkGray
     Write-Host ''
-    Write-Host '  AVAILABLE IN THIS AIO (2026)' -ForegroundColor Green
-    Write-Host '  ----------------------------' -ForegroundColor DarkGray
-    Write-Host '  Gender F/M/Both'
-    Write-Host '  Armor hide: All / Pearl / Free / Underwear-only'
-    Write-Host '  Slot hide toggles: gloves, boots, helmets, weapons, stockings'
-    Write-Host '  Underwear hide + nude body (Suzu + TheGreatSage) through Seraph'
-    Write-Host '  XYZW outfit collections on/off'
-    Write-Host '  Body size LIMITS min/default/max (+ custom numbers)'
-    Write-Host '  Pubic hair styles (legacy bins; best on older female nudes)'
-    Write-Host '  Censorship tiers minimal/medium/high (legacy texture packs)'
-    Write-Host '  3D vagina + penis packs (legacy; old classes; per-class penis styles)'
-    Write-Host '  GameOption graphics profiles (menu G)'
-    Write-Host '  NVIDIA .nip driver profile (menu N)'
-    Write-Host '  PartCutGen + Meta Injector pipeline'
+    Write-Host '  MODERN (Midnight / recommended pipeline)' -ForegroundColor Cyan
+    Write-Host '  ---------------------------------------' -ForegroundColor DarkGray
+    Write-Host '  Gender F/M/Both; armor All/Pearl/Free/Underwear-only'
+    Write-Host '  Nude body + underwear hide through Seraph (not Shai)'
+    Write-Host '  XYZW collections; PartCutGen + Meta Injector'
+    Write-Host '  GameOption profiles [G]; NVIDIA .nip [N]'
     Write-Host ''
-    Write-Host '  STILL LIMITED' -ForegroundColor Yellow
+    Write-Host '  RESTORED (classic Resorepless-era, re-wired in this AIO)' -ForegroundColor Green
+    Write-Host '  -------------------------------------------------------' -ForegroundColor DarkGray
+    Write-Host '  Body size min/default/max (presets + custom numbers)'
+    Write-Host '  Slot hide: gloves / boots / helmets / weapons / stockings'
+    Write-Host '  Pubic hair styles (old texture bins)'
+    Write-Host '  Censorship tiers minimal/medium/high (old outfit textures)'
+    Write-Host '  Penis none/normal/hard + 3D vagina (old class meshes)'
+    Write-Host '  Optional: launch original resorepless.exe'
+    Write-Host ''
+    Write-Host '  EXPERIMENTAL (from-scratch in BDO-AIO — NOT a classic restore)' -ForegroundColor Red
+    Write-Host '  -------------------------------------------------------------' -ForegroundColor DarkGray
+    Write-Host '  [X] OptiScaler / Streamline / DLSS-style inject  *** NOT SAFE ***'
+    Write-Host '      Lives under experimental\dlss\ only. Separate from RESTORED packs.'
+    Write-Host '      May be flagged by anti-cheat. Not from Resorepless/Midnight.'
+    Write-Host ''
+    Write-Host '  RESTORED but LIMITED on modern content' -ForegroundColor Yellow
+    Write-Host '  --------------------------------------' -ForegroundColor DarkGray
+    Write-Host '  Genital / pubic / censorship packs: best on older classes/outfits'
+    Write-Host '  No full Agent/Wukong/Seraph-specific genital art beyond Midnight nude base'
+    Write-Host '  Penis skin-tone mismatch (classic issue)'
+    Write-Host ''
+    Write-Host '  NOT SUPPORTED' -ForegroundColor DarkGray
     Write-Host '  -------------' -ForegroundColor DarkGray
-    Write-Host '  Genital packs: no Seraph/Deadeye/Agent; penis skin-tone mismatch'
-    Write-Host '  Censorship textures: old outfits — prefer Armor=All for modern gear'
-    Write-Host ''
-    Write-Host '  NOT SUPPORTED' -ForegroundColor Red
-    Write-Host '  -------------' -ForegroundColor DarkGray
-    Write-Host '  Agent / Wukong full body packs until Midnight updates'
-    Write-Host '  Shai nude/underwear (skipped by design)'
-    Write-Host '  Anti-cheat stealth for injectors'
+    Write-Host '  Shai nude; anti-cheat stealth; inventing new high-quality body meshes'
     Write-Host ''
     Pause-Any
 }
@@ -1906,12 +1930,12 @@ function Uninstall-ExperimentalDlss {
 function Show-ExperimentalDlssMenu {
     Write-Banner
     Write-Host '  ########################################################' -ForegroundColor Red
-    Write-Host '  #  EXPERIMENTAL DLSS / OPTISCALER  —  NOT SAFE         #' -ForegroundColor Red
+    Write-Host '  #  EXPERIMENTAL (FROM-SCRATCH) — NOT a RESTORED feature  #' -ForegroundColor Red
+    Write-Host '  #  OptiScaler / DLSS inject — NOT SAFE                   #' -ForegroundColor Red
     Write-Host '  ########################################################' -ForegroundColor Red
     Write-Host ''
-    Write-Host '  BDO only ships weak FSR-class upscaling. This section installs' -ForegroundColor Yellow
-    Write-Host '  unofficial OptiScaler (+ Streamline) DLLs into the game folder' -ForegroundColor Yellow
-    Write-Host '  so you can try DLSS / FSR3 / XeSS. High risk of bans & crashes.' -ForegroundColor Yellow
+    Write-Host '  This is NOT Resorepless and NOT Midnight. Built separately in BDO-AIO.' -ForegroundColor Yellow
+    Write-Host '  Lives only under experimental\dlss\. High ban/crash risk.' -ForegroundColor Yellow
     Write-Host ''
 
     $ready = Test-ExperimentalDlssReady
@@ -2225,17 +2249,17 @@ function Show-MainMenu {
         Write-Host '  MENU' -ForegroundColor White
         Write-Host '  ----' -ForegroundColor DarkGray
         Write-Host '   [1] Set / find game PAZ folder' -ForegroundColor Cyan
-        Write-Host '   [2] FULL OPTIONS (gender/armor + body size max unlock)' -ForegroundColor Cyan
-        Write-Host '   [3] Deploy Midnight mods  ->  files_to_patch' -ForegroundColor Cyan
-        Write-Host '   [4] Run PartCutGen        (required)' -ForegroundColor Cyan
-        Write-Host '   [5] Run Meta Injector     (apply patch)' -ForegroundColor Cyan
-        Write-Host '   [6] FULL WIZARD           (easy: all mod steps)' -ForegroundColor Green
+        Write-Host '   [2] Options hub  (MODERN + RESTORED; labels inside)' -ForegroundColor Cyan
+        Write-Host '   [3] Deploy Midnight mods  ->  files_to_patch     [MODERN]' -ForegroundColor Cyan
+        Write-Host '   [4] Run PartCutGen        (required)             [MODERN]' -ForegroundColor Cyan
+        Write-Host '   [5] Run Meta Injector     (apply patch)          [MODERN]' -ForegroundColor Cyan
+        Write-Host '   [6] FULL WIZARD           (easy Midnight path)   [MODERN]' -ForegroundColor Green
         Write-Host '   [7] Open files_to_patch   (add extra mods)' -ForegroundColor Cyan
-        Write-Host '   [G] Apply GRAPHICS profile (GameOption pack)' -ForegroundColor Magenta
-        Write-Host '   [N] Import NVIDIA .nip    (Profile Inspector)' -ForegroundColor Magenta
-        Write-Host '   [X] EXPERIMENTAL DLSS/OptiScaler  *** NOT SAFE ***' -ForegroundColor Red
-        Write-Host '   [8] 2026 guide            (what is bundled)' -ForegroundColor Yellow
-        Write-Host '   [9] Verify pack integrity (before you publish)' -ForegroundColor Yellow
+        Write-Host '   [G] Graphics profiles (GameOption)               [user pack]' -ForegroundColor Magenta
+        Write-Host '   [N] NVIDIA .nip (Profile Inspector)              [user pack]' -ForegroundColor Magenta
+        Write-Host '   [X] EXPERIMENTAL DLSS/OptiScaler  *** NOT SAFE ***  [FROM-SCRATCH]' -ForegroundColor Red
+        Write-Host '   [8] 2026 guide + feature labels' -ForegroundColor Yellow
+        Write-Host '   [9] Verify pack integrity' -ForegroundColor Yellow
         Write-Host '   [0] Exit' -ForegroundColor DarkGray
         Write-Host ''
         $c = Read-Host '  Select'

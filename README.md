@@ -19,21 +19,40 @@ Double-click **`START.bat`**.
 
 If you already have a full offline `BDO-AIO` folder (with `pack\` filled), just use that. Git is for the tool + small assets.
 
+## Feature labels (important)
+
+| Label | Meaning |
+|-------|---------|
+| **MODERN** | Midnight / Meta Injector 2026 pipeline (recommended) |
+| **RESTORED** | Classic Resorepless-era feature, re-wired in this AIO |
+| **EXPERIMENTAL** | From-scratch in BDO-AIO only — **not** a classic restore |
+
+Full table: [`docs/FEATURE-LABELS.md`](docs/FEATURE-LABELS.md)
+
 ## Full options (menu 2)
 
+### MODERN
 | Area | Options |
 |------|---------|
 | Gender | Female / Male / Both |
 | Armor hide | All / Pearl / Free / Underwear-only |
 | Collections | XYZW outfit packs on/off |
-| **Body size limits** | Raise char-create **Min / Default / Max** for breasts, butt, thighs, arms, legs, pelvis, spine. **Presets recommended** (vanilla / mild / **high 2.5** / extreme) **or type custom numbers** + custom part list |
-| **Slot hide** | Optional gloves / boots / helmets / weapons / stockings dummy-mesh hide (live PAZ scan) |
-| **Pubic hair** | Legacy Resorepless styles (best on older female nude textures) |
-| **Censorship tiers** | minimal / medium / high legacy armor under-layer texture packs |
-| **3D vagina / penis** | Legacy mesh packs; per-class penis none/normal/hard; old classes only |
-| Legacy | Optional launch of old Resorepless.exe + PAZ Unpacker from `Z:\Backup\BDO` if present |
 
-Body size patch writes `files_to_patch\_body_size_limits\` then you Meta Inject. **Beauty salon or new character** required to see bigger slider range. Tamer breasts often ignore this (same as old tool).
+### RESTORED (classic)
+| Area | Options |
+|------|---------|
+| **Body size limits** | Min / Default / Max presets **or custom numbers** + custom part list |
+| **Slot hide** | Gloves / boots / helmets / weapons / stockings |
+| **Pubic hair** | Resorepless styles (old female bins best) |
+| **Censorship tiers** | minimal / medium / high texture packs |
+| **3D vagina / penis** | Old-class meshes; per-class penis none/normal/hard |
+
+### EXPERIMENTAL (from-scratch only)
+| Area | Options |
+|------|---------|
+| **Main menu [X]** | OptiScaler / DLSS-style inject — **NOT SAFE**, separate folder `experimental\dlss\` |
+
+Body size → `files_to_patch\_body_size_limits\` then Meta Inject. Beauty salon or new character for slider max. Tamer breasts often ignore size limits (classic issue).
 
 ## End user (quick start)
 
