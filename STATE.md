@@ -1,12 +1,11 @@
 # State
 
-- Parent snapshot: v2.0.7 (`9f57495`)
-- Active snapshot: 2.0.8
-- Runtime status: PartCutGen completed in the user log; Meta Injector launch is contradicted by the user screenshot and awaits retest with this hotfix
-- Authority workflow: full isolated 2.0.8 copy created before editing; 2.0.7 remains untouched
-- Meta Injector root cause: `Prepare-BdoInjectStage` allowed the Python stage-builder report into PowerShell's success pipeline, so `$stage` became `System.Object[]` instead of one path string
-- Fix: route the report to the host, cast the returned stage to one string, and pass one explicit quoted `-files` argument string
-- PartCutGen status: successful; 1,679 exclusions and `partcutdesc.xml` saved, while three optional patterns matched zero files
-- Preserved 2.0.7 scope: graphics, body-slider, XYZW, censorship, and genital fixes are unchanged
-- Source validation: 30 Python tests plus the exact Windows PowerShell stage-output regression pass
-- Release state: tool-validated hotfix candidate; Meta Injector and in-game retest required
+- Parent: v2.0.8 (`1f84a4e`)
+- Active version: 2.0.9
+- User evidence: Midnight, PartCutGen, Meta Injector, and other tested options now run without reported errors; full bush still appeared shaved on Witch or Sorceress; 3D vagina has not been tested
+- Root cause: original Resorepless pubic bins contain DXT1 blocks for an 11,184,952-byte 4K layout, but Midnight's Ranger/Sorceress/Witch diffuse DDS files are 89,478,612-byte uncompressed 32-bit mip chains
+- Fix: preserve exact byte patching for compatible DXT1 files and translate the selected-vs-shaved DXT1 pixel delta into matching coordinates for compatible 32-bit DDS files
+- Mesh/stage evidence: Witch and Sorceress PACs reference the expected `_01_nude_0001` materials; pubic outputs win canonical staging; the current injected meta was newer than the generated files
+- Validation: 32 tests pass; real Sorceress and Witch generation preserved size/header/alpha and visibly produced full-bush pixels in the expected UV region
+- Cleanup: temporary 180 MB validation DDS files and preview deleted
+- Release state: source hotfix ready for commit/package/publication; runtime confirmation pending

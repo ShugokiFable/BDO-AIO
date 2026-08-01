@@ -2,6 +2,10 @@
 
 ## 2026-08-01
 
+- Treat Resorepless pubic bins as DXT1 block resources, not format-independent byte ranges; checking only that offsets fit a larger DDS is invalid.
+- Preserve exact legacy patching for DXT1 targets. For current 32-bit targets, translate the selected-versus-shaved DXT1 delta into matching mip and UV coordinates without replacing the current skin or alpha.
+- Fail closed on unsupported DDS layouts or malformed overlay lengths.
+- Follow the user's explicit no-duplicate preference for this small hotfix; use the clean parent Git commit and published release as rollback instead of retaining another multi-gigabyte local snapshot.
 - Treat external-command stdout inside a value-returning PowerShell function as data contamination unless it is explicitly routed to the host.
 - Pass Meta Injector one explicit quoted `-files` argument string for Windows PowerShell compatibility.
 - Do not change PartCutGen for optional zero-match patterns when its generated `partcutdesc.xml` is saved successfully.

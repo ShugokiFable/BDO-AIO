@@ -1,8 +1,9 @@
 # Plan
 
-1. [complete] Read the user PartCutGen log and Meta Injector screenshot and isolate the launcher failure.
-2. [complete] Create a full rollback-safe 2.0.8 snapshot before editing.
-3. [complete] Prevent stage-builder console output from entering the returned stage path and pass a scalar Meta Injector argument.
-4. [complete] Add and run the exact Windows PowerShell regression plus the 30 existing tests.
-5. [in progress] Package, publish, and verify the 2.0.8 hotfix release.
-6. [pending] User reruns Meta Injector and performs the in-game check.
+1. [complete] Prove whether the failure is selection, PAC material binding, staging precedence, injection, or DDS composition.
+2. [complete] Identify the DXT1-versus-32-bit DDS layout mismatch causing false-success output.
+3. [complete] Repair the shared pubic overlay path while preserving compatible legacy DXT1 behavior.
+4. [complete] Add regression coverage and validate real Sorceress/Witch textures without modifying PAZ.
+5. [in progress] Commit, package, publish, and verify BDO-AIO 2.0.9.
+6. [pending] User regenerates the pubic option, reruns Meta Injector, and confirms Witch/Sorceress in game.
+7. [pending] User tests 3D vagina separately.

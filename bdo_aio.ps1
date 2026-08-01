@@ -3,7 +3,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$Script:Version = '2.0.8'
+$Script:Version = '2.0.9'
 $Script:Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script:ConfigPath = Join-Path $Script:Root 'config.json'
 $Script:PackDir = Join-Path $Script:Root 'pack'

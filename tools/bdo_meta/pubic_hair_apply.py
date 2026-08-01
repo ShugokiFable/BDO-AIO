@@ -73,14 +73,150 @@ def load_offsets(path: pathlib.Path) -> list[tuple[int, int]]:
     return out
 
 
+def _dxt1_pixels(block: bytes) -> list[tuple[int, int, int]]:
+    """Decode one DXT1 block to 16 RGB pixels."""
+    c0, c1, indices = struct.unpack("<HHI", block)
+
+    def rgb565(value: int) -> tuple[int, int, int]:
+        return (
+            ((value >> 11) & 31) * 255 // 31,
+            ((value >> 5) & 63) * 255 // 63,
+            (value & 31) * 255 // 31,
+        )
+
+    a = rgb565(c0)
+    b = rgb565(c1)
+    if c0 > c1:
+        palette = [
+            a,
+            b,
+            tuple((2 * x + y) // 3 for x, y in zip(a, b)),
+            tuple((x + 2 * y) // 3 for x, y in zip(a, b)),
+        ]
+    else:
+        palette = [a, b, tuple((x + y) // 2 for x, y in zip(a, b)), (0, 0, 0)]
+    return [palette[(indices >> (2 * i)) & 3] for i in range(16)]
+
+
+def _dds_header(data: bytes) -> tuple[int, int, int, bytes, int, tuple[int, int, int]] | None:
+    if len(data) < 128 or data[:4] != b"DDS " or struct.unpack_from("<I", data, 4)[0] != 124:
+        return None
+    height, width = struct.unpack_from("<II", data, 12)
+    mips = struct.unpack_from("<I", data, 28)[0]
+    return (
+        width,
+        height,
+        max(1, mips),
+        data[84:88],
+        struct.unpack_from("<I", data, 88)[0],
+        struct.unpack_from("<III", data, 92),
+    )
+
+
+def _mips(width: int, height: int, count: int, dxt1: bool) -> list[tuple[int, int, int, int, int]]:
+    """Return (offset, size, width, height, blocks-per-row) for each mip."""
+    out = []
+    offset = 128
+    for level in range(count):
+        w = max(1, width >> level)
+        h = max(1, height >> level)
+        blocks_w = max(1, (w + 3) // 4)
+        size = blocks_w * max(1, (h + 3) // 4) * 8 if dxt1 else w * h * 4
+        out.append((offset, size, w, h, blocks_w))
+        offset += size
+    return out
+
+
+def _apply_dxt1_delta_to_rgba(
+    dds: bytearray,
+    selected: bytes,
+    neutral: bytes,
+    offsets: list[tuple[int, int]],
+    width: int,
+    height: int,
+    mip_count: int,
+    masks: tuple[int, int, int],
+) -> bool:
+    """Translate restored DXT1 blocks onto a same-size 32-bit DDS mip chain."""
+    if any(mask.bit_count() != 8 for mask in masks):
+        return False
+    shifts = tuple((mask & -mask).bit_length() - 1 for mask in masks)
+    compressed = _mips(width, height, mip_count, True)
+    raw = _mips(width, height, mip_count, False)
+    if raw[-1][0] + raw[-1][1] != len(dds):
+        return False
+
+    blob_offset = 0
+    for patch_offset, length in offsets:
+        if blob_offset + length > len(selected) or blob_offset + length > len(neutral):
+            return False
+        for block_number in range(length // 8):
+            source_offset = patch_offset + block_number * 8
+            mip_index = next(
+                (
+                    i
+                    for i, (start, size, _, _, _) in enumerate(compressed)
+                    if start <= source_offset and source_offset + 8 <= start + size
+                ),
+                None,
+            )
+            if mip_index is None:
+                return False
+            start, _, mip_width, mip_height, blocks_w = compressed[mip_index]
+            block_index = (source_offset - start) // 8
+            block_y, block_x = divmod(block_index, blocks_w)
+            source = blob_offset + block_number * 8
+            chosen = _dxt1_pixels(selected[source : source + 8])
+            clean = _dxt1_pixels(neutral[source : source + 8])
+            raw_start = raw[mip_index][0]
+            for pixel_index, (chosen_rgb, clean_rgb) in enumerate(zip(chosen, clean)):
+                x = block_x * 4 + pixel_index % 4
+                y = block_y * 4 + pixel_index // 4
+                if x >= mip_width or y >= mip_height:
+                    continue
+                delta = tuple(a - b for a, b in zip(chosen_rgb, clean_rgb))
+                if max(abs(value) for value in delta) <= 2:
+                    continue
+                target = raw_start + (y * mip_width + x) * 4
+                packed = struct.unpack_from("<I", dds, target)[0]
+                for mask, shift, change in zip(masks, shifts, delta):
+                    value = (packed & mask) >> shift
+                    value = max(0, min(255, value + change))
+                    packed = (packed & ~mask) | (value << shift)
+                struct.pack_into("<I", dds, target, packed)
+        blob_offset += length
+    return blob_offset == len(selected) == len(neutral)
+
+
 def apply_bin_to_dds(
     dds_path: pathlib.Path,
     bin_path: pathlib.Path,
     offsets: list[tuple[int, int]],
     dest: pathlib.Path,
+    neutral_bin_path: pathlib.Path | None = None,
 ) -> bool:
     dds = bytearray(dds_path.read_bytes())
     blob = bin_path.read_bytes()
+    if sum(length for _, length in offsets) != len(blob):
+        return False
+    header = _dds_header(dds)
+    if header is None:
+        return False
+    width, height, mip_count, fourcc, bpp, masks = header
+    if fourcc != b"DXT1":
+        if bpp != 32 or neutral_bin_path is None or not neutral_bin_path.is_file():
+            return False
+        if not _apply_dxt1_delta_to_rgba(
+            dds, blob, neutral_bin_path.read_bytes(), offsets, width, height, mip_count, masks
+        ):
+            return False
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(dds)
+        return True
+    compressed = _mips(width, height, mip_count, True)
+    if compressed[-1][0] + compressed[-1][1] != len(dds):
+        return False
+
     bi = 0
     for off, length in offsets:
         if off + length > len(dds):
@@ -192,7 +328,8 @@ def synthesize_new_female(
     applied_any = False
     for bpath in tried:
         dest0 = out_tex / out_names[0]
-        if apply_bin_to_dds(base, bpath, offsets, dest0):
+        neutral = bpath.parent.parent / "shaved" / bpath.name
+        if apply_bin_to_dds(base, bpath, offsets, dest0, neutral):
             notes.append(
                 f"EXPERIMENTAL-REUSE new-female {out_names[0]} <- {base.name} + {bpath.name} ({prefix})"
             )
@@ -305,7 +442,8 @@ def main() -> int:
             if not base:
                 continue
             dest = out_tex / base.name
-            if apply_bin_to_dds(base, bpath, offsets, dest):
+            neutral = hair_root / "shaved" / bpath.name
+            if apply_bin_to_dds(base, bpath, offsets, dest, neutral):
                 log(f"  [NATIVE] {base.name}")
                 report.append(f"NATIVE {base.name} <- {bpath.name}")
                 ok += 1
@@ -338,7 +476,8 @@ def main() -> int:
             for bpath in tried:
                 if bpath is None:
                     continue
-                if apply_bin_to_dds(base, bpath, offsets, dest):
+                neutral = hair_root / "shaved" / bpath.name
+                if apply_bin_to_dds(base, bpath, offsets, dest, neutral):
                     log(f"  [EXPERIMENTAL-REUSE] {base.name} <- {bpath.name}")
                     report.append(f"EXPERIMENTAL-REUSE {base.name} <- {bpath.name}")
                     ok += 1

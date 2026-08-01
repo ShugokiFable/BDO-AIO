@@ -1,6 +1,22 @@
 # Validation
 
-BDO-AIO 2.0.8 is tool-validated as a launcher hotfix. Structural/tool validation is not runtime confirmation.
+BDO-AIO 2.0.9 is tool-validated as a restored pubic-texture hotfix. Structural/tool validation is not runtime confirmation.
+
+## 2.0.9 restored pubic-texture hotfix
+
+- User runtime evidence: contradicted for full bush on Witch or Sorceress; patching completed without an error, but the tested character appeared shaved.
+- Selection/config: PASS; `full_bush`, native prefixes `pbw,pdw,pew,phw,pww`, and experimental reuse off.
+- PAC material binding: PASS; Sorceress embeds `phw_01_nude_0001`, Witch embeds `pww_01_nude_0001`.
+- Canonical staging: PASS; generated pubic DDS files beat Midnight clean DDS files at priority 700 versus 100.
+- Injection chronology: PASS as evidence only; live `pad00000.meta` was newer than the generated pubic output and differed from its latest backup.
+- Root cause: restored ranges end at byte 11,184,948 and contain 637,596 bytes of DXT1 blocks. Midnight uses compatible 11,184,952-byte DXT1 files for Tamer/Dark Knight but 89,478,612-byte 32-bit files for Ranger/Sorceress/Witch. The old length-only check falsely accepted the incompatible larger layout.
+- Exact DXT1 path: PASS; a real Tamer regeneration is byte-identical to the previously generated known-good output, SHA-256 `A058B7622264F000396225337A170B7FC33A51A671F7A649E46EA0DFD449D674`.
+- 32-bit translation path: PASS; selected and shaved DXT1 blocks are decoded and their style delta is applied to matching pixels across the existing mip chain.
+- Real Sorceress/Witch dry run: PASS using read-only Midnight inputs. Both outputs retained 89,478,612 bytes, byte-identical 128-byte headers, unchanged alpha, and changed only the expected pubic UV area on the top mip (`x=1664..2435`, `y=2088..2995` maximum observed bounds).
+- Visual texture inspection: PASS; the generated Sorceress comparison visibly changed clean-shaven source art to full bush without replacing the surrounding 4K skin.
+- Python tests: PASS, 32.
+- Cleanup: PASS; the temporary two-DDS validation tree and preview were deleted.
+- Runtime status: **tool-validated**. User must regenerate full bush, rerun Meta Injector, and confirm in game. 3D vagina remains user-untested.
 
 ## 2.0.8 Meta Injector hotfix
 
@@ -23,7 +39,7 @@ BDO-AIO 2.0.8 is tool-validated as a launcher hotfix. Structural/tool validation
 ## Source and control gates
 
 - Python unit tests: PASS, 30 tests.
-- Exact Python compile: PASS, 16 shipped AIO/Midnight Python files compiled to an external scratch directory.
+- Exact Python compile: PASS, 17 shipped AIO/Midnight Python files compiled without writing caches into the release tree.
 - PowerShell parser: PASS for `bdo_aio.ps1` under Windows PowerShell syntax.
 - Personal-path and credential-shaped text scan: PASS after sanitizing release documentation.
 - Generated `__pycache__` directories: none in the release tree.

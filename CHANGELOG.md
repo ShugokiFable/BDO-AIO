@@ -1,5 +1,30 @@
 # Changelog
 
+## v2.0.9 - 2026-08-01
+
+### Work record
+- AI application: Codex desktop
+- Model: GPT-5
+- Reasoning mode: high
+- Parent: v2.0.8 (`1f84a4e`)
+- Task: diagnose and repair restored full-bush textures appearing shaved on Witch/Sorceress
+- Intended files: pubic texture generator, one regression test, version/release documentation
+- Runtime status at start: **contradicted** for pubic hair (user observed a shaved character despite a clean injector run); 3D vagina remains user-untested
+- Authority: edited the clean authoritative Git checkout directly, per the user's no-duplicate/no-output preference; parent commit and GitHub release history provide rollback
+
+### Restored pubic DDS layout repair
+- Proved the PAC material bindings and canonical stage precedence were correct: Sorceress uses `phw_01_nude_0001`, Witch uses `pww_01_nude_0001`, and the generated pubic files win injection.
+- Found the silent failure: the restored offset table addresses a 4K DXT1 DDS ending at byte 11,184,948, while Midnight ships Ranger/Sorceress/Witch as 89,478,612-byte uncompressed 32-bit DDS files. The old code checked only file length and therefore wrote compressed blocks into unrelated raw pixels while reporting success.
+- Preserve the exact legacy byte patch for compatible Tamer/Dark Knight DXT1 files.
+- For same-size 32-bit mipmapped DDS files, decode the selected and shaved DXT1 blocks, apply their per-pixel style delta to the matching mip/UV coordinates, and preserve the current body texture, DDS header, mip layout, and alpha.
+- Reject unsupported DDS layouts and malformed/length-mismatched overlay resources instead of reporting a false success.
+
+### Validation
+- Python suite: PASS, 32 tests including exact DXT1 preservation and DXT1-to-32-bit translation.
+- Live-asset dry run (read-only inputs): PASS for Sorceress and Witch; both kept 89,478,612-byte files, byte-identical 128-byte headers, unchanged alpha, and visible full-bush pixels in the expected UV region.
+- Temporary generated DDS files and preview were deleted after validation; no duplicate product snapshot or retained output was created.
+- Runtime status: **tool-validated**; user must regenerate the pubic option, rerun Meta Injector, and confirm in game. 3D vagina remains untested.
+
 ## v2.0.8 - 2026-08-01
 
 ### Work record

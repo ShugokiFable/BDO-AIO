@@ -9,6 +9,10 @@ Easy Windows menu for Black Desert Online client modding:
 
 Double-click **`START.bat`**.
 
+## 2.0.9 restored pubic-texture hotfix
+
+Restored pubic styles now work on Midnight's uncompressed 4K Ranger, Sorceress, and Witch diffuse textures. The AIO translates the original Resorepless DXT1 block overlay into the current DDS pixel layout while preserving the current header, mip chain, alpha, and body texture. Tamer and Dark Knight keep the original exact DXT1 patch path.
+
 ## 2.0.8 Meta Injector hotfix
 
 The canonical stage builder now prints its report without contaminating the stage-path return value. Meta Injector receives one explicit `-files` argument string on Windows PowerShell, fixing the `System.Object[]` to `System.String` launch failure. PartCutGen `matched 0 files` notices are informational when the tool finishes with `Saving ... DONE`.
