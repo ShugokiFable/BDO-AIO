@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Apply Resorepless-style pubic hair overlays onto nude body DDS textures.
+Pubic hair overlays with best-effort multi-class coverage.
 
-Method (from Resorepless reconstructDDS):
-  - start from a base nude .dds (from Midnight pack or files_to_patch)
-  - patch byte ranges from style .bin using offsets.bin
+NATIVE: exact class bin (pbw/pdw/pew/phw/pww) onto matching base DDS.
+EXPERIMENTAL: if another nude DDS has the SAME file size as a known base,
+  reuse that bin (UV layout must match size or merge fails safely).
 
-LEGACY: best on older female nude textures that match bin names
-(pbw/pdw/pew/phw/pww ...). New classes without matching bins are skipped.
+Also scans Midnight pack for all *nude*.dds body textures and tries every
+compatible bin donor.
 """
 from __future__ import annotations
 
@@ -33,15 +33,22 @@ STYLES = [
     "wider_trimmed",
 ]
 
+# bin stem -> typical authored base size (bytes) when known
+BIN_STEMS = [
+    "pbw_00_nude_0001",
+    "pdw_00_nude_0001",
+    "pew_01_nude_0001",
+    "phw_01_nude_0001",
+    "pww_01_nude_0001",
+]
+
 
 def log(msg: str) -> None:
     print(msg, flush=True)
 
 
 def load_offsets(path: pathlib.Path) -> list[tuple[int, int]]:
-    """PubicHairOffset is two ints (value=offset, length) little-endian."""
     data = path.read_bytes()
-    # try 8-byte pairs (int,int)
     out = []
     if len(data) % 8 == 0 and len(data) > 0:
         for i in range(0, len(data), 8):
@@ -51,8 +58,6 @@ def load_offsets(path: pathlib.Path) -> list[tuple[int, int]]:
             out.append((off, length))
         if out:
             return out
-    # fallback 8-byte uint
-    out = []
     for i in range(0, len(data) - 7, 8):
         off, length = struct.unpack_from("<II", data, i)
         if length == 0 or length > 10_000_000:
@@ -61,7 +66,12 @@ def load_offsets(path: pathlib.Path) -> list[tuple[int, int]]:
     return out
 
 
-def apply_bin_to_dds(dds_path: pathlib.Path, bin_path: pathlib.Path, offsets: list[tuple[int, int]], dest: pathlib.Path) -> bool:
+def apply_bin_to_dds(
+    dds_path: pathlib.Path,
+    bin_path: pathlib.Path,
+    offsets: list[tuple[int, int]],
+    dest: pathlib.Path,
+) -> bool:
     dds = bytearray(dds_path.read_bytes())
     blob = bin_path.read_bytes()
     bi = 0
@@ -77,31 +87,36 @@ def apply_bin_to_dds(dds_path: pathlib.Path, bin_path: pathlib.Path, offsets: li
     return True
 
 
-def find_base_dds(roots: list[pathlib.Path], name: str) -> pathlib.Path | None:
+def collect_base_dds(roots: list[pathlib.Path]) -> list[pathlib.Path]:
+    found: dict[str, pathlib.Path] = {}
     for root in roots:
         if not root.exists():
             continue
-        # direct
-        p = root / name
-        if p.is_file():
-            return p
-        # recursive
-        hits = list(root.rglob(name))
-        if hits:
-            return hits[0]
-    return None
+        for p in root.rglob("*.dds"):
+            n = p.name.lower()
+            if "nude" not in n:
+                continue
+            # skip pure normal/spec-only maps for primary try; still allow _n later only if named nude
+            if n.endswith("_n.dds") or n.endswith("_sp.dds") or n.endswith("_m.dds"):
+                continue
+            # prefer larger / first
+            if p.name not in found:
+                found[p.name] = p
+    return list(found.values())
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--style", required=True, choices=STYLES)
-    ap.add_argument("--hair-root", required=True, help="Folder containing style subdirs + offsets.bin")
+    ap.add_argument("--hair-root", required=True)
+    ap.add_argument("--base-roots", required=True, help="Semicolon-separated Midnight nude roots")
+    ap.add_argument("--out", required=True)
     ap.add_argument(
-        "--base-roots",
-        required=True,
-        help="Semicolon-separated folders to find base nude DDS (Midnight pack paths)",
+        "--all-classes",
+        action="store_true",
+        default=True,
+        help="Try EXPERIMENTAL bin reuse on every same-size nude DDS (default on)",
     )
-    ap.add_argument("--out", required=True, help="Output folder (files_to_patch/_pubic_hair/<style>)")
     args = ap.parse_args()
 
     hair_root = pathlib.Path(args.hair_root)
@@ -118,50 +133,99 @@ def main() -> int:
     if not offsets:
         log("[FATAL] could not parse offsets.bin")
         return 4
-    log(f"Loaded {len(offsets)} patch ranges from offsets.bin")
+    log(f"Loaded {len(offsets)} patch ranges")
 
     base_roots = [pathlib.Path(p) for p in args.base_roots.split(";") if p.strip()]
-    out_dir = pathlib.Path(args.out)
-    out_tex = out_dir / "character" / "texture"
-    out_tex.mkdir(parents=True, exist_ok=True)
+    bases = collect_base_dds(base_roots)
+    log(f"Found {len(bases)} candidate nude DDS bases")
 
-    bins = list(style_dir.glob("*.bin"))
+    # map bin stem -> bin path
+    bins = {b.stem.lower(): b for b in style_dir.glob("*.bin")}
     if not bins:
         log(f"[FATAL] no .bin in {style_dir}")
         return 5
 
+    # measure expected size per bin by finding matching base or using first successful
+    bin_sizes: dict[str, int] = {}
+    for stem, bpath in bins.items():
+        dds_name = stem + ".dds"
+        for base in bases:
+            if base.name.lower() == dds_name:
+                bin_sizes[stem] = base.stat().st_size
+                break
+
+    out_dir = pathlib.Path(args.out)
+    out_tex = out_dir / "character" / "texture"
+    out_tex.mkdir(parents=True, exist_ok=True)
+
     ok = 0
     skip = 0
-    for b in bins:
-        # pbw_00_nude_0001.bin -> pbw_00_nude_0001.dds
-        dds_name = b.stem + ".dds"
-        base = find_base_dds(base_roots, dds_name)
-        if base is None:
-            log(f"  [SKIP] no base DDS for {dds_name}")
-            skip += 1
+    report = []
+
+    # 1) NATIVE exact name matches
+    for stem, bpath in bins.items():
+        dds_name = stem + ".dds"
+        base = next((b for b in bases if b.name.lower() == dds_name), None)
+        if not base:
             continue
-        dest = out_tex / dds_name
-        if apply_bin_to_dds(base, b, offsets, dest):
-            log(f"  [OK] {dds_name}  (from {base})")
+        dest = out_tex / base.name
+        if apply_bin_to_dds(base, bpath, offsets, dest):
+            log(f"  [NATIVE] {base.name}")
+            report.append(f"NATIVE {base.name} <- {bpath.name}")
             ok += 1
+            bin_sizes[stem] = base.stat().st_size
         else:
-            log(f"  [FAIL] merge {dds_name} (size mismatch — base texture may be different resolution)")
+            log(f"  [FAIL native] {base.name}")
             skip += 1
 
-    # also copy any full DDS already in style folder
+    # 2) EXPERIMENTAL: any other nude DDS with same size as a known bin base
+    if args.all_classes:
+        size_to_bin: dict[int, pathlib.Path] = {}
+        for stem, sz in bin_sizes.items():
+            if stem in bins:
+                size_to_bin[sz] = bins[stem]
+        # if we never measured, try each bin against each dds size by trial
+        for base in bases:
+            dest = out_tex / base.name
+            if dest.is_file():
+                continue  # already native
+            # skip Shai-ish tiny if desired
+            if base.name.lower().startswith("plw_"):
+                log(f"  [SKIP Shai] {base.name}")
+                skip += 1
+                continue
+            sz = base.stat().st_size
+            donor = size_to_bin.get(sz)
+            tried = []
+            if donor:
+                tried = [donor]
+            else:
+                tried = list(bins.values())
+            applied = False
+            for bpath in tried:
+                if apply_bin_to_dds(base, bpath, offsets, dest):
+                    log(f"  [EXPERIMENTAL-REUSE] {base.name} <- {bpath.name}")
+                    report.append(f"EXPERIMENTAL-REUSE {base.name} <- {bpath.name}")
+                    ok += 1
+                    applied = True
+                    break
+            if not applied:
+                log(f"  [SKIP size/UV] {base.name} ({sz} bytes)")
+                skip += 1
+
     for dds in style_dir.glob("*.dds"):
-        dest = out_tex / dds.name
-        shutil.copy2(dds, dest)
+        shutil.copy2(dds, out_tex / dds.name)
         log(f"  [COPY] {dds.name}")
         ok += 1
 
-    readme = out_dir / "README.txt"
-    readme.write_text(
+    (out_dir / "README.txt").write_text(
         f"Pubic hair style: {args.style}\n"
-        f"Applied textures: {ok}\n"
-        f"Skipped: {skip}\n"
-        "LEGACY: only textures that match old Resorepless bin names.\n"
-        "Put under files_to_patch and run Meta Injector. Use with nude body mod.\n",
+        f"Applied: {ok}  Skipped: {skip}\n"
+        "NATIVE = exact class bin\n"
+        "EXPERIMENTAL-REUSE = same-size nude DDS used a donor bin (may look wrong if UVs differ)\n"
+        "Shai skipped when detected (plw_).\n"
+        + "\n".join(report)
+        + "\n",
         encoding="utf-8",
     )
     log(f"Done. ok={ok} skip={skip} out={out_dir}")

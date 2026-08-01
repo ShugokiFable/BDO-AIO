@@ -579,10 +579,10 @@ function Configure-ModChoices {
 
 function Configure-CensorshipTier {
     Write-Banner
-    Write-Host '  CENSORSHIP TIER PRESETS (LEGACY texture packs)' -ForegroundColor Magenta
+    Write-Host '  CENSORSHIP TIER PRESETS  [RESTORED texture packs]' -ForegroundColor Magenta
     Write-Host '  ----------------------------------------------' -ForegroundColor DarkGray
     Write-Info 'Resorepless armor under-layer / built-in panty texture swaps.'
-    Write-Warn 'Best on older outfits (Tamer/Ranger/DK/Kuno). New pearl gear often needs Armor=All instead.'
+    Write-Warn 'Outfit-specific (not every class/outfit). New pearl gear often needs Armor=All instead.'
     Write-Host ''
     Write-Host '    [0] Off' -ForegroundColor DarkGray
     Write-Host '    [1] Minimal  — some Tamer/Ranger built-in panties' -ForegroundColor Cyan
@@ -630,17 +630,18 @@ function Read-PenisStyle([string]$label, [string]$current) {
 
 function Configure-GenitalMenus {
     Write-Banner
-    Write-Host '  PENIS / 3D VAGINA (LEGACY mesh packs)' -ForegroundColor Magenta
-    Write-Host '  ------------------------------------' -ForegroundColor DarkGray
-    Write-Warn 'Resorepless-era only. Missing Seraph/Deadeye/Agent/etc. Penis skin often mismatches body tone.'
+    Write-Host '  PENIS / 3D VAGINA  [RESTORED + EXPERIMENTAL reuse for missing classes]' -ForegroundColor Magenta
+    Write-Host '  ----------------------------------------------------------------------' -ForegroundColor DarkGray
+    Write-Info 'NATIVE mesh when Resorepless had that class; otherwise EXPERIMENTAL donor rename.'
+    Write-Warn 'Reuse can clip/mismatch bones. Penis skin tone often wrong. Shai skipped.'
     Write-Host ''
-    Write-Host '  FEMALE — 3D vagina nude meshes' -ForegroundColor White
-    $Script:Config.female3dVagina = Read-YesNo 'Enable 3D vagina nude PAC pack (old female classes)?' ([bool]$Script:Config.female3dVagina)
+    Write-Host '  FEMALE — 3D vagina (all female classes best-effort, not Shai)' -ForegroundColor White
+    $Script:Config.female3dVagina = Read-YesNo 'Enable 3D vagina for ALL female classes (reuse donor mesh where needed)?' ([bool]$Script:Config.female3dVagina)
 
     Write-Host ''
-    Write-Host '  MALE — penis meshes' -ForegroundColor White
-    Write-Host '    [1] All male classes same style (easy)' -ForegroundColor Green
-    Write-Host '    [2] Per-class styles (Warrior/Berserker/Musa/Wizard/Ninja/Striker)' -ForegroundColor Cyan
+    Write-Host '  MALE — penis (native + reuse for Hashashin/Sage/Archer/etc.)' -ForegroundColor White
+    Write-Host '    [1] All male classes same style (easy)  [includes experimental reuse]' -ForegroundColor Green
+    Write-Host '    [2] Per-class styles (core 6 classes only in UI)' -ForegroundColor Cyan
     Write-Host '    [3] All off' -ForegroundColor DarkGray
     $m = Read-Choice 'Male mode' @('1', '2', '3')
     if ($m -eq '3') {
@@ -805,10 +806,10 @@ function Apply-SlotHidePatch {
 
 function Configure-PubicHair {
     Write-Banner
-    Write-Host '  PUBIC HAIR STYLE (LEGACY)' -ForegroundColor Magenta
-    Write-Host '  -------------------------' -ForegroundColor DarkGray
-    Write-Warn 'Best on older female nude textures (Tamer/DK/Ranger/Sorc/Witch bins).'
-    Write-Warn 'Seraph/Deadeye/etc. skip if no matching base+bin. Not a full new-class system.'
+    Write-Host '  PUBIC HAIR  [RESTORED + EXPERIMENTAL same-size reuse]' -ForegroundColor Magenta
+    Write-Host '  ----------------------------------------------------' -ForegroundColor DarkGray
+    Write-Info 'NATIVE bins for classic classes; EXPERIMENTAL reuse on other nude DDS of same file size.'
+    Write-Warn 'Reuse may look wrong if UV layout differs. Shai skipped.'
     Write-Host ''
     if (-not (Test-Path -LiteralPath (Join-Path $Script:PubicHairRoot 'offsets.bin'))) {
         Write-Err ("Pubic hair pack missing: " + $Script:PubicHairRoot)
@@ -1003,8 +1004,9 @@ function Test-BodySizeOrder {
 
 function Configure-BodySizeLimits {
     Write-Banner
-    Write-Host '  BODY SIZE LIMITS (char create / beauty salon)' -ForegroundColor White
-    Write-Host '  ---------------------------------------------' -ForegroundColor DarkGray
+    Write-Host '  BODY SIZE LIMITS  [RESTORED — all classes via live PAZ]' -ForegroundColor White
+    Write-Host '  -----------------------------------------------------' -ForegroundColor DarkGray
+    Write-Info 'Patches ALL customizationboneparamdesc files in the live game (every class).'
     Write-Info 'Raises Min / Default / Max so in-game sliders can go further (Resorepless-style).'
     Write-Warn 'After inject: beauty salon or new character. Tamer breasts often ignore this.'
     Write-Host ''

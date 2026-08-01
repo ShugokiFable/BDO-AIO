@@ -45,8 +45,19 @@ Hard gates, WARNING.txt, and **NOT SAFE** labeling. Kept out of the RESTORED opt
 | GameOption graphics profiles | **G** |
 | NVIDIA Profile Inspector `.nip` | **N** |
 
+## Best-effort all-class coverage
+
+Where classic packs only had old classes, the AIO may **reuse a donor mesh/bin** renamed for Seraph, Deadeye, Woosa, etc.
+
+| Apply mode | Label in logs / README under files_to_patch |
+|------------|-----------------------------------------------|
+| Exact classic asset for that class | **NATIVE** (still RESTORED feature) |
+| Donor mesh/texture reused for missing class | **EXPERIMENTAL-REUSE** (must not be sold as native art) |
+
+Body **size limits** already touch every `customizationboneparamdesc` in live PAZ (all classes).
+
 ## Honesty rules
 
 - Do not rebrand EXPERIMENTAL inject as RESTORED.
 - RESTORED packs that only cover old classes stay labeled limited/legacy in menus.
-- Mesh-reuse or invented art for new classes (if added later) must be **EXPERIMENTAL**, not RESTORED.
+- Mesh-reuse for new classes is **EXPERIMENTAL-REUSE**, not NATIVE.

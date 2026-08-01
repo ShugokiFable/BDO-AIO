@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Apply LEGACY Resorepless genital packs (3D vagina female nudes / male penis nudes).
+Genital packs with best-effort ALL-class coverage.
 
-- female: copy 3D vagina nude PACs + related textures into character paths
-- male: per-class penis style none|normal|hard — copy PAC as nude + as underwear override
+NATIVE RESTORED: Resorepless 3D vagina / penis PACs for classes that have them.
+EXPERIMENTAL REUSE: for missing classes, copy nearest donor mesh renamed to that
+class's nude/uw filenames (may clip / mismatch bones — labeled in README).
 
-These are 2018-era meshes. New classes (Seraph, Deadeye, Agent, …) are not included.
-Skin-tone mismatch on penises is a known Resorepless limitation.
+Shai is skipped (same policy as Midnight).
 """
 from __future__ import annotations
 
@@ -15,61 +15,132 @@ import pathlib
 import shutil
 import sys
 
-# prefix -> game folder under character/model/1_pc/
-FEMALE_PAC_FOLDERS = {
-    "pbw": "5_pbw",
-    "pcw": "16_pcw",
-    "pdw": "15_pdw",
-    "pew": "3_pew",
-    "phw": "2_phw",
-    "pkww": "22_pkww",
-    "pnw": "13_pnw",
-    "psw": "17_psw",
-    "pvw": "7_pvw",
-    "pww": "8_pww",
-}
-
-MALE_PAC_FOLDERS = {
-    "phm": "1_phm",
-    "pgm": "4_pgm",
-    "pkm": "6_pkm",
-    "pwm": "8_pwm",
-    "pnm": "13_pnm",
-    "pcm": "16_pcm",
-}
-
-MALE_CLASSES = ["warrior", "berserker", "musa", "wizard", "ninja", "striker"]
-MALE_PREFIX = {
-    "warrior": "phm",
-    "berserker": "pgm",
-    "musa": "pkm",
-    "wizard": "pwm",
-    "ninja": "pnm",
-    "striker": "pcm",
-}
+from class_coverage import (
+    FEMALE_CLASSES,
+    FEMALE_DONOR_ORDER,
+    MALE_CLASSES,
+    MALE_DONOR_ORDER,
+    female_folder,
+    male_folder,
+)
 
 
 def log(m: str) -> None:
     print(m, flush=True)
 
 
-def prefix_of(name: str) -> str | None:
-    n = name.lower()
-    for p in sorted(list(FEMALE_PAC_FOLDERS) + list(MALE_PAC_FOLDERS), key=len, reverse=True):
-        if n.startswith(p + "_"):
+def find_pac(pack: pathlib.Path, name: str) -> pathlib.Path | None:
+    for p in (pack / "female" / name, pack / "male" / "normal" / name, pack / "male" / "hard" / name):
+        if p.is_file():
             return p
-    return None
+    hits = list(pack.rglob(name))
+    return hits[0] if hits else None
+
+
+def pick_female_donor(pack: pathlib.Path, want_prefix: str) -> tuple[pathlib.Path, str, bool]:
+    """Return (src_pac, donor_prefix, is_native)."""
+    native = FEMALE_CLASSES[want_prefix][2]
+    if native:
+        p = find_pac(pack, native)
+        if p:
+            return p, want_prefix, True
+    for d in FEMALE_DONOR_ORDER:
+        n = FEMALE_CLASSES[d][2]
+        if not n:
+            continue
+        p = find_pac(pack, n)
+        if p:
+            return p, d, False
+    # last resort any female pac
+    any_p = list((pack / "female").glob("*.pac"))
+    if any_p:
+        return any_p[0], "unknown", False
+    raise FileNotFoundError("no female donor PAC")
+
+
+def pick_male_donor(pack: pathlib.Path, want_prefix: str, style: str) -> tuple[pathlib.Path, str, bool]:
+    native_name = MALE_CLASSES.get(want_prefix, (None, None, None))[2]
+    style_dir = pack / "male" / style
+    if native_name:
+        p = style_dir / native_name
+        if p.is_file():
+            return p, want_prefix, True
+    for d in MALE_DONOR_ORDER:
+        n = MALE_CLASSES[d][2]
+        if not n:
+            continue
+        p = style_dir / n
+        if p.is_file():
+            return p, d, False
+    any_p = list(style_dir.glob("*.pac"))
+    if any_p:
+        return any_p[0], "unknown", False
+    raise FileNotFoundError(f"no male {style} donor PAC")
+
+
+def copy_female_class(pack: pathlib.Path, out: pathlib.Path, prefix: str) -> list[str]:
+    notes = []
+    folder = female_folder(prefix)
+    dest_dir = out / folder
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    src, donor, native = pick_female_donor(pack, prefix)
+    # target filenames Midnight uses
+    targets = [
+        f"{prefix}_00_nude_0001.pac",
+        f"{prefix}_00_uw_0001.pac",
+    ]
+    # keep original donor name too if different (some injectors look for exact legacy names)
+    for t in targets:
+        shutil.copy2(src, dest_dir / t)
+    tag = "NATIVE" if native else f"EXPERIMENTAL-REUSE from {donor}"
+    notes.append(f"[F {tag}] {prefix} ({FEMALE_CLASSES[prefix][1]}) <- {src.name}")
+    log(notes[-1])
+    return notes
+
+
+def copy_male_class(pack: pathlib.Path, out: pathlib.Path, prefix: str, style: str) -> list[str]:
+    notes = []
+    if prefix not in MALE_CLASSES:
+        return notes
+    folder = male_folder(prefix)
+    dest_dir = out / folder
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    src, donor, native = pick_male_donor(pack, prefix, style)
+    for t in (f"{prefix}_00_nude_0001.pac", f"{prefix}_00_uw_0001.pac"):
+        shutil.copy2(src, dest_dir / t)
+    tag = "NATIVE" if native else f"EXPERIMENTAL-REUSE from {donor}"
+    notes.append(f"[M {style} {tag}] {prefix} ({MALE_CLASSES[prefix][1]}) <- {src.name}")
+    log(notes[-1])
+    # textures
+    tex_out = out / "character" / "texture"
+    tex_out.mkdir(parents=True, exist_ok=True)
+    for tname in (f"{prefix}_00_nude_0001.dds", f"{donor}_00_nude_0001.dds", f"{donor}_01_nude_0001.dds"):
+        tsrc = pack / "texture" / tname
+        if tsrc.is_file():
+            # always also write under target class name if donor texture
+            dest_name = f"{prefix}_00_nude_0001.dds" if "_nude_" in tname else tname
+            if tname.startswith(donor) and donor != prefix:
+                dest_name = f"{prefix}_00_nude_0001.dds"
+            shutil.copy2(tsrc, tex_out / dest_name)
+            log(f"  [M tex] {dest_name}")
+    return notes
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--pack-root", required=True, help="tools/genital_packs")
-    ap.add_argument("--out", required=True, help="files_to_patch/_genital_legacy")
+    ap.add_argument("--pack-root", required=True)
+    ap.add_argument("--out", required=True)
     ap.add_argument("--female-3d-vagina", choices=["on", "off"], default="off")
     ap.add_argument(
         "--male-penis",
         default="none",
-        help="Global default: none|normal|hard  OR per-class map warrior=hard,striker=normal",
+        help="none|normal|hard OR warrior=hard,striker=normal OR all=normal",
+    )
+    ap.add_argument(
+        "--all-classes",
+        action="store_true",
+        default=True,
+        help="Cover every known class via EXPERIMENTAL donor reuse when needed (default on)",
     )
     args = ap.parse_args()
 
@@ -79,102 +150,93 @@ def main() -> int:
         shutil.rmtree(out)
     out.mkdir(parents=True)
 
+    report: list[str] = []
     copied = 0
 
-    # Female 3D vagina nudes
     if args.female_3d_vagina == "on":
-        fem_dir = pack / "female"
-        tex_dir = pack / "texture"
-        for pac in fem_dir.glob("*.pac"):
-            pref = prefix_of(pac.name)
-            if not pref or pref not in FEMALE_PAC_FOLDERS:
-                log(f"  [SKIP female pac] {pac.name}")
-                continue
-            folder = FEMALE_PAC_FOLDERS[pref]
-            dest_dir = out / "character" / "model" / "1_pc" / folder / "nude"
-            dest_dir.mkdir(parents=True, exist_ok=True)
-            # keep original nude filename
-            shutil.copy2(pac, dest_dir / pac.name)
-            # also as common uw override name if pattern fits
-            base = pac.name.lower().replace("_noalpha", "")
-            # e.g. pbw_00_nude_0001.pac -> pbw_00_uw_0001.pac
-            uw_name = base.replace("_nude_", "_uw_")
-            shutil.copy2(pac, dest_dir / uw_name)
-            log(f"  [F] {pac.name} -> {folder}/nude/")
-            copied += 2
-
-        # textures + normals
+        log("=== Female 3D vagina (NATIVE + EXPERIMENTAL reuse) ===")
+        for pref in FEMALE_CLASSES:
+            try:
+                notes = copy_female_class(pack, out, pref)
+                report.extend(notes)
+                copied += 2
+            except Exception as e:
+                log(f"  [FAIL F] {pref}: {e}")
+        # native female textures/normals for classes that have them
         tex_out = out / "character" / "texture"
         tex_out.mkdir(parents=True, exist_ok=True)
-        for dds in tex_dir.glob("*nude*.dds"):
-            # female-ish: skip pure male small maps if only male prefixes
+        for dds in (pack / "texture").glob("*nude*.dds"):
             n = dds.name.lower()
-            if any(n.startswith(p + "_") for p in MALE_PAC_FOLDERS) and not any(
-                n.startswith(p + "_") for p in FEMALE_PAC_FOLDERS
-            ):
-                continue
-            if any(n.startswith(p + "_") for p in FEMALE_PAC_FOLDERS) or n.startswith("phw_") or n.startswith("pew_"):
+            if any(n.startswith(p + "_") for p in FEMALE_CLASSES):
                 shutil.copy2(dds, tex_out / dds.name)
-                log(f"  [F tex] {dds.name}")
+                log(f"  [F tex native] {dds.name}")
                 copied += 1
 
-    # Male penis types
-    # parse map
+    # male map
     penis_map: dict[str, str] = {}
     raw = args.male_penis.strip().lower()
-    if raw in ("none", "normal", "hard"):
-        if raw != "none":
-            for c in MALE_CLASSES:
-                penis_map[c] = raw
+    if raw in ("none",):
+        pass
+    elif raw in ("normal", "hard") or raw.startswith("all="):
+        style = raw.split("=", 1)[-1] if raw.startswith("all=") else raw
+        for pref in MALE_CLASSES:
+            penis_map[pref] = style
     else:
+        # per display name or prefix
+        name_to_pref = {v[1].lower(): k for k, v in MALE_CLASSES.items()}
+        name_to_pref.update(
+            {
+                "warrior": "phm",
+                "berserker": "pgm",
+                "musa": "pkm",
+                "wizard": "pwm",
+                "ninja": "pnm",
+                "striker": "pcm",
+                "archer": "pem",
+                "hashashin": "pam",
+                "sage": "ppm",
+            }
+        )
         for part in raw.split(","):
             part = part.strip()
             if not part or "=" not in part:
                 continue
             k, v = part.split("=", 1)
             k, v = k.strip().lower(), v.strip().lower()
-            if k in MALE_PREFIX and v in ("none", "normal", "hard"):
-                if v != "none":
-                    penis_map[k] = v
+            if v not in ("none", "normal", "hard"):
+                continue
+            if v == "none":
+                continue
+            pref = name_to_pref.get(k, k if k in MALE_CLASSES else None)
+            if pref:
+                penis_map[pref] = v
 
-    for cls, style in penis_map.items():
-        pref = MALE_PREFIX[cls]
-        src_dir = pack / "male" / style
-        pac_name = f"{pref}_00_nude_0001.pac"
-        src = src_dir / pac_name
-        if not src.is_file():
-            log(f"  [MISS] {src}")
-            continue
-        folder = MALE_PAC_FOLDERS[pref]
-        dest_dir = out / "character" / "model" / "1_pc" / folder / "nude"
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dest_dir / pac_name)
-        # underwear override (classic Resorepless rename)
-        shutil.copy2(src, dest_dir / f"{pref}_00_uw_0001.pac")
-        log(f"  [M {style}] {cls}: {pac_name}")
-        copied += 2
+    if penis_map:
+        log("=== Male penis (NATIVE + EXPERIMENTAL reuse) ===")
+        for pref, style in penis_map.items():
+            try:
+                notes = copy_male_class(pack, out, pref, style)
+                report.extend(notes)
+                copied += 2
+            except Exception as e:
+                log(f"  [FAIL M] {pref}: {e}")
 
-        # male nude texture if present
-        tex_out = out / "character" / "texture"
-        tex_out.mkdir(parents=True, exist_ok=True)
-        for tname in (f"{pref}_00_nude_0001.dds", f"{pref}_01_nude_0001.dds"):
-            tsrc = pack / "texture" / tname
-            if tsrc.is_file():
-                shutil.copy2(tsrc, tex_out / tname)
-                log(f"  [M tex] {tname}")
-                copied += 1
-
-    (out / "README.txt").write_text(
-        "LEGACY genital pack (Resorepless-era meshes).\n"
+    readme = out / "README.txt"
+    readme.write_text(
+        "Genital pack apply — all-class best effort\n"
+        "==========================================\n"
+        "NATIVE = original Resorepless mesh for that class\n"
+        "EXPERIMENTAL-REUSE = donor mesh renamed for missing class (may clip/mismatch)\n"
+        "Shai is not included.\n\n"
         f"female_3d_vagina={args.female_3d_vagina}\n"
         f"male_penis={args.male_penis}\n"
-        f"files_copied={copied}\n"
-        "Known issues: skin tone mismatch on penises; missing new classes; may need PartCutGen.\n"
-        "Use with underwear removal / nude mods. Meta Inject after deploy.\n",
+        f"entries={len(report)}\n\n"
+        + "\n".join(report)
+        + "\n\nUse with Midnight underwear hide. Meta Inject + PartCutGen.\n",
         encoding="utf-8",
     )
-    log(f"Done. files_copied={copied} out={out}")
-    return 0 if copied else 1
+    log(f"Done. report_lines={len(report)} out={out}")
+    return 0 if report else 1
 
 
 if __name__ == "__main__":
