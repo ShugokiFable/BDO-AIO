@@ -10,7 +10,17 @@ $Script:GraphicsDir = Join-Path $Script:Root 'graphics'
 $Script:NvidiaDir = Join-Path $Script:GraphicsDir 'nvidia'
 $Script:NipFileName = 'Black_Desert_Max_Quality.nip'
 $Script:ExperimentalDlssDir = Join-Path $Script:Root 'experimental\dlss'
+$Script:BodySizeTool = Join-Path $Script:Root 'tools\bdo_meta\body_size_patcher.py'
+$Script:ResoreplessExe = 'Z:\Backup\BDO\heisha\contrib\resorepless-v3.6f\resorepless.exe'
+$Script:PazUnpackerExe = 'Z:\Backup\BDO\PAZ-UnpackerV2.6.0\PAZ-Unpacker.exe'
 $Script:Config = $null
+
+$Script:BodySizePresets = [ordered]@{
+    'vanilla'  = 'Vanilla limits (max 1.25)'
+    'mild'     = 'Mild unlock (max 1.75)'
+    'high'     = 'High unlock (max 2.5) — classic Resorepless-style'
+    'extreme'  = 'Extreme (max 3.0) — may clip badly'
+}
 
 # Files we may place in game root for experimental OptiScaler (uninstall list)
 $Script:OptiProxyNames = @('dxgi.dll', 'winmm.dll', 'version.dll', 'd3d12.dll', 'dbghelp.dll', 'wininet.dll', 'winhttp.dll')
@@ -103,15 +113,19 @@ function Load-Config {
             armor           = 'A'
             xyzwCollections = $true
             npiPath         = ''
+            bodySizePreset  = 'high'
+            bodySizeParts   = 'breasts,butt,thighs,arms,legs,pelvis,spine'
             lastRun         = $null
         }
     }
-    foreach ($p in @('pazFolder', 'gender', 'armor', 'xyzwCollections', 'npiPath', 'lastRun')) {
+    foreach ($p in @('pazFolder', 'gender', 'armor', 'xyzwCollections', 'npiPath', 'bodySizePreset', 'bodySizeParts', 'lastRun')) {
         if (-not ($Script:Config.PSObject.Properties.Name -contains $p)) {
             $val = switch ($p) {
                 'gender' { 'F' }
                 'armor'  { 'A' }
                 'xyzwCollections' { $true }
+                'bodySizePreset' { 'high' }
+                'bodySizeParts' { 'breasts,butt,thighs,arms,legs,pelvis,spine' }
                 default { '' }
             }
             Add-Member -InputObject $Script:Config -NotePropertyName $p -NotePropertyValue $val
@@ -128,6 +142,8 @@ function Save-Config {
         armor           = [string]$Script:Config.armor
         xyzwCollections = [bool]$Script:Config.xyzwCollections
         npiPath         = [string]$Script:Config.npiPath
+        bodySizePreset  = [string]$Script:Config.bodySizePreset
+        bodySizeParts   = [string]$Script:Config.bodySizeParts
         lastRun         = $Script:Config.lastRun
     }
     $json = $out | ConvertTo-Json -Depth 4
@@ -341,6 +357,9 @@ function Show-Status {
     Write-Host ("  Armor    : " + $a + " (" + (Get-ArmorLabel $a) + ")") -ForegroundColor Gray
     $xyzwText = if ($x) { 'Yes' } else { 'No' }
     Write-Host ("  Collections (XYZW outfits): " + $xyzwText) -ForegroundColor Gray
+    $bsp = [string]$Script:Config.bodySizePreset
+    if (-not $bsp) { $bsp = 'high' }
+    Write-Host ("  Body size preset: " + $bsp + "  (menu 2 -> raise max breast/hip sliders)") -ForegroundColor Gray
     Write-Host ''
 }
 
@@ -422,11 +441,35 @@ function Set-PazFolder {
 
 function Configure-ModChoices {
     Write-Banner
-    Write-Host '  Configure mod choices' -ForegroundColor White
-    Write-Host '  ---------------------' -ForegroundColor DarkGray
-    Write-Info 'These are the real options Midnight supports in 2026 (not old Resorepless sliders).'
+    Write-Host '  FULL OPTIONS HUB (Restored + modern)' -ForegroundColor White
+    Write-Host '  ------------------------------------' -ForegroundColor DarkGray
+    Write-Info 'Combines Midnight 2026 choices + Resorepless-style body size limits.'
     Write-Host ''
+    Write-Host '   [1] Gender + armor hide + collections  (Midnight)' -ForegroundColor Cyan
+    Write-Host '   [2] Body size LIMITS (raise max breast/hip/etc)  << what you remembered' -ForegroundColor Green
+    Write-Host '   [3] Apply body size patch now -> files_to_patch' -ForegroundColor Green
+    Write-Host '   [4] Show Available vs Legacy option matrix' -ForegroundColor Yellow
+    Write-Host '   [5] Launch LEGACY Resorepless.exe (old classes only)' -ForegroundColor DarkYellow
+    Write-Host '   [6] Launch PAZ Unpacker (extract tools)' -ForegroundColor Cyan
+    Write-Host '   [0] Back' -ForegroundColor DarkGray
+    Write-Host ''
+    $c = (Read-Host '  Select').Trim()
+    switch ($c) {
+        '1' { Configure-MidnightChoices }
+        '2' { Configure-BodySizeLimits }
+        '3' { Apply-BodySizePatch }
+        '4' { Show-OptionsMatrix }
+        '5' { Launch-LegacyResorepless }
+        '6' { Launch-PazUnpacker }
+        default { return }
+    }
+}
 
+function Configure-MidnightChoices {
+    Write-Banner
+    Write-Host '  Midnight hide / nude options' -ForegroundColor White
+    Write-Host '  ----------------------------' -ForegroundColor DarkGray
+    Write-Host ''
     Write-Host '  WHO should armor/underwear removal apply to?' -ForegroundColor White
     Write-Host '    [F] Female only     (most common)' -ForegroundColor Cyan
     Write-Host '    [M] Male only' -ForegroundColor Cyan
@@ -435,9 +478,9 @@ function Configure-ModChoices {
 
     Write-Host ''
     Write-Host '  WHICH outfits should become transparent / stripped?' -ForegroundColor White
-    Write-Host '    [A] All armors and outfits     (full effect - recommended)' -ForegroundColor Cyan
+    Write-Host '    [A] All armors and outfits (includes gloves/boots/helmets/stockings)' -ForegroundColor Cyan
     Write-Host '    [P] Pearl Shop only' -ForegroundColor Cyan
-    Write-Host '    [F] Free (non-cash) only' -ForegroundColor Cyan
+    Write-Host '    [F] Free / non-cash only' -ForegroundColor Cyan
     Write-Host '    [U] Underwear hide only (keep armor meshes)' -ForegroundColor Cyan
     Write-Host ''
     Write-Info 'Nude base body (Suzu + TheGreatSage) is always included.'
@@ -445,15 +488,177 @@ function Configure-ModChoices {
     $Script:Config.armor = Read-Choice 'Armor letter' @('A', 'P', 'F', 'U')
 
     Write-Host ''
-    Write-Host '  EXTRA outfit packs (XYZW collections: Crimson Sky, etc.)?' -ForegroundColor White
+    Write-Host '  EXTRA outfit packs (XYZW collections)?' -ForegroundColor White
     $Script:Config.xyzwCollections = Read-YesNo 'Include XYZW collection mods?' $true
 
     Save-Config
+    Write-Ok 'Midnight choices saved.'
+    Pause-Any
+}
+
+function Configure-BodySizeLimits {
+    Write-Banner
+    Write-Host '  BODY SIZE LIMITS (char create / beauty salon)' -ForegroundColor White
+    Write-Host '  ---------------------------------------------' -ForegroundColor DarkGray
+    Write-Info 'This is the old Resorepless feature: raise Max so in-game sliders go higher.'
+    Write-Warn 'Must create a new character OR use beauty salon after inject. Tamer breasts may not work.'
     Write-Host ''
-    Write-Ok 'Choices saved.'
-    Write-Host ("  Gender = " + (Get-GenderLabel $Script:Config.gender)) -ForegroundColor Gray
-    Write-Host ("  Armor  = " + (Get-ArmorLabel $Script:Config.armor)) -ForegroundColor Gray
-    Write-Host ("  XYZW   = " + $Script:Config.xyzwCollections) -ForegroundColor Gray
+    Write-Host '  Presets (Min / Default / Max):' -ForegroundColor White
+    Write-Host '    [1] vanilla  — 0.90 / 1.00 / 1.25   (stock game)' -ForegroundColor Cyan
+    Write-Host '    [2] mild     — 0.85 / 1.00 / 1.75' -ForegroundColor Cyan
+    Write-Host '    [3] high     — 0.80 / 1.05 / 2.50   (recommended classic)' -ForegroundColor Green
+    Write-Host '    [4] extreme  — 0.70 / 1.10 / 3.00' -ForegroundColor Yellow
+    $p = Read-Choice 'Preset' @('1', '2', '3', '4')
+    $Script:Config.bodySizePreset = switch ($p) {
+        '1' { 'vanilla' }
+        '2' { 'mild' }
+        '3' { 'high' }
+        '4' { 'extreme' }
+    }
+
+    Write-Host ''
+    Write-Host '  Body parts to unlock (same as Resorepless size menu):' -ForegroundColor White
+    Write-Host '    [1] Breasts only' -ForegroundColor Cyan
+    Write-Host '    [2] Breasts + butt + thighs' -ForegroundColor Cyan
+    Write-Host '    [3] ALL (breasts, butt, thighs, arms, legs, pelvis, spine)' -ForegroundColor Green
+    $bp = Read-Choice 'Parts' @('1', '2', '3')
+    $Script:Config.bodySizeParts = switch ($bp) {
+        '1' { 'breasts' }
+        '2' { 'breasts,butt,thighs' }
+        '3' { 'breasts,butt,thighs,arms,legs,pelvis,spine' }
+    }
+
+    Save-Config
+    Write-Ok ("Saved preset=" + $Script:Config.bodySizePreset + " parts=" + $Script:Config.bodySizeParts)
+    if (Read-YesNo 'Apply body size patch to game files_to_patch now?' $true) {
+        Apply-BodySizePatch
+    } else {
+        Pause-Any
+    }
+}
+
+function Apply-BodySizePatch {
+    Write-Banner
+    Write-Host '  Apply body size limit patch' -ForegroundColor White
+    Write-Host '  ---------------------------' -ForegroundColor DarkGray
+
+    if (-not (Test-IsPazFolder $Script:Config.pazFolder)) {
+        Write-Err 'Set game PAZ first (menu 1).'
+        Pause-Any
+        return
+    }
+    if (-not (Test-Path -LiteralPath $Script:BodySizeTool)) {
+        Write-Err ("Missing tool: " + $Script:BodySizeTool)
+        Pause-Any
+        return
+    }
+    if (-not (Ensure-Python)) {
+        Pause-Any
+        return
+    }
+
+    $preset = [string]$Script:Config.bodySizePreset
+    if (-not $preset) { $preset = 'high' }
+    $parts = [string]$Script:Config.bodySizeParts
+    if (-not $parts) { $parts = 'breasts,butt,thighs,arms,legs,pelvis,spine' }
+    $out = Join-Path $Script:Config.pazFolder 'files_to_patch\_body_size_limits'
+
+    Write-Info ("PAZ    : " + $Script:Config.pazFolder)
+    Write-Info ("Preset : " + $preset)
+    Write-Info ("Parts  : " + $parts)
+    Write-Info ("Output : " + $out)
+    Write-Warn 'Extracts ~75 customizationboneparamdesc.xml from live game (takes a minute).'
+    if (-not (Read-YesNo 'Run body size patcher?' $true)) {
+        Pause-Any
+        return
+    }
+
+    $pyArgs = @(
+        $Script:BodySizeTool,
+        '--paz', [string]$Script:Config.pazFolder,
+        '--out', $out,
+        '--preset', $preset,
+        '--parts', $parts
+    )
+    try {
+        & python @pyArgs
+        if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+            Write-Err ("Patcher exit code " + $LASTEXITCODE)
+        } else {
+            Write-Ok 'Body size files written under files_to_patch\_body_size_limits'
+            Write-Info 'Next: PartCutGen (optional for this XML) then Meta Injector, then beauty salon / new char.'
+            Ensure-ToolsInPaz
+        }
+    } catch {
+        Write-Err $_.Exception.Message
+    }
+    Pause-Any
+}
+
+function Show-OptionsMatrix {
+    Write-Banner
+    Write-Host '  Available vs Legacy options' -ForegroundColor White
+    Write-Host '  ---------------------------' -ForegroundColor DarkGray
+    Write-Host ''
+    Write-Host '  AVAILABLE IN THIS AIO (2026)' -ForegroundColor Green
+    Write-Host '  ----------------------------' -ForegroundColor DarkGray
+    Write-Host '  Gender F/M/Both'
+    Write-Host '  Armor hide: All / Pearl / Free / Underwear-only'
+    Write-Host '    (All includes gloves, boots, helmets, stockings, life gear meshes)'
+    Write-Host '  Underwear hide + nude body (Suzu + TheGreatSage) through Seraph'
+    Write-Host '  XYZW outfit collections on/off'
+    Write-Host '  Body size LIMITS min/default/max for breasts, butt, thighs, arms, legs, pelvis, spine'
+    Write-Host '  GameOption graphics profiles (menu G)'
+    Write-Host '  NVIDIA .nip driver profile (menu N)'
+    Write-Host '  PartCutGen + Meta Injector pipeline'
+    Write-Host ''
+    Write-Host '  LEGACY / PARTIAL (old Resorepless — not rebuilt fully)' -ForegroundColor Yellow
+    Write-Host '  ------------------------------------------------------' -ForegroundColor DarkGray
+    Write-Host '  Separate gloves-only / boots-only toggles  -> use Armor=All or extract custom'
+    Write-Host '  Pubic hair style picker                   -> use Resorepless.exe (old classes)'
+    Write-Host '  Penis / 3D vagina toggles                 -> Resorepless.exe only; broken on new classes'
+    Write-Host '  Per-class enable list                     -> Midnight applies broadly (except Shai)'
+    Write-Host '  Weapon mesh customize                     -> Resorepless.exe only'
+    Write-Host '  Censorship low/med/high tiers             -> mostly superseded by armor/underwear hide'
+    Write-Host ''
+    Write-Host '  NOT SUPPORTED' -ForegroundColor Red
+    Write-Host '  -------------' -ForegroundColor DarkGray
+    Write-Host '  Agent (male, 2026) / Wukong (male) body packs until Midnight updates'
+    Write-Host '  Shai nude/underwear (skipped by design)'
+    Write-Host '  Anti-cheat stealth for injectors'
+    Write-Host ''
+    Pause-Any
+}
+
+function Launch-LegacyResorepless {
+    Write-Banner
+    Write-Host '  LEGACY Resorepless 3.6f' -ForegroundColor Yellow
+    Write-Host '  -----------------------' -ForegroundColor DarkGray
+    Write-Warn 'Abandoned ~2018. Missing modern classes (Seraph, Deadeye, Woosa, …).'
+    Write-Warn 'Use only for old-class experiments. Prefer AIO body size + Midnight for 2026.'
+    $exe = $Script:ResoreplessExe
+    if (-not (Test-Path -LiteralPath $exe)) {
+        Write-Err ("Not found: " + $exe)
+        Write-Info 'Expected under Z:\Backup\BDO\heisha\contrib\resorepless-v3.6f\'
+        Pause-Any
+        return
+    }
+    if (Read-YesNo 'Launch resorepless.exe anyway?' $false) {
+        Start-Process -FilePath $exe -WorkingDirectory (Split-Path -Parent $exe)
+        Write-Ok 'Launched. Configure sizes there if you insist on the old UI.'
+    }
+    Pause-Any
+}
+
+function Launch-PazUnpacker {
+    $exe = $Script:PazUnpackerExe
+    if (-not (Test-Path -LiteralPath $exe)) {
+        Write-Err ("Not found: " + $exe)
+        Pause-Any
+        return
+    }
+    Start-Process -FilePath $exe -WorkingDirectory (Split-Path -Parent $exe)
+    Write-Ok 'PAZ Unpacker launched.'
     Pause-Any
 }
 
@@ -1411,7 +1616,7 @@ function Show-MainMenu {
         Write-Host '  MENU' -ForegroundColor White
         Write-Host '  ----' -ForegroundColor DarkGray
         Write-Host '   [1] Set / find game PAZ folder' -ForegroundColor Cyan
-        Write-Host '   [2] Configure mod choices (gender / armor / collections)' -ForegroundColor Cyan
+        Write-Host '   [2] FULL OPTIONS (gender/armor + body size max unlock)' -ForegroundColor Cyan
         Write-Host '   [3] Deploy Midnight mods  ->  files_to_patch' -ForegroundColor Cyan
         Write-Host '   [4] Run PartCutGen        (required)' -ForegroundColor Cyan
         Write-Host '   [5] Run Meta Injector     (apply patch)' -ForegroundColor Cyan

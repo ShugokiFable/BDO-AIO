@@ -28,6 +28,8 @@ __pycache__/
 # Accidental game-side backups if copied in
 BDO-AIO-backup-dlss-*/
 files_to_patch/
+tools/bdo_meta/_sample/
+tools/bdo_meta/_test_out/
 
 tools/nvidiaProfileInspector/*.pdb
 
