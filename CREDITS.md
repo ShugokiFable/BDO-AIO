@@ -16,7 +16,6 @@ This package bundles tools and content created by others. All credit goes to the
 | NVIDIA Profile Inspector | Orbmu2k / community (https://github.com/Orbmu2k/nvidiaProfileInspector) |
 | OptiScaler (experimental) | https://github.com/optiscaler/OptiScaler |
 | Streamline DLLs (experimental) | NVIDIA |
-| DLSS Enabler setup (optional experimental) | respective authors |
 
 **Experimental DLSS tools are third-party unofficial hooks.** Ship `experimental\dlss\WARNING.txt` with every release that includes them.
 
@@ -30,5 +29,5 @@ This package bundles tools and content created by others. All credit goes to the
 ## External and omitted tools
 
 - **BDO Toolkit 1.3.0** is an external runtime dependency of [Meta Injector 1.4.1](https://www.undertow.club/downloads/meta-injector.4367/). The AIO detects it but does not redistribute it.
-- [**Meta Patcher 1.1.0**](https://www.undertow.club/downloads/meta-patcher.7829/) is a separate correcting pass and may be needed by some clients/regions. It is not a duplicate injector; obtain it from the original author.
+- [**Meta Patcher 1.1.0**](https://www.undertow.club/downloads/meta-patcher.7829/) is a separate correcting pass for blocked official regions. The author's FAQ excludes NA/EU; obtain it from the original author only when the client region requires it.
 - Creator-only or superseded launchers stay out of the end-user package: PAZ Browser/Unpacker, PACtool, 3D Converter, and the abandoned Resorepless UI.

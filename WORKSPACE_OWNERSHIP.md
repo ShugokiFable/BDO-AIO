@@ -1,5 +1,5 @@
 # Workspace ownership
 
-The Git checkout containing this file is the authoritative product, based on parent tag `v2.0.4`.
+The Git checkout containing this file is the authoritative product, based on parent `v2.0.5` commit `66c6cb4`.
 
-This directory is the complete 2.0.5 release snapshot made from that parent, excluding only the parent's `.git` administration directory. The reviewed files were promoted to the authoritative checkout. The game, PAZ, tool-reference, save, and deployment trees remained read-only during development.
+This directory is the complete 2.0.6 working snapshot made from the authoritative 2.0.5 parent, excluding only the parent's `.git` administration directory. It remains isolated until validation passes and is then promoted as a complete replacement. The game, PAZ, tool-reference, save, and deployment trees remain read-only during development.

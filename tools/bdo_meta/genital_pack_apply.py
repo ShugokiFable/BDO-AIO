@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Genital packs with NATIVE RESTORED and optional EXPERIMENTAL-REUSE.
+Genital packs with NATIVE RESTORED and optional female EXPERIMENTAL-REUSE.
 
 NATIVE RESTORED: Resorepless 3D vagina / penis PACs for classes that have them.
-EXPERIMENTAL-REUSE: for missing classes (esp. new females: Seraph, Deadeye, …),
+EXPERIMENTAL-REUSE: for missing females (esp. Seraph, Deadeye, …),
   copy a preferred donor mesh renamed to that class's nude/uw filenames.
   This replaces the high-quality Midnight/TGS body PAC for that class — labeled.
 
 --new-females: only Seraph/Deadeye/Woosa/… (no native PAC). Implies donor reuse.
---all-classes: every class; reuse where native missing.
+--all-classes: every female class; reuse where native missing. Males remain native-only.
 Default / --native-only: classic NATIVE only.
 
 Shai is skipped (same policy as Midnight).
@@ -24,7 +24,6 @@ from class_coverage import (
     FEMALE_CLASSES,
     FEMALE_DONOR_ORDER,
     MALE_CLASSES,
-    MALE_DONOR_ORDER,
     NEW_FEMALE_PREFIXES,
     female_folder,
     male_folder,
@@ -79,8 +78,8 @@ def pick_female_donor(
     raise FileNotFoundError("no female donor PAC")
 
 
-def pick_male_donor(
-    pack: pathlib.Path, want_prefix: str, style: str, allow_reuse: bool
+def pick_male_native(
+    pack: pathlib.Path, want_prefix: str, style: str
 ) -> tuple[pathlib.Path, str, bool]:
     native_name = MALE_CLASSES.get(want_prefix, (None, None, None))[2]
     style_dir = pack / "male" / style
@@ -88,19 +87,7 @@ def pick_male_donor(
         p = style_dir / native_name
         if p.is_file():
             return p, want_prefix, True
-    if not allow_reuse:
-        raise FileNotFoundError(f"no NATIVE male PAC for {want_prefix} (reuse off)")
-    for d in MALE_DONOR_ORDER:
-        n = MALE_CLASSES[d][2]
-        if not n:
-            continue
-        p = style_dir / n
-        if p.is_file():
-            return p, d, False
-    any_p = list(style_dir.glob("*.pac"))
-    if any_p:
-        return any_p[0], "unknown", False
-    raise FileNotFoundError(f"no male {style} donor PAC")
+    raise FileNotFoundError(f"no NATIVE male PAC for {want_prefix}")
 
 
 def copy_female_textures(
@@ -166,7 +153,7 @@ def copy_female_class(
 
 
 def copy_male_class(
-    pack: pathlib.Path, out: pathlib.Path, prefix: str, style: str, allow_reuse: bool
+    pack: pathlib.Path, out: pathlib.Path, prefix: str, style: str
 ) -> list[str]:
     notes = []
     if prefix not in MALE_CLASSES:
@@ -174,7 +161,7 @@ def copy_male_class(
     folder = male_folder(prefix)
     dest_dir = out / folder
     dest_dir.mkdir(parents=True, exist_ok=True)
-    src, donor, native = pick_male_donor(pack, prefix, style, allow_reuse)
+    src, donor, native = pick_male_native(pack, prefix, style)
     for t in (f"{prefix}_00_nude_0001.pac", f"{prefix}_00_uw_0001.pac"):
         shutil.copy2(src, dest_dir / t)
     tag = "NATIVE" if native else f"EXPERIMENTAL-REUSE from {donor}"
@@ -182,7 +169,7 @@ def copy_male_class(
     log(notes[-1])
     tex_out = out / "character" / "texture"
     tex_out.mkdir(parents=True, exist_ok=True)
-    for tname in (f"{prefix}_00_nude_0001.dds", f"{donor}_00_nude_0001.dds", f"{donor}_01_nude_0001.dds"):
+    for tname in dict.fromkeys((f"{prefix}_00_nude_0001.dds", f"{donor}_00_nude_0001.dds", f"{donor}_01_nude_0001.dds")):
         tsrc = pack / "texture" / tname
         if tsrc.is_file():
             dest_name = f"{prefix}_00_nude_0001.dds" if "_nude_" in tname else tname
@@ -208,7 +195,7 @@ def main() -> int:
         "--all-classes",
         action="store_true",
         default=False,
-        help="EXPERIMENTAL: donor mesh reuse for every class with no native pack",
+        help="EXPERIMENTAL: donor mesh reuse for females with no native pack; males stay native-only",
     )
     ap.add_argument(
         "--new-females",
@@ -235,7 +222,7 @@ def main() -> int:
     args = ap.parse_args()
 
     new_females = bool(args.new_females)
-    allow_reuse = (bool(args.all_classes) or new_females) and not bool(args.native_only)
+    allow_female_reuse = (bool(args.all_classes) or new_females) and not bool(args.native_only)
     if new_females:
         female_on = True
     else:
@@ -262,8 +249,8 @@ def main() -> int:
     failures: list[str] = []
     if new_females:
         mode = "NEW-FEMALES EXPERIMENTAL-REUSE only"
-    elif allow_reuse:
-        mode = "NATIVE + EXPERIMENTAL-REUSE"
+    elif allow_female_reuse:
+        mode = "NATIVE + FEMALE EXPERIMENTAL-REUSE"
     else:
         mode = "NATIVE only (RESTORED)"
     if female_filt:
@@ -281,12 +268,12 @@ def main() -> int:
             targets = [p for p in targets if p in female_filt]
         log(f"  targets: {', '.join(targets) if targets else '(none)'}")
         for pref in targets:
-            if not new_females and not allow_reuse and not FEMALE_CLASSES[pref][2]:
+            if not new_females and not allow_female_reuse and not FEMALE_CLASSES[pref][2]:
                 continue
             if new_females and pref not in NEW_FEMALE_PREFIXES:
                 continue
             try:
-                notes = copy_female_class(pack, out, pref, allow_reuse=True if new_females else allow_reuse)
+                notes = copy_female_class(pack, out, pref, allow_reuse=True if new_females else allow_female_reuse)
                 report.extend(notes)
             except Exception as e:
                 log(f"  [FAIL F] {pref}: {e}")
@@ -317,7 +304,7 @@ def main() -> int:
             for pref in MALE_CLASSES:
                 if male_filt is not None and pref not in male_filt:
                     continue
-                if allow_reuse or MALE_CLASSES[pref][2]:
+                if MALE_CLASSES[pref][2]:
                     penis_map[pref] = style
         else:
             name_to_pref = {v[1].lower(): k for k, v in MALE_CLASSES.items()}
@@ -346,7 +333,7 @@ def main() -> int:
                 if pref:
                     if male_filt is not None and pref not in male_filt:
                         continue
-                    if allow_reuse or (pref in MALE_CLASSES and MALE_CLASSES[pref][2]):
+                    if pref in MALE_CLASSES and MALE_CLASSES[pref][2]:
                         penis_map[pref] = v
                     else:
                         log(f"  [SKIP M no-native] {pref}")
@@ -355,7 +342,7 @@ def main() -> int:
         log(f"=== Male penis ({mode}) ===")
         for pref, style in penis_map.items():
             try:
-                notes = copy_male_class(pack, out, pref, style, allow_reuse)
+                notes = copy_male_class(pack, out, pref, style)
                 report.extend(notes)
             except Exception as e:
                 log(f"  [FAIL M] {pref}: {e}")
@@ -378,7 +365,8 @@ def main() -> int:
         f"new_females={new_females}\n"
         f"female_3d_vagina={args.female_3d_vagina}\n"
         f"male_penis={args.male_penis}\n"
-        f"allow_reuse={allow_reuse}\n"
+        f"allow_female_reuse={allow_female_reuse}\n"
+        "male_reuse=False\n"
         f"entries={len(report)}\n\n"
         f"failures={len(failures)}\n"
         + "\n".join(report)

@@ -7,7 +7,7 @@ config.local.json
 pack/**
 !pack/README.md
 
-# Experimental OptiScaler / Streamline / DLSS Enabler binaries (~270MB)
+# Experimental OptiScaler / Streamline binaries
 # Keep warnings/docs only in git
 experimental/dlss/OptiScaler/**
 experimental/dlss/Streamline/**

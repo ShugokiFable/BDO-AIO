@@ -64,20 +64,19 @@ MALE_CLASSES = {
     "pgm": ("4_pgm", "Berserker", "pgm_00_nude_0001.pac"),
     "pkm": ("6_pkm", "Musa", "pkm_00_nude_0001.pac"),
     "pwm": ("8_pwm", "Wizard", "pwm_00_nude_0001.pac"),
-    "pwmm": ("8_pwm", "Wizard revamp", "pwm_00_nude_0001.pac"),  # reuse wizard
-    "pem": ("9_pem", "Archer", None),  # reuse warrior
+    "pwmm": ("8_pwm", "Wizard revamp", None),
+    "pem": ("9_pem", "Archer", None),
     "pnm": ("13_pnm", "Ninja", "pnm_00_nude_0001.pac"),
     "pcm": ("16_pcm", "Striker", "pcm_00_nude_0001.pac"),
-    "pam": ("18_pam", "Hashashin", None),  # reuse warrior
-    "ppm": ("23_ppm", "Sage", None),  # reuse wizard
-    # Wukong / Agent — unknown prefixes; will try live meta discovery if passed
+    "pam": ("18_pam", "Hashashin", None),
+    "ppm": ("23_ppm", "Sage", None),
+    "prsa": ("31_prsa", "Dosa", None),
+    "pgms": ("34_pgms", "Wukong", None),
+    # Missing male classes stay native-only; no cross-class genital mesh reuse.
 }
 
 # Preferred donor for missing female 3D vagina mesh (fallback order)
 FEMALE_DONOR_ORDER = ["pww", "pdw", "pbw", "phw", "pvw", "pnw", "pcw", "psw", "pew"]
-
-# Preferred donor for missing male penis mesh
-MALE_DONOR_ORDER = ["phm", "pcm", "pwm", "pgm", "pkm", "pnm"]
 
 # Pubic hair bin donors by DDS size buckets (bin was authored against these sizes)
 # pbw/pdw classic 11MB; pew/phw/pww large variants differ — match by file size

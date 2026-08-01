@@ -29,6 +29,16 @@ class BodySizePatcherTests(unittest.TestCase):
         self.assertIn(b'Max="3.00 3.00 3.00"', patched)
         self.assertIn(b'Default="1.10 1.10 1.10"', patched)
 
+    def test_preserves_current_game_trailing_field_padding(self) -> None:
+        raw = (
+            b'<ParamDesc Min="0.90 0.90 0.90" Max="1.30 1.55 1.55" '
+            b'Default="0.90 0.93 0.93 " BoneName="Bip01 L Breast"/>'
+        )
+        patched, edits, tags = patch_xml_bytes(raw, self.values)
+        self.assertEqual(len(patched), len(raw))
+        self.assertEqual((edits, tags), (3, 1))
+        self.assertIn(b'Default="1.10 1.10 1.10 "', patched)
+
     def test_does_not_reach_back_into_a_previous_tag(self) -> None:
         raw = (
             b'<ParamDesc Min="0.90 0.90 0.90" Max="1.20 1.20 1.20" Default="1.00 1.00 1.00"/>'

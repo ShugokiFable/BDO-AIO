@@ -315,6 +315,17 @@ def fmt_vector(v: float) -> bytes:
     return f"{component} {component} {component}".encode("ascii")
 
 
+def fmt_vector_for_field(v: float, old_value: bytes) -> bytes:
+    """Fit a valid vector to the source field, preserving its exact byte width."""
+    vector = fmt_vector(v)
+    leading = len(old_value) - len(old_value.lstrip())
+    if leading + len(vector) > len(old_value):
+        raise ValueError(
+            f"body size vector needs {leading + len(vector)} bytes but source field has {len(old_value)}"
+        )
+    return (b" " * leading) + vector + (b" " * (len(old_value) - leading - len(vector)))
+
+
 def patch_xml_bytes(raw: bytes, bone_values: dict[str, dict[str, float]]) -> tuple[bytes, int, int]:
     """Patch only complete ParamDesc tags while preserving every other byte and file size."""
     changes = 0
@@ -340,18 +351,13 @@ def patch_xml_bytes(raw: bytes, bone_values: dict[str, dict[str, float]]) -> tup
             matches = list(attr_pattern.finditer(patched))
             if not matches:
                 raise ValueError(f'{bone}: expected a {attr.decode("ascii")} attribute in its tag')
-            new_value = fmt_vector(values[key])
             for attr_match in reversed(matches):
                 old_value = attr_match.group(2)
                 if _VECTOR_VALUE.fullmatch(old_value) is None:
                     raise ValueError(
                         f'{bone}: {attr.decode("ascii")} is not a three-component numeric vector: {old_value!r}'
                     )
-                if len(new_value) != len(old_value):
-                    raise ValueError(
-                        f'{bone}: refusing size-changing edit for {attr.decode("ascii")} '
-                        f"({len(old_value)} -> {len(new_value)} bytes)"
-                    )
+                new_value = fmt_vector_for_field(values[key], old_value)
                 patched = patched[: attr_match.start(2)] + new_value + patched[attr_match.end(2) :]
                 changes += 1
         return patched

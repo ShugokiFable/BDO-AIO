@@ -45,13 +45,13 @@ Full table: [`docs/FEATURE-LABELS.md`](docs/FEATURE-LABELS.md)
 | **Slot hide** | Gloves / boots / helmets / weapons / stockings |
 | **Pubic hair** | Style + **per-class pick** (ALL / native / new females / custom list) |
 | **Censorship tiers** | minimal / medium / high texture packs |
-| **3D vagina / penis** | Old-class meshes by default; per-class penis none/normal/hard |
+| **3D vagina / penis** | Female donor reuse is optional; male penis meshes are native-only (six supported classes) |
 
 ### EXPERIMENTAL-REUSE (opt-in, not native art)
 | Area | Options |
 |------|---------|
 | **New females genitals + pubic** | Options hub **[F]** — Seraph/Deadeye/Woosa/… preferred donors + synthesized pubic DDS |
-| Donor mesh/bin for any missing class | Also asked inside Options **[6]** / **[V]**; default **OFF** |
+| Donor mesh/bin for missing females | Also asked inside Options **[6]** / **[V]**; default **OFF**; never applied to Dosa/Wukong males |
 
 ### EXPERIMENTAL (from-scratch only)
 | Area | Options |
@@ -59,6 +59,8 @@ Full table: [`docs/FEATURE-LABELS.md`](docs/FEATURE-LABELS.md)
 | **Main menu [X]** | OptiScaler / DLSS-style inject — **NOT SAFE**, separate folder `experimental\dlss\` |
 
 Body size → `files_to_patch\_body_size_limits\` then Meta Inject. Beauty salon or new character for slider max. Tamer breasts often ignore size limits (classic issue).
+
+The 2.0.6 body generator writes only complete three-component vectors and preserves the exact byte width of each live source attribute, including current trailing padding. It aborts instead of producing a partial or size-changing XML file.
 
 ## End user (quick start)
 
@@ -69,8 +71,8 @@ Body size → `files_to_patch\_body_size_limits\` then Meta Inject. Beauty salon
 5. Press **`6`** (Full Wizard) for Midnight + optional RESTORED batch
 6. Or press **`A`** later to apply all configured RESTORED choices only
 7. Select your game **`PAZ`** folder (`pad00000.meta` inside)
-8. Finish **PartCutGen**, then **Meta Injector**. AIO 2.0.5 builds a canonical short-path stage first; it does not delete XYZW collections.
-9. Optional: **`G`** GameOption · **`N`** NVIDIA .nip · **`X`** EXPERIMENTAL upscale (DLSS/FSR/DStorage)
+8. Finish **PartCutGen**, then **Meta Injector**. AIO 2.0.6 builds a canonical short-path stage first; it does not delete XYZW collections.
+9. Optional: **`G`** GameOption · **`N`** NVIDIA .nip · **`X`** EXPERIMENTAL official OptiScaler bundle
 10. Check inject state: **`S`** scan PAZ (stock / staged / injected / restored)  
 11. Troubleshooting: **`R`** restore/clean · after game patches **`H`** heisha regen helper
 
@@ -125,7 +127,6 @@ BDO-AIO/
       README.txt
       OptiScaler/                <- OptiScaler 0.9.4
       Streamline/                <- NVIDIA Streamline DLLs
-      optional/                  <- DLSS Enabler setup + alt version.dll
 ```
 
 ## NVIDIA driver profile (menu N)
@@ -163,15 +164,15 @@ Applies to: `Documents\Black Desert\GameOption.txt`
 
 **Required external dependency:** bundled Meta Injector 1.4.1 requires **BDO Toolkit 1.3.0**. The AIO checks for it before injection.
 
-**Separate optional/client-dependent step:** Meta Patcher 1.1.0 is not redundant with Meta Injector. If `Meta Patcher.exe` is present in PAZ, the AIO offers to run it after injection. Download it from the original author rather than redistributing it here.
+**Region-specific step:** the Meta Patcher author's FAQ says it is for official regions that block mods—currently every official region **except NA/EU**. AIO reads `service.ini`: it skips Meta Patcher on NA/EU, offers it only for another detected region, and does not guess when the region is unknown. It is not bundled; obtain it from the original author only if your region needs it.
 
 Official tool pages: [Meta Injector 1.4.1](https://www.undertow.club/downloads/meta-injector.4367/) and [Meta Patcher 1.1.0](https://www.undertow.club/downloads/meta-patcher.7829/).
 
 **Redundant or creator-only, therefore not bundled:** PAZ Browser/Unpacker, PACtool, 3D Converter, the abandoned Resorepless UI, and the old 0.3.0 pack.
 
-## 2.0.5 injection-path fix
+## 2.0.6 deploy and injection path
 
-Meta Injector 1.4.1 is a .NET Framework application whose recursive source scan can hit Windows path limits when many organizer layers are nested. AIO 2.0.5 now:
+Meta Injector 1.4.1 is a .NET Framework application whose recursive source scan can hit Windows path limits when many organizer layers are nested. AIO 2.0.6:
 
 1. reads every file in `files_to_patch`;
 2. mirrors Meta Injector's `_` / `.` organizer-marker rules;
@@ -179,6 +180,8 @@ Meta Injector 1.4.1 is a .NET Framework application whose recursive source scan 
 4. validates normal files against the current live `pad00000.meta`;
 5. creates a flat canonical stage and mounts temporary short drive roots;
 6. launches Meta Injector with its supported `-files` argument.
+
+Midnight deploy also receives `--yes` from the AIO, so the single AIO confirmation is sufficient and deploy no longer waits for a hidden second Enter. The live-regenerated hide pack adds Wukong armor/underwear paths without borrowing a male genital body.
 
 No XYZW collection is removed. Truly invalid or obsolete game paths stop the run and are reported instead of being mislabeled as path-length failures.
 
@@ -194,7 +197,8 @@ No XYZW collection is removed. Truly invalid or obsolete game paths stop the run
 ## Pipeline
 
 ```text
-Deploy from pack -> PartCutGen -> canonical stage -> Meta Injector -> optional Meta Patcher -> Launch game
+NA/EU: Deploy -> PartCutGen -> canonical stage -> Meta Injector -> Launch game
+Other official regions: Deploy -> PartCutGen -> canonical stage -> Meta Injector -> Meta Patcher (when required) -> Launch game
 ```
 
 ## Risk

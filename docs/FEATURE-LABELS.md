@@ -11,7 +11,7 @@ Current 2024–2026 Midnight / Meta Injector pipeline.
 | Gender / armor hide / XYZW collections | Options hub **1**, wizard **6** |
 | Deploy Midnight pack | **3** / **6** |
 | PartCutGen / Meta Injector | **4** / **5** |
-| Nude + underwear through Seraph | Midnight pack |
+| Nude body through Seraph; armor/underwear hide through Wukong | Midnight pack + live heisha regeneration |
 
 ## RESTORED
 
@@ -37,7 +37,7 @@ Features that **existed in Resorepless-era tooling**, reimplemented or repackage
 
 | Feature | Menu | Location |
 |---------|------|----------|
-| OptiScaler / Streamline / DLSS / FSR / DirectStorage | Main **[X]** only | `experimental\dlss\` + `upgrades\` |
+| Official OptiScaler 0.9.4 bundle | Main **[X]** only | `experimental\dlss\` |
 
 Hard gates, WARNING.txt, and **NOT SAFE** labeling. Kept out of the RESTORED options list.
 
@@ -50,12 +50,12 @@ Hard gates, WARNING.txt, and **NOT SAFE** labeling. Kept out of the RESTORED opt
 
 ## Best-effort all-class coverage
 
-Where classic packs only had old classes, the AIO can **optionally** reuse a donor mesh/bin renamed for Seraph, Deadeye, Woosa, etc.
+Where classic packs only had old female classes, the AIO can **optionally** reuse a female donor mesh/bin renamed for Seraph, Deadeye, Woosa, etc. Male genital packs are native-only.
 
 | Apply mode | Label / output folder | Default |
 |------------|----------------------|---------|
 | Exact classic asset for that class | **NATIVE** / `_…_RESTORED_native` | **ON** (RESTORED path) |
-| Donor for any missing class | **EXPERIMENTAL-REUSE** / `_…_EXPERIMENTAL_reuse` | **OFF** (opt-in in [6]/[V]) |
+| Female donor for a missing female class | **EXPERIMENTAL-REUSE** / `_…_EXPERIMENTAL_reuse` | **OFF** (opt-in in [6]/[V]) |
 | **New females only** (Seraph, Deadeye, Woosa, Maegu, Scholar, Nova, Corsair, Drakania, Guardian) | **EXPERIMENTAL-REUSE** / `_genital_EXPERIMENTAL_new_females`, `_pubic_hair_EXPERIMENTAL_new_females` | Options hub **[F]** |
 
 CLI: `--native-only` (default) · `--all-classes` · `--new-females` (preferred donors + synthesized pubic DDS).

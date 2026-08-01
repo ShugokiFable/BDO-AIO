@@ -1,5 +1,31 @@
 # Changelog
 
+## v2.0.6 - 2026-08-01
+
+### Midnight deploy
+- Added a non-interactive `--yes` mode to the bundled Midnight deployer and pass it from the AIO after the existing `Deploy now?` confirmation.
+- Removed the stale second XYZW/path-length warning. XYZW stays enabled when selected and continues through the canonical short-path injection stage.
+- Fixed the Full Wizard to call the same PartCutGen and canonical Meta Injector functions as menus 4/5 instead of bypassing the 2.0.5 injection fix.
+
+### Body-slider crash fix, completed
+- Preserve each live vector attribute's exact byte width, including the trailing padding now present on some `Default` fields.
+- Fresh live reproduction now passes all 75 files and 17,562 attribute edits with every output byte-length identical to its source.
+
+### Current class coverage and donor safety
+- Regenerated heisha 0.4.1 armor/underwear hides from the live 2026-08-01 NA `pad00000.meta`.
+- Added 26 Wukong underwear files and 553 Wukong armor files under the verified live prefix `34_pgms`; Dosa coverage remains present.
+- Female donor reuse remains available. Male genital packs are now strictly native-only; Archer, Hashashin, Sage, Dosa, Wukong, and the Wizard revamp never receive a borrowed penis mesh.
+
+### Region-correct tool workflow
+- Detect the installed client region from `service.ini`.
+- Skip Meta Patcher on NA/EU as directed by the author's FAQ. Other detected official regions may be offered the separately downloaded tool; unknown regions are never guessed.
+- Meta Injector 1.4.1 and PartCutGen 1.1.0 remain the current bundled heisha workflow. Meta Patcher is not bundled.
+
+### Experimental DLL cleanup
+- Removed the redundant DLSS Enabler installer, loose `version.dll`, zzDLL upgrade swaps, and DirectStorage injection.
+- Menu X now offers only the unmodified official OptiScaler 0.9.4 bundle and remains explicitly unsupported/unsafe for BDO.
+- Uninstall refuses filename-only deletion without the AIO install marker and will not remove an unrelated or unverifiable proxy DLL.
+
 ## v2.0.5 - 2026-08-01
 
 ### Work record

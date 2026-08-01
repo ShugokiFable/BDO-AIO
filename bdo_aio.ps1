@@ -3,7 +3,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$Script:Version = '2.0.5'
+$Script:Version = '2.0.6'
 $Script:Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script:ConfigPath = Join-Path $Script:Root 'config.json'
 $Script:PackDir = Join-Path $Script:Root 'pack'
@@ -23,7 +23,6 @@ $Script:PazStatusTool = Join-Path $Script:Root 'tools\bdo_meta\paz_status_scan.p
 $Script:InjectStageTool = Join-Path $Script:Root 'tools\bdo_meta\inject_stage_builder.py'
 $Script:PythonExe = $null
 $Script:DefaultHeishaRoot = Join-Path $Script:Root 'heisha'
-$Script:UpgradesDir = Join-Path $Script:ExperimentalDlssDir 'upgrades'
 # AIO-generated folders under files_to_patch (safe to clear on restore)
 $Script:AioPatchFolderPrefixes = @(
     '_body_size_limits',
@@ -1121,7 +1120,7 @@ function Configure-GenitalMenus {
     }
 
     Write-Host ''
-    Write-Host '  MALE — penis meshes (Warrior/Berserker/Musa/Wizard/Ninja/Striker + optional reuse)' -ForegroundColor White
+    Write-Host '  MALE — native penis meshes only (Warrior/Berserker/Musa/Wizard/Ninja/Striker)' -ForegroundColor White
     Write-Host '    [1] All native males same style' -ForegroundColor Green
     Write-Host '    [2] Per-class styles (those 6 only)' -ForegroundColor Cyan
     Write-Host '    [3] All off' -ForegroundColor DarkGray
@@ -1136,9 +1135,6 @@ function Configure-GenitalMenus {
         $Script:Config.malePenisMode = $all
         foreach ($k in @('penisWarrior', 'penisBerserker', 'penisMusa', 'penisWizard', 'penisNinja', 'penisStriker')) {
             $Script:Config.$k = $all
-        }
-        if (-not [bool]$Script:Config.genitalReuse) {
-            $Script:Config.genitalReuse = Read-YesNo 'Also EXPERIMENTAL reuse for Archer/Hashashin/Sage males?' $false
         }
     } else {
         $Script:Config.malePenisMode = 'perclass'
@@ -1155,7 +1151,7 @@ function Configure-GenitalMenus {
     Write-Host ("  female3dVagina         = " + $Script:Config.female3dVagina) -ForegroundColor Gray
     Write-Host ("  female classes        = " + (Format-ClassList $Script:Config.genitalFemaleClasses)) -ForegroundColor Gray
     Write-Host ("  malePenisMode         = " + $Script:Config.malePenisMode) -ForegroundColor Gray
-    Write-Host ("  genitalReuse (EXPER.) = " + $Script:Config.genitalReuse) -ForegroundColor Gray
+    Write-Host ("  female genital reuse   = " + $Script:Config.genitalReuse) -ForegroundColor Gray
     if (Read-YesNo 'Apply genital packs to files_to_patch now?' $true) {
         Apply-GenitalPacks
     } else {
@@ -1200,7 +1196,7 @@ function Apply-GenitalPacks {
         Join-Path $Script:Config.pazFolder 'files_to_patch\_genital_RESTORED_native'
     }
     Write-Info ("female_3d=$f3d male=$maleArg")
-    Write-Info ("mode=" + $(if ($reuse) { 'NATIVE + EXPERIMENTAL-REUSE' } else { 'NATIVE only (RESTORED)' }))
+    Write-Info ("mode=" + $(if ($reuse) { 'NATIVE + FEMALE EXPERIMENTAL-REUSE' } else { 'NATIVE only (RESTORED)' }))
     Write-Info ("out=$out")
     if (-not (Read-YesNo 'Copy genital packs?' $true)) { Pause-Any; return }
 
@@ -1795,7 +1791,7 @@ function Show-OptionsMatrix {
     Write-Host '  MODERN (Midnight / recommended pipeline)' -ForegroundColor Cyan
     Write-Host '  ---------------------------------------' -ForegroundColor DarkGray
     Write-Host '  Gender F/M/Both; armor All/Pearl/Free/Underwear-only'
-    Write-Host '  Nude body + underwear hide through Seraph (not Shai)'
+    Write-Host '  Nude body through Seraph; live-regenerated armor/underwear hide includes Wukong (not Shai)'
     Write-Host '  XYZW collections; PartCutGen + Meta Injector'
     Write-Host '  GameOption profiles [G]; NVIDIA .nip [N]'
     Write-Host ''
@@ -1828,7 +1824,7 @@ function Show-OptionsMatrix {
     Write-Host '  NOT SUPPORTED' -ForegroundColor DarkGray
     Write-Host '  -------------' -ForegroundColor DarkGray
     Write-Host '  Shai nude; anti-cheat stealth; inventing new high-quality body meshes'
-    Write-Host '  Agent/Wukong males (no stable pack prefixes yet)'
+    Write-Host '  Dosa/Wukong male genital donor reuse (no verified compatible mesh)'
     Write-Host ''
     Pause-Any
 }
@@ -1892,18 +1888,7 @@ function Deploy-Midnight {
 
     Write-Info ("Pack     : " + $Script:PackDir)
     Write-Info ("Target   : " + $Script:Config.pazFolder)
-    Write-Info ("Args     : -g " + $g + " -a " + $a + " " + $xyzwArg)
-    if ([bool]$Script:Config.xyzwCollections) {
-        Write-Warn 'XYZW collections use VERY deep folder names.'
-        Write-Warn 'Under Program Files this often hits the 260-char path limit in Meta Injector.'
-        Write-Warn 'If inject failed near the end, turn XYZW OFF and re-deploy.'
-        if (-not (Read-YesNo 'Keep XYZW collections enabled for this deploy?' $false)) {
-            $Script:Config.xyzwCollections = $false
-            $xyzwArg = '--no-xyzw'
-            Save-Config
-            Write-Ok 'XYZW collections disabled for this deploy.'
-        }
-    }
+    Write-Info ("Args     : -g " + $g + " -a " + $a + " " + $xyzwArg + " --yes")
     Write-Host ''
     if (-not (Read-YesNo 'Deploy now?' $true)) {
         Write-Warn 'Cancelled.'
@@ -1916,6 +1901,7 @@ function Deploy-Midnight {
         '-g', $g,
         '-a', $a,
         $xyzwArg,
+        '--yes',
         [string]$Script:Config.pazFolder
     )
 
@@ -2057,7 +2043,7 @@ function Run-MetaInjector {
     Write-Host ''
     Write-Host '  In Meta Injector if game is broken:' -ForegroundColor Yellow
     Write-Host '    choose 3 - Restore Backup   (undos pad00000.meta inject)' -ForegroundColor Cyan
-    Write-Host '  2.0.5 passes a canonical short-path stage; no XYZW collection is deleted.' -ForegroundColor Green
+    Write-Host '  2.0.6 passes a canonical short-path stage; no XYZW collection is deleted.' -ForegroundColor Green
     Write-Host ''
     $pazDrive = $null
     $sourceDrive = $null
@@ -2070,17 +2056,25 @@ function Run-MetaInjector {
         $process = Start-Process -FilePath $shortExe -WorkingDirectory ($pazDrive + '\') `
             -ArgumentList @('-files', $stage) -PassThru -Wait
         Write-Ok ("Meta Injector closed (process exit code " + $process.ExitCode + ").")
+        $region = Get-BdoClientRegion
         $metaPatcher = $pazDrive + '\Meta Patcher.exe'
-        if (Test-Path -LiteralPath $metaPatcher) {
-            Write-Info 'Meta Patcher is a separate correcting step, not a duplicate injector.'
-            if (Read-YesNo 'Run Meta Patcher now?' $true) {
-                $patcherProcess = Start-Process -FilePath $metaPatcher `
-                    -WorkingDirectory ($pazDrive + '\') -PassThru -Wait
-                Write-Ok ("Meta Patcher closed (process exit code " + $patcherProcess.ExitCode + ").")
+        if ($region -in @('NA', 'EU')) {
+            Write-Ok ("Meta Patcher skipped: the author's FAQ excludes NA/EU; detected " + $region + '.')
+        } elseif ($region) {
+            Write-Warn ("Client region detected: " + $region + '. The Meta Patcher FAQ says official regions other than NA/EU require it.')
+            if (Test-Path -LiteralPath $metaPatcher) {
+                if (Read-YesNo 'Run Meta Patcher now?' $true) {
+                    $patcherProcess = Start-Process -FilePath $metaPatcher `
+                        -WorkingDirectory ($pazDrive + '\') -PassThru -Wait
+                    Write-Ok ("Meta Patcher closed (process exit code " + $patcherProcess.ExitCode + ").")
+                }
+            } else {
+                Write-Warn 'Meta Patcher 1.1.0 is not installed.'
+                Write-Host '  Official page: https://www.undertow.club/downloads/meta-patcher.7829/' -ForegroundColor Cyan
             }
         } else {
-            Write-Warn 'Meta Patcher 1.1.0 is not installed. Some clients/regions require its correcting pass.'
-            Write-Host '  Official page: https://www.undertow.club/downloads/meta-patcher.7829/' -ForegroundColor Cyan
+            Write-Warn 'Could not detect the client region from service.ini; Meta Patcher was not run automatically.'
+            Write-Host '  Check the author FAQ before using it: https://www.undertow.club/downloads/meta-patcher.7829/field?field=FAQ' -ForegroundColor Cyan
         }
     } catch {
         Write-Err $_.Exception.Message
@@ -2364,7 +2358,7 @@ function Restore-UneditedGameFiles {
     Write-Host '   [1] Clear AIO-generated folders under files_to_patch only' -ForegroundColor Cyan
     Write-Host '       (_body_size, _slot_hide_*, _pubic_*, _censorship_*, _genital_*)' -ForegroundColor DarkGray
     Write-Host '   [2] Clear ENTIRE files_to_patch (includes Midnight deploy)' -ForegroundColor Yellow
-    Write-Host '   [3] Uninstall experimental OptiScaler/DLSS/FSR/DStorage from game root' -ForegroundColor Cyan
+    Write-Host '   [3] Uninstall AIO-marked experimental OptiScaler files from game root' -ForegroundColor Cyan
     Write-Host '   [4] Restore latest BDO-AIO-backup-dlss-* folder into game root' -ForegroundColor Cyan
     Write-Host '   [5] Do 1 + 3 (recommended soft reset)' -ForegroundColor Green
     Write-Host '   [6] Open Pearl Abyss launcher note (verify game files)' -ForegroundColor Magenta
@@ -2407,26 +2401,7 @@ function Restore-UneditedGameFiles {
     }
     if ($c -in @('3', '5')) {
         if ($gameRoot) {
-            Write-Info 'Uninstalling experimental client DLLs...'
-            # reuse uninstall without full menu pause path
-            $marker = Join-Path $gameRoot 'BDO-AIO-EXPERIMENTAL-DLSS.txt'
-            $names = @($Script:OptiProxyNames + $Script:OptiExtraFiles + @(
-                'nvngx_dlss.dll', 'nvngx_dlssd.dll', 'nvngx_dlssg.dll',
-                'amd_fidelityfx_framegeneration_dx12.dll', 'amd_fidelityfx_upscaler_dx12.dll',
-                'amd_fidelityfx_loader_dx12.dll', 'amd_fidelityfx_dx12.dll', 'amd_fidelityfx_vk.dll',
-                'dstorage.dll', 'dstoragecore.dll', 'BDO-AIO-EXPERIMENTAL-DLSS.txt'
-            ) | Select-Object -Unique)
-            $removed = 0
-            foreach ($name in $names) {
-                $p = Join-Path $gameRoot $name
-                if (Test-Path -LiteralPath $p) {
-                    Remove-Item -LiteralPath $p -Force -Recurse -ErrorAction SilentlyContinue
-                    $removed++
-                }
-            }
-            $d3 = Join-Path $gameRoot 'D3D12_Optiscaler'
-            if (Test-Path $d3) { Remove-Item $d3 -Recurse -Force -ErrorAction SilentlyContinue; $removed++ }
-            Write-Ok ("Experimental DLL uninstall pass. items touched ~ $removed")
+            Uninstall-ExperimentalDlss
         }
     }
     if ($c -eq '4') {
@@ -2503,23 +2478,14 @@ function Run-FullWizard {
     Write-Banner
     Write-Host '  Next: PartCutGen' -ForegroundColor White
     if (Read-YesNo 'Launch PartCutGen now?' $true) {
-        $exe = Join-Path $Script:Config.pazFolder 'PartCutGen.exe'
-        if (Test-Path -LiteralPath $exe) {
-            Start-Process -FilePath $exe -WorkingDirectory $Script:Config.pazFolder
-            Write-Ok 'Finish PartCutGen in its window, then come back here.'
-            Pause-Any
-        }
+        Run-PartCutGen
     }
 
     Write-Banner
     Write-Host '  Next: Meta Injector' -ForegroundColor White
     Write-Warn 'Game + launcher must be closed.'
     if (Read-YesNo 'Launch Meta Injector now?' $true) {
-        $exe = Join-Path $Script:Config.pazFolder 'Meta Injector.exe'
-        if (Test-Path -LiteralPath $exe) {
-            Start-Process -FilePath $exe -WorkingDirectory $Script:Config.pazFolder
-            Write-Ok 'Finish Meta Injector, then start BDO and check in-game.'
-        }
+        Run-MetaInjector
     }
 
     Write-Host ''
@@ -2673,6 +2639,19 @@ function Get-GameRootFromPaz {
     return $root
 }
 
+function Get-BdoClientRegion {
+    $gameRoot = Get-GameRootFromPaz
+    if (-not $gameRoot) { return '' }
+    $serviceIni = Join-Path $gameRoot 'service.ini'
+    if (-not (Test-Path -LiteralPath $serviceIni -PathType Leaf)) { return '' }
+    foreach ($line in Get-Content -LiteralPath $serviceIni -ErrorAction Stop) {
+        if ($line -match '^\s*TYPE\s*=\s*(.*?)\s*$') {
+            return $Matches[1].Trim().ToUpperInvariant()
+        }
+    }
+    return ''
+}
+
 function Test-ExperimentalDlssReady {
     $opti = Join-Path $Script:ExperimentalDlssDir 'OptiScaler\OptiScaler.dll'
     $ini  = Join-Path $Script:ExperimentalDlssDir 'OptiScaler\OptiScaler.ini'
@@ -2772,9 +2751,9 @@ function Install-ExperimentalDlss {
 
     Write-Host ''
     Write-Host '  Preferred upscaler in OptiScaler.ini (game still must enable upscale):' -ForegroundColor White
-    Write-Host '    [1] dlss     (NVIDIA DLSS — uses upgraded nvngx from upgrades\nvidia)' -ForegroundColor Cyan
+    Write-Host '    [1] dlss     (NVIDIA DLSS, if compatible inputs are available)' -ForegroundColor Cyan
     Write-Host '    [2] auto    (OptiScaler default)' -ForegroundColor Cyan
-    Write-Host '    [3] fsr31   (FSR 3.1 — swaps in upgrades\amd FidelityFX DLLs)  [RECOMMENDED AMD/Intel]' -ForegroundColor Green
+    Write-Host '    [3] fsr31   (OptiScaler bundled FidelityFX path)' -ForegroundColor Cyan
     Write-Host '    [4] xess    (Intel XeSS)' -ForegroundColor Cyan
     $upPick = Read-Choice 'Upscaler' @('1', '2', '3', '4')
     $upName = switch ($upPick) {
@@ -2784,19 +2763,9 @@ function Install-ExperimentalDlss {
         '4' { 'xess' }
     }
 
-    $useUpgrades = $true
-    if (Test-Path -LiteralPath $Script:UpgradesDir) {
-        Write-Host ''
-        Write-Ok 'Found experimental\dlss\upgrades (newer DLSS / FSR / DirectStorage).'
-        $useUpgrades = Read-YesNo 'Install upgraded nvngx + FidelityFX + DirectStorage into game root?' $true
-    } else {
-        Write-Warn 'upgrades\ folder missing — installing OptiScaler/Streamline only.'
-        $useUpgrades = $false
-    }
-
     Write-Host ''
     Write-Warn ("About to copy EXPERIMENTAL files into: " + $gameRoot)
-    Write-Warn ("Proxy: " + $proxyName + "  |  Upscaler: " + $upName + "  |  upgrades: " + $useUpgrades)
+    Write-Warn ("Proxy: " + $proxyName + "  |  Upscaler: " + $upName + '  |  official OptiScaler bundle only')
     if (-not (Read-YesNo 'Final confirm — install now?' $false)) {
         Write-Warn 'Cancelled.'
         Pause-Any
@@ -2808,13 +2777,7 @@ function Install-ExperimentalDlss {
     New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
     Write-Info ("Backup folder: " + $backupDir)
 
-    $extraUpgrade = @(
-        'nvngx_dlss.dll', 'nvngx_dlssd.dll', 'nvngx_dlssg.dll',
-        'amd_fidelityfx_framegeneration_dx12.dll', 'amd_fidelityfx_upscaler_dx12.dll',
-        'amd_fidelityfx_loader_dx12.dll', 'amd_fidelityfx_dx12.dll', 'amd_fidelityfx_vk.dll',
-        'dstorage.dll', 'dstoragecore.dll'
-    )
-    $toBackup = @($Script:OptiProxyNames + $Script:OptiExtraFiles + $extraUpgrade + @('D3D12_Optiscaler')) | Select-Object -Unique
+    $toBackup = @($Script:OptiProxyNames + $Script:OptiExtraFiles + @('D3D12_Optiscaler')) | Select-Object -Unique
     foreach ($name in $toBackup) {
         $p = Join-Path $gameRoot $name
         if (Test-Path -LiteralPath $p) {
@@ -2843,39 +2806,6 @@ function Install-ExperimentalDlss {
     Write-Info 'Copying Streamline DLLs...'
     Get-ChildItem -LiteralPath $ready.StreamDir -File -Filter 'sl.*.dll' | ForEach-Object {
         Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $gameRoot $_.Name) -Force
-    }
-
-    # Upgraded DLSS / FSR / DirectStorage from upgrades\
-    if ($useUpgrades) {
-        $nv = Join-Path $Script:UpgradesDir 'nvidia'
-        $amd = Join-Path $Script:UpgradesDir 'amd'
-        $ds = Join-Path $Script:UpgradesDir 'dstorage'
-        if (Test-Path $nv) {
-            Write-Info 'Swapping in upgraded NVIDIA nvngx DLSS DLLs...'
-            Get-ChildItem -LiteralPath $nv -File -Filter '*.dll' | ForEach-Object {
-                Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $gameRoot $_.Name) -Force
-                Write-Host ("  + " + $_.Name) -ForegroundColor DarkGray
-            }
-        }
-        if (Test-Path $amd) {
-            Write-Info 'Swapping in upgraded AMD FidelityFX / FSR DLLs...'
-            Get-ChildItem -LiteralPath $amd -File -Filter '*.dll' | ForEach-Object {
-                Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $gameRoot $_.Name) -Force
-                Write-Host ("  + " + $_.Name) -ForegroundColor DarkGray
-            }
-            # Also overwrite OptiScaler's bundled FSR dlls if present with same names
-            Get-ChildItem -LiteralPath $amd -File -Filter 'amd_fidelityfx*.dll' | ForEach-Object {
-                $also = Join-Path $gameRoot $_.Name
-                Copy-Item -LiteralPath $_.FullName -Destination $also -Force
-            }
-        }
-        if (Test-Path $ds) {
-            Write-Info 'Installing DirectStorage 1.4 x64 (optional performance)...'
-            Get-ChildItem -LiteralPath $ds -File -Filter '*.dll' | ForEach-Object {
-                Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $gameRoot $_.Name) -Force
-                Write-Host ("  + " + $_.Name) -ForegroundColor DarkGray
-            }
-        }
     }
 
     # Rename OptiScaler.dll -> proxy
@@ -2908,12 +2838,7 @@ function Install-ExperimentalDlss {
             $utf8 = New-Object System.Text.UTF8Encoding $false
             [System.IO.File]::WriteAllText($iniPath, $ini, $utf8)
             Write-Ok ("OptiScaler.ini upscalers set to: " + $upName)
-            if ($upName -eq 'fsr31') {
-                Write-Ok 'FSR path: upgraded amd_fidelityfx_* DLLs in game root (use Opti overlay to confirm).'
-            }
-            if ($upName -eq 'dlss') {
-                Write-Ok 'DLSS path: upgraded nvngx_dlss*.dll in game root if upgrades were installed.'
-            }
+            Write-Info 'Using only the DLL set bundled by the official OptiScaler release.'
         } catch {
             Write-Warn ("Could not edit OptiScaler.ini: " + $_.Exception.Message)
         }
@@ -2926,9 +2851,8 @@ function Install-ExperimentalDlss {
         ('Installed: ' + (Get-Date).ToString('s')),
         ('Proxy: ' + $proxyName),
         ('Upscaler: ' + $upName),
-        ('Upgrades: ' + $useUpgrades),
         ('Backup: ' + $backupDir),
-        'Uninstall via BDO-AIO menu X / R or delete proxy + OptiScaler/Streamline/upgrade DLLs.'
+        'Uninstall via BDO-AIO menu X / R. Do not delete unrelated proxy DLLs by filename.'
     ) | Set-Content -LiteralPath $marker -Encoding UTF8
 
     Write-Host ''
@@ -2955,35 +2879,42 @@ function Uninstall-ExperimentalDlss {
         return
     }
     Write-Info ("Game root: " + $gameRoot)
-    Write-Warn 'This deletes OptiScaler proxy DLLs + known Streamline/Opti files from game root.'
+    $marker = Join-Path $gameRoot 'BDO-AIO-EXPERIMENTAL-DLSS.txt'
+    if (-not (Test-Path -LiteralPath $marker)) {
+        Write-Warn 'No BDO-AIO experimental-install marker was found. Refusing filename-only DLL deletion.'
+        Write-Info 'Use the launcher Verify/Repair flow or restore a known backup instead.'
+        Pause-Any
+        return
+    }
+    Write-Warn 'This removes the AIO-marked OptiScaler proxy and bundled Streamline/Opti files.'
     if (-not (Read-YesNo 'Remove experimental DLLs now?' $true)) {
         Pause-Any
         return
     }
 
-    $upgradeNames = @(
-        'nvngx_dlss.dll', 'nvngx_dlssd.dll', 'nvngx_dlssg.dll',
-        'amd_fidelityfx_framegeneration_dx12.dll', 'amd_fidelityfx_upscaler_dx12.dll',
-        'amd_fidelityfx_loader_dx12.dll', 'dstorage.dll', 'dstoragecore.dll'
-    )
     $removed = 0
-    foreach ($name in ($Script:OptiProxyNames + $Script:OptiExtraFiles + $upgradeNames | Select-Object -Unique)) {
+    foreach ($name in ($Script:OptiProxyNames + $Script:OptiExtraFiles | Select-Object -Unique)) {
         $p = Join-Path $gameRoot $name
         if (Test-Path -LiteralPath $p) {
-            # Only remove proxies if they look like OptiScaler (OriginalFilename) when possible
+            # Never delete an unrelated loader just because it uses a common proxy filename.
             $isProxy = $Script:OptiProxyNames -contains $name
             $delete = $true
             if ($isProxy) {
+                $delete = $false
                 try {
                     $orig = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($p).OriginalFilename
-                    if ($orig -and ($orig -ne 'OptiScaler.dll') -and ($name -ne 'version.dll')) {
-                        # keep unknown third-party proxy unless user forces - for version we still check
-                        if ($orig -notmatch 'OptiScaler') {
-                            Write-Warn ("Skipping " + $name + " (OriginalFilename=" + $orig + " — not OptiScaler)")
-                            $delete = $false
-                        }
-                    }
+                    if ($orig -match 'OptiScaler') { $delete = $true }
                 } catch {}
+                if (-not $delete) {
+                    $bundled = Join-Path $Script:ExperimentalDlssDir 'OptiScaler\OptiScaler.dll'
+                    if (Test-Path -LiteralPath $bundled) {
+                        try {
+                            $delete = (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash -eq
+                                      (Get-FileHash -LiteralPath $bundled -Algorithm SHA256).Hash
+                        } catch {}
+                    }
+                }
+                if (-not $delete) { Write-Warn ("Skipping unrelated or unverifiable proxy: " + $name) }
             }
             if ($delete) {
                 Remove-Item -LiteralPath $p -Force -Recurse -ErrorAction SilentlyContinue
@@ -3004,7 +2935,6 @@ function Uninstall-ExperimentalDlss {
         Remove-Item -LiteralPath $lic -Recurse -Force -ErrorAction SilentlyContinue
         Write-Host '  removed: Licenses\' -ForegroundColor DarkGray
     }
-    $marker = Join-Path $gameRoot 'BDO-AIO-EXPERIMENTAL-DLSS.txt'
     if (Test-Path -LiteralPath $marker) { Remove-Item -LiteralPath $marker -Force }
 
     Write-Ok ("Uninstall pass done. Items removed: " + $removed)
@@ -3021,7 +2951,7 @@ function Show-ExperimentalDlssMenu {
     Write-Host '  ########################################################' -ForegroundColor Red
     Write-Host ''
     Write-Host '  This is NOT Resorepless and NOT Midnight. Built separately in BDO-AIO.' -ForegroundColor Yellow
-    Write-Host '  Lives only under experimental\dlss\. High ban/crash risk.' -ForegroundColor Yellow
+    Write-Host '  Uses the unmodified official OptiScaler bundle only. High ban/crash risk.' -ForegroundColor Yellow
     Write-Host ''
 
     $ready = Test-ExperimentalDlssReady
@@ -3043,21 +2973,11 @@ function Show-ExperimentalDlssMenu {
     }
 
     Write-Host ''
-    $upOk = Test-Path -LiteralPath (Join-Path $Script:UpgradesDir 'nvidia\nvngx_dlss.dll')
-    if ($upOk) {
-        Write-Ok 'upgrades\: newer DLSS + FSR (FidelityFX) + DirectStorage ready'
-    } else {
-        Write-Warn 'upgrades\ incomplete — full release zip includes them; git clone may not.'
-    }
-
-    Write-Host ''
     Write-Host '   [1] Read WARNING.txt' -ForegroundColor Red
     Write-Host '   [2] Read experimental README' -ForegroundColor Yellow
-    Write-Host '   [3] INSTALL OptiScaler + Streamline + upgrades (DLSS/FSR/DStorage)  *** NOT SAFE ***' -ForegroundColor Red
+    Write-Host '   [3] INSTALL official OptiScaler 0.9.4 + bundled Streamline  *** NOT SAFE ***' -ForegroundColor Red
     Write-Host '   [4] UNINSTALL experimental DLLs from game folder' -ForegroundColor Cyan
-    Write-Host '   [5] Open optional DLSS Enabler setup EXE (advanced)' -ForegroundColor DarkYellow
-    Write-Host '   [6] Open experimental\dlss folder' -ForegroundColor Cyan
-    Write-Host '   [7] Open upgrades folder (nvngx / FSR / dstorage)' -ForegroundColor Cyan
+    Write-Host '   [5] Open experimental\dlss folder' -ForegroundColor Cyan
     Write-Host '   [0] Back' -ForegroundColor DarkGray
     Write-Host ''
     $c = (Read-Host '  Select').Trim()
@@ -3077,31 +2997,8 @@ function Show-ExperimentalDlssMenu {
         '3' { Install-ExperimentalDlss }
         '4' { Uninstall-ExperimentalDlss }
         '5' {
-            Write-Host ''
-            Write-Host '  OPTIONAL advanced installer — also EXPERIMENTAL / NOT SAFE.' -ForegroundColor Red
-            $setup = Join-Path $Script:ExperimentalDlssDir 'optional\dlss-enabler-setup.exe'
-            if (Test-Path -LiteralPath $setup) {
-                if (Confirm-ExperimentalDanger) {
-                    Start-Process -FilePath $setup
-                    Write-Ok 'Launched DLSS Enabler setup. Follow its UI carefully.'
-                }
-            } else {
-                Write-Err ("Missing: " + $setup)
-            }
-            Pause-Any
-        }
-        '6' {
             if (Test-Path -LiteralPath $Script:ExperimentalDlssDir) {
                 Start-Process explorer.exe -ArgumentList $Script:ExperimentalDlssDir
-            }
-            Pause-Any
-            Show-ExperimentalDlssMenu
-        }
-        '7' {
-            if (Test-Path -LiteralPath $Script:UpgradesDir) {
-                Start-Process explorer.exe -ArgumentList $Script:UpgradesDir
-            } else {
-                Write-Warn 'upgrades folder missing.'
             }
             Pause-Any
             Show-ExperimentalDlssMenu
@@ -3262,7 +3159,7 @@ function Show-Guide2026 {
     Write-Host '  Documents\Black Desert (created/used for GameOption.txt)'
     Write-Host '  Python 3 (python.exe, py launcher, or normal per-user install)'
     Write-Host '  BDO Toolkit 1.3.0 (required by bundled Meta Injector 1.4.1)'
-    Write-Host '  Meta Patcher 1.1.0 may be required by your client/region after inject'
+    Write-Host '  Meta Patcher 1.1.0: not needed on NA/EU; other official regions may require it'
     Write-Host '  NVIDIA GPU + driver (for .nip import / DLSS path)'
     Write-Host ''
     Write-Host '  REDUNDANT / creator-only (not bundled)' -ForegroundColor Yellow
@@ -3272,7 +3169,7 @@ function Show-Guide2026 {
     Write-Host ''
     Write-Host '  PIPELINE' -ForegroundColor White
     Write-Host '  --------' -ForegroundColor DarkGray
-    Write-Host '  Mods: Deploy -> PartCutGen -> canonical stage -> Meta Injector -> optional Meta Patcher -> Launch'
+    Write-Host '  NA/EU: Deploy -> PartCutGen -> canonical stage -> Meta Injector -> Launch'
     Write-Host '  GFX : Menu G -> GameOption.txt'
     Write-Host '  NPI : Menu N -> import .nip driver profile'
     Write-Host '  DLSS: Menu X -> EXPERIMENTAL OptiScaler (NOT SAFE)'
@@ -3367,7 +3264,7 @@ function Show-MainMenu {
         Write-Host '   [R] Restore / clean AIO changes (troubleshooting)' -ForegroundColor Yellow
         Write-Host '   [G] Graphics profiles (GameOption)               [user pack]' -ForegroundColor Magenta
         Write-Host '   [N] NVIDIA .nip (Profile Inspector)              [user pack]' -ForegroundColor Magenta
-        Write-Host '   [X] EXPERIMENTAL upscale (OptiScaler/DLSS/FSR/DStorage) *** NOT SAFE ***' -ForegroundColor Red
+        Write-Host '   [X] EXPERIMENTAL upscale (official OptiScaler bundle) *** NOT SAFE ***' -ForegroundColor Red
         Write-Host '   [8] 2026 guide + feature labels' -ForegroundColor Yellow
         Write-Host '   [9] Verify pack integrity' -ForegroundColor Yellow
         Write-Host '   [0] Exit' -ForegroundColor DarkGray

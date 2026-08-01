@@ -6,15 +6,15 @@ This is a field map for the AIO maintainers. It is **not** a download mirror of 
 
 | Project | Status | Notes |
 |---------|--------|--------|
-| **[midnightxyzw/heisha](https://github.com/midnightxyzw/heisha)** | **Best current** | Last public release **0.4.1 (2025-12-25)**. Underwear hide + armor hide + nude base through **Seraph**. Regenerates from live PAZ when patches break injects. |
+| **[midnightxyzw/heisha](https://github.com/midnightxyzw/heisha)** | **Best current** | Latest public release **0.4.1 (2025-12-25)**; upstream main/tag still match. Its generator discovers armor/underwear names from live PAZ metadata, so AIO 2.0.6 regenerated current Wukong hides even though the bundled 0.4.1 output predates Wukong. |
 | **Suzu (Undertow)** | Historical / per-class | Original high-quality nude bodies. Many class pages old; later classes often only appear via Midnight + Discord ports. |
 | **TheGreatSage (Discord)** | Active mesh fixer | Improved Suzu meshes; Midnight credits them for body mesh fixes + Seraph mesh. |
 | **Resorepless 3.6f** | **Abandoned (~2018)** | Missing modern classes. **Do not use** as primary base. Midnight removed it in v0.2.0 (2024). |
-| **Meta Injector + PartCutGen** | Still required | End-user inject path. PartCutGen mandatory since ~2024 (no hard-coded partcut). |
-| **Meta Patcher 1.1.0** | Separate/client-dependent | Correcting pass after Meta Injector for clients that require it; not a duplicate injector. Latest public author page found was updated 2022-08-11. |
+| **Meta Injector 1.4.1 + PartCutGen 1.1.0** | Current heisha workflow | End-user inject path. The copies bundled in AIO are byte-identical to the current heisha 0.4.1 PAZ pack. |
+| **Meta Patcher 1.1.0** | Region-specific | The author's FAQ says official regions other than NA/EU need its correcting pass. The inspected install is `TYPE=NA`, so AIO skips it. Latest public author release remains 1.1.0 (2022-08-11). |
 | **PACtool / 3D Converter / PAZ Browser** | Creator tools | Mesh export/import, not needed for pure “hide underwear” regen. |
 
-## Class coverage (heisha / your pack, through Seraph)
+## Class coverage (heisha / AIO 2.0.6 live regeneration)
 
 From heisha `src/README.md` class IDs (female / male). Your local `pack` underwear set includes the prefixes below.
 
@@ -46,7 +46,9 @@ From heisha `src/README.md` class IDs (female / male). Your local `pack` underwe
 
 ### Male (underwear / armor hide; nude less complete)
 
-Warrior, Berserker (+beast), Musa, Wizard (old/revamp), Archer, Ninja, Striker, Hashashin, Sage, etc. (see heisha table).
+Warrior, Berserker (+beast), Musa, Wizard (old/revamp), Archer, Ninja, Striker, Hashashin, Sage, Dosa (`31_prsa`), and Wukong (`34_pgms`) are present in the regenerated hide data. Wukong contributes 26 underwear files and 553 armor files.
+
+This does **not** establish male genital compatibility. Penis packs remain native-only for Warrior, Berserker, Musa, Wizard, Ninja, and Striker. Dosa and Wukong receive no borrowed male body.
 
 ### After a game patch
 
@@ -59,7 +61,7 @@ run.cmd -i <game\PAZ> -o .\PAZ\midnight_xyzw -m all
 
 Then redeploy via AIO / midnight_xyzw.cmd.
 
-As of this research pass, **Seraph is the newest PC class** in public NA material; no later class body pack was found as a public drop-in.
+As of this research pass, Wukong is present in the live NA client and official class roster. No verified Wukong nude/genital body pack was found as a public drop-in; only armor/underwear hide paths were safely regenerated.
 
 ## Why old “everything is abandoned” feeling is only half true
 
@@ -119,19 +121,19 @@ Requires mesh work, skinning, textures, part-cut tuning, per-outfit armor-cut fi
 | PAZ Browser | Browse/extract PAZ content |
 | PACtool | PAC ↔ DAE mesh pipeline |
 | 3D Converter | Mesh conversion helper used by old kits |
-| NVIDIA Profile Inspector | Driver profile (bundled in AIO) |
-| OptiScaler | **Experimental** upscale inject (NOT SAFE) |
+| NVIDIA Profile Inspector 3.0.2.1 | Current stable driver-profile tool bundled in AIO; 3.0.2.2 is a prerelease, so it is not an automatic upgrade. |
+| OptiScaler 0.9.4 | Current stable official bundle; **experimental and unsupported for BDO**. AIO no longer layers DLSS Enabler, zzDLL swaps, or DirectStorage over it. |
 | RenoDX / ReShade addon | HDR/post — different category |
 
 ## Community / legal
 
 - NSFW BDO content is mostly **Undertow + private Discord**, not Reddit (subreddit bans lewd images).
-- Redistributing full nude packs on GitHub Releases can hit **DMCA / ToS** issues; keep credits; prefer linking generators + user-supplied packs.
+- Redistributing full nude packs on GitHub Releases can hit **copyright / ToS** issues. Undertow reported removing specified BDO posts after a March 2026 request made on Pearl Abyss's behalf; keep public source releases separate from private full local packages.
 - Client mods always risk **bans / patch breaks**.
 
 ## Practical recommendation for BDO-AIO
 
-1. Keep shipping / pointing at **heisha ≥ 0.4.1** for body/underwear through Seraph.
+1. Keep **heisha 0.4.1** as the generator source, but regenerate armor/underwear names from current live metadata after new classes or major patches.
 2. After each major BDO patch: regenerate with heisha `run.cmd` if inject fails.
 3. For a **brand-new class** before Midnight updates: first ship **underwear-only dummy** regen against live PAZ; defer nude mesh until a real body exists.
 4. Do **not** promise stealth / anti-cheat evasion.
@@ -139,5 +141,8 @@ Requires mesh work, skinning, textures, part-cut tuning, per-outfit armor-cut fi
 ## Sources
 
 - https://github.com/midnightxyzw/heisha (README + PAZ notes + commits through 2025-12-25)
+- https://www.undertow.club/downloads/meta-patcher.7829/field?field=FAQ (NA/EU exclusion)
+- https://www.undertow.club/threads/announcement-regarding-black-desert-online-modding-posts.28370/ (March 2026 copyright-removal announcement)
+- https://www.naeu.playblackdesert.com/en-us/GameInfo/Class?classType=33 (current official class roster)
 - Local pack inventory under `pack/midnight_xyzw` (class prefixes, dummy underwear PAC sizes)
 - Undertow historical Suzu threads/downloads (older class-by-class bodies)
