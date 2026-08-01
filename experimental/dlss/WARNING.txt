@@ -1,0 +1,28 @@
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  EXPERIMENTAL  /  NOT SAFE  /  USE AT YOUR OWN RISK
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+This folder adds UNOFFICIAL upscaling hooks (OptiScaler / DLSS-style)
+to Black Desert Online because the game's built-in FSR 1.0 is poor.
+
+THIS IS NOT OFFICIAL. THIS IS NOT "SAFE".
+
+Risks include (non-exhaustive):
+  - Account bans / ToS violations (DLL inject / client modification)
+  - Crashes, freezes, black screens, boot loops
+  - Broken after every game OR GPU driver patch
+  - Anti-cheat / launcher fighting the DLLs
+  - Conflict with other overlays (Discord, NVIDIA App, ReShade, etc.)
+  - Security risk: third-party DLLs in your game folder
+
+DO NOT use on an account you care about.
+DO NOT expect support from Pearl Abyss or NVIDIA.
+DO NOT enable this if you do not understand the risks.
+
+Recommended only for:
+  - throwaway / private research
+  - offline-ish testing
+  - people who can restore the game from a clean install
+
+If unsure: DO NOT INSTALL. Stick to menu G/N (GameOption + NVIDIA profile).
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

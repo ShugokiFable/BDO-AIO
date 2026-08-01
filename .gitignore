@@ -1,0 +1,33 @@
+# User local settings (may contain machine paths)
+config.local.json
+
+# Huge third-party mod payload (~1.8GB) — not for git
+# Ship separately or keep local for full offline AIO
+pack/**
+!pack/README.md
+
+# Experimental OptiScaler / Streamline / DLSS Enabler binaries (~270MB)
+# Keep warnings/docs only in git
+experimental/dlss/OptiScaler/**
+experimental/dlss/Streamline/**
+experimental/dlss/optional/**
+!experimental/dlss/WARNING.txt
+!experimental/dlss/README.txt
+!experimental/dlss/.gitkeep
+
+# OS / editor junk
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.log
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+
+# Accidental game-side backups if copied in
+BDO-AIO-backup-dlss-*/
+files_to_patch/
+
+tools/nvidiaProfileInspector/*.pdb
+
