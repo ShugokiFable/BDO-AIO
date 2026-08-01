@@ -5,6 +5,15 @@
   "xyzwCollections": true,
   "npiPath": "",
   "bodySizePreset": "high",
-  "bodySizeParts": "breasts,butt,thighs,arms,legs,pelvis,spine",
+  "bodySizeParts": "breasts,butt,thighs",
+  "bodySizeMin": null,
+  "bodySizeDefault": null,
+  "bodySizeMax": null,
+  "hideGloves": false,
+  "hideBoots": false,
+  "hideHelmets": false,
+  "hideWeapons": false,
+  "hideStockings": false,
+  "pubicHairStyle": "none",
   "lastRun": null
 }

@@ -27,6 +27,8 @@ If you already have a full offline `BDO-AIO` folder (with `pack\` filled), just 
 | Armor hide | All / Pearl / Free / Underwear-only |
 | Collections | XYZW outfit packs on/off |
 | **Body size limits** | Raise char-create **Min / Default / Max** for breasts, butt, thighs, arms, legs, pelvis, spine. **Presets recommended** (vanilla / mild / **high 2.5** / extreme) **or type custom numbers** + custom part list |
+| **Slot hide** | Optional gloves / boots / helmets / weapons / stockings dummy-mesh hide (live PAZ scan) |
+| **Pubic hair** | Legacy Resorepless styles (best on older female nude textures) |
 | Legacy | Optional launch of old Resorepless.exe + PAZ Unpacker from `Z:\Backup\BDO` if present |
 
 Body size patch writes `files_to_patch\_body_size_limits\` then you Meta Inject. **Beauty salon or new character** required to see bigger slider range. Tamer breasts often ignore this (same as old tool).

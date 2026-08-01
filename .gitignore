@@ -30,6 +30,8 @@ BDO-AIO-backup-dlss-*/
 files_to_patch/
 tools/bdo_meta/_sample/
 tools/bdo_meta/_test_out/
+tools/bdo_meta/_slot_test/
+tools/bdo_meta/_pubic_test/
 
 tools/nvidiaProfileInspector/*.pdb
 

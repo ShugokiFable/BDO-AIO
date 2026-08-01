@@ -11,8 +11,28 @@ $Script:NvidiaDir = Join-Path $Script:GraphicsDir 'nvidia'
 $Script:NipFileName = 'Black_Desert_Max_Quality.nip'
 $Script:ExperimentalDlssDir = Join-Path $Script:Root 'experimental\dlss'
 $Script:BodySizeTool = Join-Path $Script:Root 'tools\bdo_meta\body_size_patcher.py'
+$Script:SlotHideTool = Join-Path $Script:Root 'tools\bdo_meta\slot_hide_patcher.py'
+$Script:PubicHairTool = Join-Path $Script:Root 'tools\bdo_meta\pubic_hair_apply.py'
+$Script:PubicHairRoot = Join-Path $Script:Root 'tools\pubic_hair'
 $Script:ResoreplessExe = 'Z:\Backup\BDO\heisha\contrib\resorepless-v3.6f\resorepless.exe'
 $Script:PazUnpackerExe = 'Z:\Backup\BDO\PAZ-UnpackerV2.6.0\PAZ-Unpacker.exe'
+
+$Script:PubicHairStyles = [ordered]@{
+    'none'               = 'Off (do not apply)'
+    'shaved'             = 'Shaved'
+    'shaved_innie'       = 'Shaved innie'
+    'full_bush'          = 'Full bush'
+    'full_bush_2'        = 'Full bush 2'
+    'full_bush_3'        = 'Full bush 3'
+    'medium_bush'        = 'Medium bush'
+    'medium_bush2'       = 'Medium bush 2'
+    'small_bush'         = 'Small bush'
+    'small_bush_2'       = 'Small bush 2'
+    'thin_landing_strip' = 'Thin landing strip'
+    'wide_landing_strip' = 'Wide landing strip'
+    'trimmed'            = 'Trimmed'
+    'wider_trimmed'      = 'Wider trimmed'
+}
 $Script:Config = $null
 
 $Script:BodySizePresets = [ordered]@{
@@ -118,10 +138,16 @@ function Load-Config {
             bodySizeMin     = $null
             bodySizeDefault = $null
             bodySizeMax     = $null
+            hideGloves      = $false
+            hideBoots       = $false
+            hideHelmets     = $false
+            hideWeapons     = $false
+            hideStockings   = $false
+            pubicHairStyle  = 'none'
             lastRun         = $null
         }
     }
-    foreach ($p in @('pazFolder', 'gender', 'armor', 'xyzwCollections', 'npiPath', 'bodySizePreset', 'bodySizeParts', 'bodySizeMin', 'bodySizeDefault', 'bodySizeMax', 'lastRun')) {
+    foreach ($p in @('pazFolder', 'gender', 'armor', 'xyzwCollections', 'npiPath', 'bodySizePreset', 'bodySizeParts', 'bodySizeMin', 'bodySizeDefault', 'bodySizeMax', 'hideGloves', 'hideBoots', 'hideHelmets', 'hideWeapons', 'hideStockings', 'pubicHairStyle', 'lastRun')) {
         if (-not ($Script:Config.PSObject.Properties.Name -contains $p)) {
             $val = switch ($p) {
                 'gender' { 'F' }
@@ -129,9 +155,17 @@ function Load-Config {
                 'xyzwCollections' { $true }
                 'bodySizePreset' { 'high' }
                 'bodySizeParts' { 'breasts,butt,thighs,arms,legs,pelvis,spine' }
+                'hideGloves' { $false }
+                'hideBoots' { $false }
+                'hideHelmets' { $false }
+                'hideWeapons' { $false }
+                'hideStockings' { $false }
+                'pubicHairStyle' { 'none' }
                 default { $null }
             }
-            if ($null -eq $val -and $p -notin @('bodySizeMin', 'bodySizeDefault', 'bodySizeMax', 'lastRun')) { $val = '' }
+            if ($null -eq $val -and $p -notin @('bodySizeMin', 'bodySizeDefault', 'bodySizeMax', 'lastRun')) {
+                if ($p -match '^hide') { $val = $false } else { $val = '' }
+            }
             Add-Member -InputObject $Script:Config -NotePropertyName $p -NotePropertyValue $val
         }
     }
@@ -151,6 +185,12 @@ function Save-Config {
         bodySizeMin     = $Script:Config.bodySizeMin
         bodySizeDefault = $Script:Config.bodySizeDefault
         bodySizeMax     = $Script:Config.bodySizeMax
+        hideGloves      = [bool]$Script:Config.hideGloves
+        hideBoots       = [bool]$Script:Config.hideBoots
+        hideHelmets     = [bool]$Script:Config.hideHelmets
+        hideWeapons     = [bool]$Script:Config.hideWeapons
+        hideStockings   = [bool]$Script:Config.hideStockings
+        pubicHairStyle  = [string]$Script:Config.pubicHairStyle
         lastRun         = $Script:Config.lastRun
     }
     $json = $out | ConvertTo-Json -Depth 4
@@ -457,23 +497,217 @@ function Configure-ModChoices {
     Write-Info 'Combines Midnight 2026 choices + Resorepless-style body size limits.'
     Write-Host ''
     Write-Host '   [1] Gender + armor hide + collections  (Midnight)' -ForegroundColor Cyan
-    Write-Host '   [2] Body size LIMITS (raise max breast/hip/etc)  << what you remembered' -ForegroundColor Green
-    Write-Host '   [3] Apply body size patch now -> files_to_patch' -ForegroundColor Green
-    Write-Host '   [4] Show Available vs Legacy option matrix' -ForegroundColor Yellow
-    Write-Host '   [5] Launch LEGACY Resorepless.exe (old classes only)' -ForegroundColor DarkYellow
-    Write-Host '   [6] Launch PAZ Unpacker (extract tools)' -ForegroundColor Cyan
+    Write-Host '   [2] Body size LIMITS (raise max breast/hip/etc)' -ForegroundColor Green
+    Write-Host '   [3] Apply body size patch now' -ForegroundColor Green
+    Write-Host '   [4] Slot hide toggles (gloves/boots/helmets/weapons/stockings)' -ForegroundColor Green
+    Write-Host '   [5] Apply slot hide patch now' -ForegroundColor Green
+    Write-Host '   [6] Pubic hair style (LEGACY textures, old classes best)' -ForegroundColor Magenta
+    Write-Host '   [7] Apply pubic hair now' -ForegroundColor Magenta
+    Write-Host '   [8] Show Available vs Legacy option matrix' -ForegroundColor Yellow
+    Write-Host '   [9] Launch LEGACY Resorepless.exe (old classes only)' -ForegroundColor DarkYellow
+    Write-Host '   [P] Launch PAZ Unpacker' -ForegroundColor Cyan
     Write-Host '   [0] Back' -ForegroundColor DarkGray
     Write-Host ''
-    $c = (Read-Host '  Select').Trim()
+    $c = (Read-Host '  Select').Trim().ToUpperInvariant()
     switch ($c) {
         '1' { Configure-MidnightChoices }
         '2' { Configure-BodySizeLimits }
         '3' { Apply-BodySizePatch }
-        '4' { Show-OptionsMatrix }
-        '5' { Launch-LegacyResorepless }
-        '6' { Launch-PazUnpacker }
+        '4' { Configure-SlotHide }
+        '5' { Apply-SlotHidePatch }
+        '6' { Configure-PubicHair }
+        '7' { Apply-PubicHair }
+        '8' { Show-OptionsMatrix }
+        '9' { Launch-LegacyResorepless }
+        'P' { Launch-PazUnpacker }
         default { return }
     }
+}
+
+function Configure-SlotHide {
+    Write-Banner
+    Write-Host '  SLOT HIDE TOGGLES (extra dummy-mesh hides)' -ForegroundColor White
+    Write-Host '  ------------------------------------------' -ForegroundColor DarkGray
+    Write-Info 'Independent of Midnight All/Pearl/Free. Hides matching .pac models from live PAZ.'
+    Write-Info 'Uses gender filter from your Midnight gender setting (F/M/B).'
+    Write-Host ''
+    Write-Host ("  Current: gloves={0} boots={1} helmets={2} weapons={3} stockings={4}" -f `
+        $Script:Config.hideGloves, $Script:Config.hideBoots, $Script:Config.hideHelmets, $Script:Config.hideWeapons, $Script:Config.hideStockings) -ForegroundColor DarkCyan
+    Write-Host ''
+    $Script:Config.hideGloves = Read-YesNo 'Hide GLOVES / hands gear?' ([bool]$Script:Config.hideGloves)
+    $Script:Config.hideBoots = Read-YesNo 'Hide BOOTS / shoes?' ([bool]$Script:Config.hideBoots)
+    $Script:Config.hideHelmets = Read-YesNo 'Hide HELMETS (may affect some hair/hel combos)?' ([bool]$Script:Config.hideHelmets)
+    $Script:Config.hideWeapons = Read-YesNo 'Hide WEAPONS (main/sub/awakening meshes)?' ([bool]$Script:Config.hideWeapons)
+    $Script:Config.hideStockings = Read-YesNo 'Hide STOCKINGS (best-effort name match)?' ([bool]$Script:Config.hideStockings)
+    Save-Config
+    Write-Ok 'Slot hide flags saved.'
+    if (Read-YesNo 'Apply slot hide patch now (scans live PAZ)?' $true) {
+        Apply-SlotHidePatch
+    } else {
+        Pause-Any
+    }
+}
+
+function Get-EnabledHideSlots {
+    $slots = @()
+    if ([bool]$Script:Config.hideGloves) { $slots += 'gloves' }
+    if ([bool]$Script:Config.hideBoots) { $slots += 'boots' }
+    if ([bool]$Script:Config.hideHelmets) { $slots += 'helmets' }
+    if ([bool]$Script:Config.hideWeapons) { $slots += 'weapons' }
+    if ([bool]$Script:Config.hideStockings) { $slots += 'stockings' }
+    return $slots
+}
+
+function Apply-SlotHidePatch {
+    Write-Banner
+    Write-Host '  Apply slot hide patch' -ForegroundColor White
+    Write-Host '  ---------------------' -ForegroundColor DarkGray
+    if (-not (Test-IsPazFolder $Script:Config.pazFolder)) {
+        Write-Err 'Set PAZ first (menu 1).'
+        Pause-Any
+        return
+    }
+    $slots = @(Get-EnabledHideSlots)
+    if ($slots.Count -eq 0) {
+        Write-Warn 'No slots enabled. Turn some on in menu 2 option 4 first.'
+        Pause-Any
+        return
+    }
+    if (-not (Test-Path -LiteralPath $Script:SlotHideTool)) {
+        Write-Err ("Missing " + $Script:SlotHideTool)
+        Pause-Any
+        return
+    }
+    if (-not (Ensure-Python)) { Pause-Any; return }
+
+    $gender = [string]$Script:Config.gender
+    if ($gender -notin @('F', 'M', 'B')) { $gender = 'B' }
+    $out = Join-Path $Script:Config.pazFolder 'files_to_patch'
+    Write-Info ("Slots  : " + ($slots -join ', '))
+    Write-Info ("Gender : " + $gender)
+    Write-Info ("Output : " + $out)
+    Write-Warn 'Scans full meta (can take a minute). Then run PartCutGen + Meta Injector.'
+    if (-not (Read-YesNo 'Run slot hide patcher?' $true)) { Pause-Any; return }
+
+    $pyArgs = @(
+        $Script:SlotHideTool,
+        '--paz', [string]$Script:Config.pazFolder,
+        '--out', $out,
+        '--slots', ($slots -join ','),
+        '--gender', $gender
+    )
+    try {
+        & python @pyArgs
+        if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+            Write-Err ("Exit code " + $LASTEXITCODE)
+        } else {
+            Write-Ok 'Slot hide folders written under files_to_patch\_slot_hide_*'
+            Ensure-ToolsInPaz
+        }
+    } catch {
+        Write-Err $_.Exception.Message
+    }
+    Pause-Any
+}
+
+function Configure-PubicHair {
+    Write-Banner
+    Write-Host '  PUBIC HAIR STYLE (LEGACY)' -ForegroundColor Magenta
+    Write-Host '  -------------------------' -ForegroundColor DarkGray
+    Write-Warn 'Best on older female nude textures (Tamer/DK/Ranger/Sorc/Witch bins).'
+    Write-Warn 'Seraph/Deadeye/etc. skip if no matching base+bin. Not a full new-class system.'
+    Write-Host ''
+    if (-not (Test-Path -LiteralPath (Join-Path $Script:PubicHairRoot 'offsets.bin'))) {
+        Write-Err ("Pubic hair pack missing: " + $Script:PubicHairRoot)
+        Write-Info 'Expected tools\pubic_hair\ from Resorepless resources.'
+        Pause-Any
+        return
+    }
+
+    $keys = @($Script:PubicHairStyles.Keys)
+    for ($i = 0; $i -lt $keys.Count; $i++) {
+        $k = $keys[$i]
+        $mark = if ($k -eq 'full_bush') { ' (popular)' } elseif ($k -eq 'none') { '' } else { '' }
+        $col = if ($i -eq 0) { 'DarkGray' } else { 'Cyan' }
+        Write-Host ("    [{0}] {1}{2}" -f ($i + 1), $Script:PubicHairStyles[$k], $mark) -ForegroundColor $col
+    }
+    Write-Host '    [P] Open preview image (if present)' -ForegroundColor Yellow
+    $pick = (Read-Host '  Select style number').Trim().ToUpperInvariant()
+    if ($pick -eq 'P') {
+        $prev = Join-Path $Script:PubicHairRoot 'preview.jpg'
+        if (Test-Path $prev) { Start-Process $prev } else { Write-Warn 'preview.jpg missing' }
+        Pause-Any
+        Configure-PubicHair
+        return
+    }
+    if ($pick -notmatch '^\d+$') {
+        Write-Warn 'Cancelled.'
+        Pause-Any
+        return
+    }
+    $idx = [int]$pick - 1
+    if ($idx -lt 0 -or $idx -ge $keys.Count) {
+        Write-Warn 'Invalid.'
+        Pause-Any
+        return
+    }
+    $Script:Config.pubicHairStyle = $keys[$idx]
+    Save-Config
+    Write-Ok ("Pubic hair style: " + $Script:PubicHairStyles[$Script:Config.pubicHairStyle])
+    if ($Script:Config.pubicHairStyle -ne 'none' -and (Read-YesNo 'Apply pubic hair textures now?' $true)) {
+        Apply-PubicHair
+    } else {
+        Pause-Any
+    }
+}
+
+function Apply-PubicHair {
+    Write-Banner
+    Write-Host '  Apply pubic hair' -ForegroundColor Magenta
+    Write-Host '  ----------------' -ForegroundColor DarkGray
+    $style = [string]$Script:Config.pubicHairStyle
+    if (-not $style -or $style -eq 'none') {
+        Write-Warn 'Style is none — pick a style first (menu 2 option 6).'
+        Pause-Any
+        return
+    }
+    if (-not (Test-IsPazFolder $Script:Config.pazFolder)) {
+        Write-Err 'Set PAZ first.'
+        Pause-Any
+        return
+    }
+    if (-not (Ensure-Python)) { Pause-Any; return }
+
+    $baseRoots = @(
+        (Join-Path $Script:Root 'pack\midnight_xyzw\_00_suzu_nude'),
+        (Join-Path $Script:Root 'pack\midnight_xyzw\_00_thegreatsage_nude')
+    ) -join ';'
+    $out = Join-Path $Script:Config.pazFolder ("files_to_patch\_pubic_hair\" + $style)
+    Write-Info ("Style : " + $style)
+    Write-Info ("Out   : " + $out)
+    if (-not (Read-YesNo 'Merge hair bins onto nude DDS and write files_to_patch?' $true)) {
+        Pause-Any
+        return
+    }
+    $pyArgs = @(
+        $Script:PubicHairTool,
+        '--style', $style,
+        '--hair-root', $Script:PubicHairRoot,
+        '--base-roots', $baseRoots,
+        '--out', $out
+    )
+    try {
+        & python @pyArgs
+        if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+            Write-Err ("Exit " + $LASTEXITCODE)
+        } else {
+            Write-Ok 'Pubic hair textures ready. Meta Inject after Midnight deploy (nude body first).'
+            Ensure-ToolsInPaz
+        }
+    } catch {
+        Write-Err $_.Exception.Message
+    }
+    Pause-Any
 }
 
 function Configure-MidnightChoices {
@@ -805,22 +1039,20 @@ function Show-OptionsMatrix {
     Write-Host '  ----------------------------' -ForegroundColor DarkGray
     Write-Host '  Gender F/M/Both'
     Write-Host '  Armor hide: All / Pearl / Free / Underwear-only'
-    Write-Host '    (All includes gloves, boots, helmets, stockings, life gear meshes)'
+    Write-Host '  Slot hide toggles: gloves, boots, helmets, weapons, stockings'
     Write-Host '  Underwear hide + nude body (Suzu + TheGreatSage) through Seraph'
     Write-Host '  XYZW outfit collections on/off'
-    Write-Host '  Body size LIMITS min/default/max for breasts, butt, thighs, arms, legs, pelvis, spine'
+    Write-Host '  Body size LIMITS min/default/max (+ custom numbers)'
+    Write-Host '  Pubic hair styles (legacy bins; best on older female nudes)'
     Write-Host '  GameOption graphics profiles (menu G)'
     Write-Host '  NVIDIA .nip driver profile (menu N)'
     Write-Host '  PartCutGen + Meta Injector pipeline'
     Write-Host ''
-    Write-Host '  LEGACY / PARTIAL (old Resorepless — not rebuilt fully)' -ForegroundColor Yellow
-    Write-Host '  ------------------------------------------------------' -ForegroundColor DarkGray
-    Write-Host '  Separate gloves-only / boots-only toggles  -> use Armor=All or extract custom'
-    Write-Host '  Pubic hair style picker                   -> use Resorepless.exe (old classes)'
-    Write-Host '  Penis / 3D vagina toggles                 -> Resorepless.exe only; broken on new classes'
-    Write-Host '  Per-class enable list                     -> Midnight applies broadly (except Shai)'
-    Write-Host '  Weapon mesh customize                     -> Resorepless.exe only'
-    Write-Host '  Censorship low/med/high tiers             -> mostly superseded by armor/underwear hide'
+    Write-Host '  LEGACY / PARTIAL' -ForegroundColor Yellow
+    Write-Host '  ----------------' -ForegroundColor DarkGray
+    Write-Host '  Penis / 3D vagina toggles     -> Resorepless.exe only; broken on new classes'
+    Write-Host '  Fancy weapon mesh swaps       -> hide weapons covers most screenshot needs'
+    Write-Host '  Censorship low/med/high tiers -> mostly superseded by armor/underwear hide'
     Write-Host ''
     Write-Host '  NOT SUPPORTED' -ForegroundColor Red
     Write-Host '  -------------' -ForegroundColor DarkGray
