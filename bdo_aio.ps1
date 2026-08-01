@@ -115,10 +115,13 @@ function Load-Config {
             npiPath         = ''
             bodySizePreset  = 'high'
             bodySizeParts   = 'breasts,butt,thighs,arms,legs,pelvis,spine'
+            bodySizeMin     = $null
+            bodySizeDefault = $null
+            bodySizeMax     = $null
             lastRun         = $null
         }
     }
-    foreach ($p in @('pazFolder', 'gender', 'armor', 'xyzwCollections', 'npiPath', 'bodySizePreset', 'bodySizeParts', 'lastRun')) {
+    foreach ($p in @('pazFolder', 'gender', 'armor', 'xyzwCollections', 'npiPath', 'bodySizePreset', 'bodySizeParts', 'bodySizeMin', 'bodySizeDefault', 'bodySizeMax', 'lastRun')) {
         if (-not ($Script:Config.PSObject.Properties.Name -contains $p)) {
             $val = switch ($p) {
                 'gender' { 'F' }
@@ -126,8 +129,9 @@ function Load-Config {
                 'xyzwCollections' { $true }
                 'bodySizePreset' { 'high' }
                 'bodySizeParts' { 'breasts,butt,thighs,arms,legs,pelvis,spine' }
-                default { '' }
+                default { $null }
             }
+            if ($null -eq $val -and $p -notin @('bodySizeMin', 'bodySizeDefault', 'bodySizeMax', 'lastRun')) { $val = '' }
             Add-Member -InputObject $Script:Config -NotePropertyName $p -NotePropertyValue $val
         }
     }
@@ -144,6 +148,9 @@ function Save-Config {
         npiPath         = [string]$Script:Config.npiPath
         bodySizePreset  = [string]$Script:Config.bodySizePreset
         bodySizeParts   = [string]$Script:Config.bodySizeParts
+        bodySizeMin     = $Script:Config.bodySizeMin
+        bodySizeDefault = $Script:Config.bodySizeDefault
+        bodySizeMax     = $Script:Config.bodySizeMax
         lastRun         = $Script:Config.lastRun
     }
     $json = $out | ConvertTo-Json -Depth 4
@@ -357,9 +364,13 @@ function Show-Status {
     Write-Host ("  Armor    : " + $a + " (" + (Get-ArmorLabel $a) + ")") -ForegroundColor Gray
     $xyzwText = if ($x) { 'Yes' } else { 'No' }
     Write-Host ("  Collections (XYZW outfits): " + $xyzwText) -ForegroundColor Gray
-    $bsp = [string]$Script:Config.bodySizePreset
-    if (-not $bsp) { $bsp = 'high' }
-    Write-Host ("  Body size preset: " + $bsp + "  (menu 2 -> raise max breast/hip sliders)") -ForegroundColor Gray
+    try {
+        $eff = Get-EffectiveBodySizeValues
+        Write-Host ("  Body size: {0}  min={1:0.##} def={2:0.##} max={3:0.##}" -f $eff.preset, $eff.min, $eff.def, $eff.max) -ForegroundColor Gray
+        Write-Host ("  Body parts: " + $(if ($Script:Config.bodySizeParts) { $Script:Config.bodySizeParts } else { 'all' })) -ForegroundColor Gray
+    } catch {
+        Write-Host '  Body size: (configure in menu 2)' -ForegroundColor Gray
+    }
     Write-Host ''
 }
 
@@ -496,40 +507,218 @@ function Configure-MidnightChoices {
     Pause-Any
 }
 
+function Read-FloatValue {
+    param(
+        [string]$Prompt,
+        [double]$Default,
+        [double]$MinAllowed = -5.0,
+        [double]$MaxAllowed = 10.0
+    )
+    while ($true) {
+        Write-Host ''
+        $raw = (Read-Host ("  " + $Prompt + " [default " + ("{0:0.##}" -f $Default) + "]")).Trim()
+        if ([string]::IsNullOrEmpty($raw)) { return $Default }
+        $raw = $raw.Replace(',', '.')
+        $val = 0.0
+        if (-not [double]::TryParse($raw, [ref]$val)) {
+            Write-Warn 'Enter a number (example: 2.5 or 1.0)'
+            continue
+        }
+        if ($val -lt $MinAllowed -or $val -gt $MaxAllowed) {
+            Write-Warn ("Value out of safe range " + $MinAllowed + " .. " + $MaxAllowed + " (you can still type again)")
+            if (-not (Read-YesNo ("Use " + $val + " anyway?") $false)) { continue }
+        }
+        return $val
+    }
+}
+
+function Get-BodySizePresetValues {
+    param([string]$Name)
+    switch ($Name) {
+        'vanilla' { return @{ min = 0.90; def = 1.00; max = 1.25 } }
+        'mild'    { return @{ min = 0.85; def = 1.00; max = 1.75 } }
+        'high'    { return @{ min = 0.80; def = 1.05; max = 2.50 } }
+        'extreme' { return @{ min = 0.70; def = 1.10; max = 3.00 } }
+        default   { return @{ min = 0.80; def = 1.05; max = 2.50 } }
+    }
+}
+
+function Get-EffectiveBodySizeValues {
+    $preset = [string]$Script:Config.bodySizePreset
+    if (-not $preset) { $preset = 'high' }
+    if ($preset -eq 'custom') {
+        $min = $Script:Config.bodySizeMin
+        $def = $Script:Config.bodySizeDefault
+        $max = $Script:Config.bodySizeMax
+        if ($null -eq $min) { $min = 0.80 }
+        if ($null -eq $def) { $def = 1.05 }
+        if ($null -eq $max) { $max = 2.50 }
+        return @{
+            preset = 'custom'
+            min    = [double]$min
+            def    = [double]$def
+            max    = [double]$max
+        }
+    }
+    $v = Get-BodySizePresetValues $preset
+    return @{
+        preset = $preset
+        min    = $v.min
+        def    = $v.def
+        max    = $v.max
+    }
+}
+
+function Test-BodySizeOrder {
+    param([double]$Min, [double]$Def, [double]$Max)
+    return ($Min -lt $Def -and $Def -lt $Max)
+}
+
 function Configure-BodySizeLimits {
     Write-Banner
     Write-Host '  BODY SIZE LIMITS (char create / beauty salon)' -ForegroundColor White
     Write-Host '  ---------------------------------------------' -ForegroundColor DarkGray
-    Write-Info 'This is the old Resorepless feature: raise Max so in-game sliders go higher.'
-    Write-Warn 'Must create a new character OR use beauty salon after inject. Tamer breasts may not work.'
+    Write-Info 'Raises Min / Default / Max so in-game sliders can go further (Resorepless-style).'
+    Write-Warn 'After inject: beauty salon or new character. Tamer breasts often ignore this.'
     Write-Host ''
-    Write-Host '  Presets (Min / Default / Max):' -ForegroundColor White
-    Write-Host '    [1] vanilla  — 0.90 / 1.00 / 1.25   (stock game)' -ForegroundColor Cyan
-    Write-Host '    [2] mild     — 0.85 / 1.00 / 1.75' -ForegroundColor Cyan
-    Write-Host '    [3] high     — 0.80 / 1.05 / 2.50   (recommended classic)' -ForegroundColor Green
-    Write-Host '    [4] extreme  — 0.70 / 1.10 / 3.00' -ForegroundColor Yellow
-    $p = Read-Choice 'Preset' @('1', '2', '3', '4')
-    $Script:Config.bodySizePreset = switch ($p) {
-        '1' { 'vanilla' }
-        '2' { 'mild' }
-        '3' { 'high' }
-        '4' { 'extreme' }
+    Write-Host '  Easy path = recommended presets. Power path = type any custom numbers.' -ForegroundColor Gray
+    Write-Host ''
+
+    $cur = Get-EffectiveBodySizeValues
+    Write-Host ("  Current: preset={0}  min={1:0.##}  default={2:0.##}  max={3:0.##}" -f $cur.preset, $cur.min, $cur.def, $cur.max) -ForegroundColor DarkCyan
+    Write-Host ("  Parts  : " + $(if ($Script:Config.bodySizeParts) { $Script:Config.bodySizeParts } else { 'all' })) -ForegroundColor DarkCyan
+    Write-Host ''
+
+    Write-Host '  SIZE VALUES' -ForegroundColor White
+    Write-Host '    [1] vanilla   0.90 / 1.00 / 1.25   stock game' -ForegroundColor Cyan
+    Write-Host '    [2] mild      0.85 / 1.00 / 1.75' -ForegroundColor Cyan
+    Write-Host '    [3] high      0.80 / 1.05 / 2.50   RECOMMENDED (classic)' -ForegroundColor Green
+    Write-Host '    [4] extreme   0.70 / 1.10 / 3.00   may clip hard' -ForegroundColor Yellow
+    Write-Host '    [5] CUSTOM    type your own Min / Default / Max' -ForegroundColor Magenta
+    Write-Host '    [6] Keep current values' -ForegroundColor DarkGray
+    $p = Read-Choice 'Choice' @('1', '2', '3', '4', '5', '6')
+
+    switch ($p) {
+        '1' {
+            $Script:Config.bodySizePreset = 'vanilla'
+            $Script:Config.bodySizeMin = $null
+            $Script:Config.bodySizeDefault = $null
+            $Script:Config.bodySizeMax = $null
+        }
+        '2' {
+            $Script:Config.bodySizePreset = 'mild'
+            $Script:Config.bodySizeMin = $null
+            $Script:Config.bodySizeDefault = $null
+            $Script:Config.bodySizeMax = $null
+        }
+        '3' {
+            $Script:Config.bodySizePreset = 'high'
+            $Script:Config.bodySizeMin = $null
+            $Script:Config.bodySizeDefault = $null
+            $Script:Config.bodySizeMax = $null
+        }
+        '4' {
+            $Script:Config.bodySizePreset = 'extreme'
+            $Script:Config.bodySizeMin = $null
+            $Script:Config.bodySizeDefault = $null
+            $Script:Config.bodySizeMax = $null
+        }
+        '5' {
+            Write-Host ''
+            Write-Host '  CUSTOM VALUES' -ForegroundColor Magenta
+            Write-Info 'Rule: Min < Default < Max   (examples: min 0.8, default 1.05, max 2.5)'
+            Write-Info 'Old Resorepless UI suggested max around 2.5; higher can look extreme/clip.'
+            $base = Get-EffectiveBodySizeValues
+            while ($true) {
+                $min = Read-FloatValue -Prompt 'Min size' -Default $base.min -MinAllowed -2.0 -MaxAllowed 5.0
+                $def = Read-FloatValue -Prompt 'Default size (slider middle-ish)' -Default $base.def -MinAllowed -2.0 -MaxAllowed 5.0
+                $max = Read-FloatValue -Prompt 'Max size (what you care about most)' -Default $base.max -MinAllowed 0.1 -MaxAllowed 10.0
+                if (Test-BodySizeOrder -Min $min -Def $def -Max $max) {
+                    $Script:Config.bodySizePreset = 'custom'
+                    $Script:Config.bodySizeMin = $min
+                    $Script:Config.bodySizeDefault = $def
+                    $Script:Config.bodySizeMax = $max
+                    Write-Ok ("Custom saved: min={0:0.##} default={1:0.##} max={2:0.##}" -f $min, $def, $max)
+                    break
+                }
+                Write-Err 'Need Min < Default < Max. Try again.'
+            }
+        }
+        '6' {
+            Write-Info 'Keeping existing size values.'
+        }
+    }
+
+    # Optional fine-tune after preset (friendly: ask once)
+    if ($p -in @('1', '2', '3', '4')) {
+        Write-Host ''
+        if (Read-YesNo 'Fine-tune numbers after this preset (custom override)?' $false) {
+            $base = Get-EffectiveBodySizeValues
+            while ($true) {
+                $min = Read-FloatValue -Prompt 'Min size' -Default $base.min -MinAllowed -2.0 -MaxAllowed 5.0
+                $def = Read-FloatValue -Prompt 'Default size' -Default $base.def -MinAllowed -2.0 -MaxAllowed 5.0
+                $max = Read-FloatValue -Prompt 'Max size' -Default $base.max -MinAllowed 0.1 -MaxAllowed 10.0
+                if (Test-BodySizeOrder -Min $min -Def $def -Max $max) {
+                    $Script:Config.bodySizePreset = 'custom'
+                    $Script:Config.bodySizeMin = $min
+                    $Script:Config.bodySizeDefault = $def
+                    $Script:Config.bodySizeMax = $max
+                    Write-Ok ("Custom override: min={0:0.##} default={1:0.##} max={2:0.##}" -f $min, $def, $max)
+                    break
+                }
+                Write-Err 'Need Min < Default < Max. Try again.'
+            }
+        }
     }
 
     Write-Host ''
-    Write-Host '  Body parts to unlock (same as Resorepless size menu):' -ForegroundColor White
+    Write-Host '  BODY PARTS' -ForegroundColor White
     Write-Host '    [1] Breasts only' -ForegroundColor Cyan
-    Write-Host '    [2] Breasts + butt + thighs' -ForegroundColor Cyan
-    Write-Host '    [3] ALL (breasts, butt, thighs, arms, legs, pelvis, spine)' -ForegroundColor Green
-    $bp = Read-Choice 'Parts' @('1', '2', '3')
-    $Script:Config.bodySizeParts = switch ($bp) {
-        '1' { 'breasts' }
-        '2' { 'breasts,butt,thighs' }
-        '3' { 'breasts,butt,thighs,arms,legs,pelvis,spine' }
+    Write-Host '    [2] Breasts + butt + thighs   (RECOMMENDED for most people)' -ForegroundColor Green
+    Write-Host '    [3] ALL parts (breasts, butt, thighs, arms, legs, pelvis, spine)' -ForegroundColor Cyan
+    Write-Host '    [4] CUSTOM list (type names yourself)' -ForegroundColor Magenta
+    Write-Host '    [5] Keep current parts list' -ForegroundColor DarkGray
+    $bp = Read-Choice 'Parts choice' @('1', '2', '3', '4', '5')
+    switch ($bp) {
+        '1' { $Script:Config.bodySizeParts = 'breasts' }
+        '2' { $Script:Config.bodySizeParts = 'breasts,butt,thighs' }
+        '3' { $Script:Config.bodySizeParts = 'breasts,butt,thighs,arms,legs,pelvis,spine' }
+        '4' {
+            Write-Host ''
+            Write-Info 'Valid names: breasts, butt, thighs, arms, legs, pelvis, spine'
+            Write-Info 'Example: breasts,butt   or   breasts,thighs,arms'
+            $legal = @('breasts', 'butt', 'thighs', 'arms', 'legs', 'pelvis', 'spine')
+            while ($true) {
+                $raw = (Read-Host '  Parts (comma-separated)').Trim().ToLowerInvariant()
+                if ([string]::IsNullOrEmpty($raw)) {
+                    Write-Warn 'Empty — try again or use a preset choice.'
+                    continue
+                }
+                $tokens = @($raw -split '[,;\s]+' | Where-Object { $_ })
+                $bad = @($tokens | Where-Object { $_ -notin $legal })
+                if ($bad.Count -gt 0) {
+                    Write-Warn ("Unknown: " + ($bad -join ', '))
+                    continue
+                }
+                if ($tokens.Count -eq 0) { continue }
+                $Script:Config.bodySizeParts = ($tokens | Select-Object -Unique) -join ','
+                Write-Ok ("Parts: " + $Script:Config.bodySizeParts)
+                break
+            }
+        }
+        '5' { Write-Info 'Keeping existing parts list.' }
     }
 
     Save-Config
-    Write-Ok ("Saved preset=" + $Script:Config.bodySizePreset + " parts=" + $Script:Config.bodySizeParts)
+    $eff = Get-EffectiveBodySizeValues
+    Write-Host ''
+    Write-Ok 'Body size settings saved.'
+    Write-Host ("  Preset : " + $eff.preset) -ForegroundColor Gray
+    Write-Host ("  Min    : {0:0.##}" -f $eff.min) -ForegroundColor Gray
+    Write-Host ("  Default: {0:0.##}" -f $eff.def) -ForegroundColor Gray
+    Write-Host ("  Max    : {0:0.##}" -f $eff.max) -ForegroundColor Gray
+    Write-Host ("  Parts  : " + $Script:Config.bodySizeParts) -ForegroundColor Gray
+    Write-Host ''
     if (Read-YesNo 'Apply body size patch to game files_to_patch now?' $true) {
         Apply-BodySizePatch
     } else {
@@ -557,27 +746,39 @@ function Apply-BodySizePatch {
         return
     }
 
-    $preset = [string]$Script:Config.bodySizePreset
-    if (-not $preset) { $preset = 'high' }
+    $eff = Get-EffectiveBodySizeValues
     $parts = [string]$Script:Config.bodySizeParts
     if (-not $parts) { $parts = 'breasts,butt,thighs,arms,legs,pelvis,spine' }
     $out = Join-Path $Script:Config.pazFolder 'files_to_patch\_body_size_limits'
 
-    Write-Info ("PAZ    : " + $Script:Config.pazFolder)
-    Write-Info ("Preset : " + $preset)
-    Write-Info ("Parts  : " + $parts)
-    Write-Info ("Output : " + $out)
-    Write-Warn 'Extracts ~75 customizationboneparamdesc.xml from live game (takes a minute).'
-    if (-not (Read-YesNo 'Run body size patcher?' $true)) {
+    if (-not (Test-BodySizeOrder -Min $eff.min -Def $eff.def -Max $eff.max)) {
+        Write-Err 'Invalid sizes (need Min < Default < Max). Re-run menu 2 body size config.'
         Pause-Any
         return
     }
 
+    Write-Info ("PAZ     : " + $Script:Config.pazFolder)
+    Write-Info ("Preset  : " + $eff.preset)
+    Write-Info ("Min     : {0:0.##}" -f $eff.min)
+    Write-Info ("Default : {0:0.##}" -f $eff.def)
+    Write-Info ("Max     : {0:0.##}" -f $eff.max)
+    Write-Info ("Parts   : " + $parts)
+    Write-Info ("Output  : " + $out)
+    Write-Warn 'Extracts ~75 customizationboneparamdesc.xml from live game (takes a minute).'
+    if (-not (Read-YesNo 'Run body size patcher with these values?' $true)) {
+        Pause-Any
+        return
+    }
+
+    # Always pass explicit numbers so custom + presets both go through the same path
     $pyArgs = @(
         $Script:BodySizeTool,
         '--paz', [string]$Script:Config.pazFolder,
         '--out', $out,
-        '--preset', $preset,
+        '--preset', 'high',
+        '--min', ("{0}" -f $eff.min),
+        '--default', ("{0}" -f $eff.def),
+        '--max', ("{0}" -f $eff.max),
         '--parts', $parts
     )
     try {
@@ -586,7 +787,7 @@ function Apply-BodySizePatch {
             Write-Err ("Patcher exit code " + $LASTEXITCODE)
         } else {
             Write-Ok 'Body size files written under files_to_patch\_body_size_limits'
-            Write-Info 'Next: PartCutGen (optional for this XML) then Meta Injector, then beauty salon / new char.'
+            Write-Info 'Next: Meta Injector, then beauty salon or new character to use the new max.'
             Ensure-ToolsInPaz
         }
     } catch {
