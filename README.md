@@ -50,7 +50,8 @@ Full table: [`docs/FEATURE-LABELS.md`](docs/FEATURE-LABELS.md)
 ### EXPERIMENTAL-REUSE (opt-in, not native art)
 | Area | Options |
 |------|---------|
-| Donor mesh/bin for missing classes | Asked inside Options **[6]** / **[V]**; separate output folders; default **OFF** |
+| **New females genitals + pubic** | Options hub **[F]** — Seraph/Deadeye/Woosa/… preferred donors + synthesized pubic DDS |
+| Donor mesh/bin for any missing class | Also asked inside Options **[6]** / **[V]**; default **OFF** |
 
 ### EXPERIMENTAL (from-scratch only)
 | Area | Options |

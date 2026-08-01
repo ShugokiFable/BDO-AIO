@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.4.2
+
+### NEW FEMALES genitals + pubic [EXPERIMENTAL-REUSE]
+- Options hub **[F]**: Seraph, Deadeye, Woosa, Maegu, Scholar, Nova, Corsair, Drakania, Guardian
+- Preferred per-class genital donors + renamed textures
+- Pubic: synthesize class-named nude DDS from preferred Midnight base + hair bin
+- CLI: `--new-females` on `genital_pack_apply.py` / `pubic_hair_apply.py`
+- Outputs: `_genital_EXPERIMENTAL_new_females`, `_pubic_hair_EXPERIMENTAL_new_females\<style>`
+- Honesty: replaces TGS/Suzu nude PAC for those classes — not original art
+
 ## v1.4.1
 
 ### Donor reuse is experimental and separated

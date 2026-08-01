@@ -555,8 +555,10 @@ function Configure-ModChoices {
     Write-Host '   [9] Launch original Resorepless.exe (reference only)' -ForegroundColor DarkYellow
     Write-Host ''
 
-    Write-Host '  --- EXPERIMENTAL (not classic NATIVE restore) ---' -ForegroundColor Red
-    Write-Host '   Donor reuse for missing classes is asked inside [6]/[V] as EXPERIMENTAL-REUSE' -ForegroundColor DarkYellow
+    Write-Host '  --- EXPERIMENTAL-REUSE (not classic NATIVE art) ---' -ForegroundColor Red
+    Write-Host '   [F] NEW FEMALES genitals + pubic  (Seraph/Deadeye/Woosa/…)' -ForegroundColor Red
+    Write-Host '       Donor mesh/bin only — replaces TGS nude PAC for those classes' -ForegroundColor DarkYellow
+    Write-Host '   Donor reuse for all missing classes also asked inside [6]/[V]' -ForegroundColor DarkYellow
     Write-Host '   [X] DLSS/OptiScaler inject hub  *** NOT SAFE / FROM-SCRATCH ***' -ForegroundColor Red
     Write-Host ''
 
@@ -576,6 +578,7 @@ function Configure-ModChoices {
         '7' { Apply-PubicHair }
         'C' { Configure-CensorshipTier }
         'V' { Configure-GenitalMenus }
+        'F' { Configure-NewFemalesBody }
         'X' { Show-ExperimentalDlssMenu }
         '8' { Show-OptionsMatrix }
         '9' { Launch-LegacyResorepless }
@@ -635,6 +638,131 @@ function Read-PenisStyle([string]$label, [string]$current) {
     return $(switch ($c) { '0' { 'none' } '1' { 'normal' } '2' { 'hard' } })
 }
 
+function Configure-NewFemalesBody {
+    Write-Banner
+    Write-Host '  NEW FEMALES — genitals + pubic  [EXPERIMENTAL-REUSE]' -ForegroundColor Red
+    Write-Host '  ====================================================' -ForegroundColor DarkGray
+    Write-Host ''
+    Write-Host '  Classes (no native Resorepless genital art):' -ForegroundColor White
+    Write-Host '    Guardian, Nova, Corsair, Drakania, Maegu, Woosa,' -ForegroundColor Cyan
+    Write-Host '    Scholar, Deadeye, Seraph' -ForegroundColor Cyan
+    Write-Host ''
+    Write-Warn 'This is NOT original class art.'
+    Write-Warn '3D vagina: replaces Midnight/TheGreatSage nude PAC with a donor genital body.'
+    Write-Warn 'Pubic: invents class-named nude DDS from a preferred classic base + hair bin.'
+    Write-Warn 'Can clip, stretch, or mismatch UVs/skin. Shai never included.'
+    Write-Host ''
+    Write-Host '  Prefer classic [V]/[6] NATIVE first for old classes; use this for new females only.' -ForegroundColor DarkGray
+    Write-Host ''
+
+    if (-not (Test-Path -LiteralPath (Join-Path $Script:PubicHairRoot 'offsets.bin'))) {
+        Write-Err ("Pubic hair pack missing: " + $Script:PubicHairRoot)
+        Pause-Any
+        return
+    }
+
+    Write-Host '  --- Pubic style (applied only to new females) ---' -ForegroundColor Red
+    $keys = @($Script:PubicHairStyles.Keys)
+    for ($i = 0; $i -lt $keys.Count; $i++) {
+        $k = $keys[$i]
+        $col = if ($i -eq 0) { 'DarkGray' } else { 'Cyan' }
+        Write-Host ("    [{0}] {1}" -f ($i + 1), $Script:PubicHairStyles[$k]) -ForegroundColor $col
+    }
+    $pick = (Read-Host '  Select style number (or 1=skip pubic)').Trim()
+    $style = 'none'
+    if ($pick -match '^\d+$') {
+        $idx = [int]$pick - 1
+        if ($idx -ge 0 -and $idx -lt $keys.Count) { $style = $keys[$idx] }
+    }
+    $Script:Config.pubicHairStyle = $style
+    $Script:Config.pubicHairReuse = $true
+    $Script:Config.female3dVagina = $true
+    $Script:Config.genitalReuse = $true
+    Save-Config
+
+    Write-Ok 'New-females package options saved (EXPERIMENTAL-REUSE).'
+    Write-Host ("  pubic style = " + $Script:PubicHairStyles[$style]) -ForegroundColor Gray
+    if (Read-YesNo 'Apply NEW FEMALES genitals + pubic now?' $true) {
+        Apply-NewFemalesBody
+    } else {
+        Pause-Any
+    }
+}
+
+function Apply-NewFemalesBody {
+    Write-Banner
+    Write-Host '  Apply NEW FEMALES genitals + pubic  [EXPERIMENTAL-REUSE]' -ForegroundColor Red
+    Write-Host '  --------------------------------------------------------' -ForegroundColor DarkGray
+    if (-not (Test-IsPazFolder $Script:Config.pazFolder)) { Write-Err 'Set PAZ first.'; Pause-Any; return }
+    if (-not (Ensure-Python)) { Pause-Any; return }
+    if (-not (Test-Path $Script:GenitalRoot)) { Write-Err "Missing $($Script:GenitalRoot)"; Pause-Any; return }
+
+    $paz = [string]$Script:Config.pazFolder
+    $genOut = Join-Path $paz 'files_to_patch\_genital_EXPERIMENTAL_new_females'
+    $style = [string]$Script:Config.pubicHairStyle
+    $baseRoots = @(
+        (Join-Path $Script:Root 'pack\midnight_xyzw\_00_suzu_nude'),
+        (Join-Path $Script:Root 'pack\midnight_xyzw\_00_thegreatsage_nude')
+    ) -join ';'
+
+    Write-Info "genital out = $genOut"
+    Write-Warn 'Replaces TGS/Suzu nude PAC for new females with donor genital meshes.'
+    if (-not (Read-YesNo 'Continue with genital pack for new females?' $true)) {
+        Pause-Any
+        return
+    }
+
+    $pyGen = @(
+        $Script:GenitalTool,
+        '--pack-root', $Script:GenitalRoot,
+        '--out', $genOut,
+        '--new-females'
+    )
+    try {
+        & python @pyGen
+        if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+            Write-Err ("Genital exit " + $LASTEXITCODE)
+        } else {
+            Write-Ok 'New-female genital packs written (see README in out folder).'
+        }
+    } catch {
+        Write-Err $_.Exception.Message
+    }
+
+    if ($style -and $style -ne 'none') {
+        $pubOut = Join-Path $paz ("files_to_patch\_pubic_hair_EXPERIMENTAL_new_females\" + $style)
+        Write-Info "pubic out = $pubOut"
+        if (Read-YesNo ("Apply pubic style '$style' for new females?") $true) {
+            $pyPub = @(
+                $Script:PubicHairTool,
+                '--style', $style,
+                '--hair-root', $Script:PubicHairRoot,
+                '--base-roots', $baseRoots,
+                '--out', $pubOut,
+                '--new-females'
+            )
+            try {
+                & python @pyPub
+                if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+                    Write-Err ("Pubic exit " + $LASTEXITCODE)
+                } else {
+                    Write-Ok 'New-female pubic textures written.'
+                }
+            } catch {
+                Write-Err $_.Exception.Message
+            }
+        }
+    } else {
+        Write-Info 'Pubic skipped (style=none).'
+    }
+
+    Write-Host ''
+    Write-Warn 'Next: Midnight deploy (underwear hide + nude) if not done, then PartCutGen + Meta Injector.'
+    Write-Warn 'Load order tip: inject Midnight body first, then new-female genital override last if both present.'
+    Ensure-ToolsInPaz
+    Pause-Any
+}
+
 function Configure-GenitalMenus {
     Write-Banner
     Write-Host '  PENIS / 3D VAGINA' -ForegroundColor Magenta
@@ -642,6 +770,7 @@ function Configure-GenitalMenus {
     Write-Host ''
     Write-Host '  [RESTORED / NATIVE]  Only classes that had real Resorepless meshes' -ForegroundColor Green
     Write-Host '  [EXPERIMENTAL-REUSE] Donor mesh renamed for Seraph/Deadeye/etc. (optional)' -ForegroundColor Red
+    Write-Host '  For new females only, prefer Options hub [F] (targeted package).' -ForegroundColor DarkYellow
     Write-Warn 'Penis skin tone often mismatches. Shai never included.'
     Write-Host ''
     Write-Host '  --- RESTORED (NATIVE only) ---' -ForegroundColor Green
@@ -1302,12 +1431,18 @@ function Show-OptionsMatrix {
     Write-Host '  RESTORED but LIMITED on modern content' -ForegroundColor Yellow
     Write-Host '  --------------------------------------' -ForegroundColor DarkGray
     Write-Host '  Genital / pubic / censorship packs: best on older classes/outfits'
-    Write-Host '  No full Agent/Wukong/Seraph-specific genital art beyond Midnight nude base'
     Write-Host '  Penis skin-tone mismatch (classic issue)'
+    Write-Host ''
+    Write-Host '  EXPERIMENTAL-REUSE for new females (Options [F])' -ForegroundColor Red
+    Write-Host '  ------------------------------------------------' -ForegroundColor DarkGray
+    Write-Host '  Seraph / Deadeye / Woosa / Maegu / Scholar / Nova / Corsair /'
+    Write-Host '  Drakania / Guardian — donor genital mesh + synthesized pubic DDS'
+    Write-Host '  Replaces TGS nude PAC; not original class art; may clip/mismatch'
     Write-Host ''
     Write-Host '  NOT SUPPORTED' -ForegroundColor DarkGray
     Write-Host '  -------------' -ForegroundColor DarkGray
     Write-Host '  Shai nude; anti-cheat stealth; inventing new high-quality body meshes'
+    Write-Host '  Agent/Wukong males (no stable pack prefixes yet)'
     Write-Host ''
     Pause-Any
 }

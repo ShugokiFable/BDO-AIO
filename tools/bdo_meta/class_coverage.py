@@ -26,6 +26,38 @@ FEMALE_CLASSES = {
     "pdkl": ("33_pdkl", "Seraph", None),
 }
 
+# Females with no Resorepless 3D-vagina PAC (Midnight/TGS body exists; genitals = EXPERIMENTAL-REUSE)
+NEW_FEMALE_PREFIXES = tuple(
+    p for p, v in FEMALE_CLASSES.items() if v[2] is None
+)
+
+# Preferred genital mesh donor per new female (best-effort body match; not artist-authored)
+NEW_FEMALE_GENITAL_DONOR = {
+    "pgw": "phw",   # Guardian -> Sorceress
+    "ppw": "pww",   # Nova -> Witch
+    "pfw": "psw",   # Corsair -> Lahn
+    "pqw": "pdw",   # Drakania -> Dark Knight
+    "pkow": "pnw",  # Maegu -> Kunoichi
+    "pmyf": "pww",  # Woosa -> Witch
+    "pnyw": "pww",  # Scholar -> Witch
+    "pwge": "pew",  # Deadeye -> Ranger
+    "pdkl": "psw",  # Seraph -> Lahn
+}
+
+# Preferred nude DDS stem (from Midnight Suzu textures) used to synthesize pubic hair
+# for classes that have no class-named base DDS in the pack.
+NEW_FEMALE_PUBIC_BASE = {
+    "pgw": "phw_01_nude_0001",
+    "ppw": "pww_01_nude_0001",
+    "pfw": "pfw_01_nude_0001",  # own texture in pack; bin may not match size
+    "pqw": "pdw_00_nude_0001",
+    "pkow": "pdw_00_nude_0001",
+    "pmyf": "pww_01_nude_0001",
+    "pnyw": "pww_01_nude_0001",
+    "pwge": "pew_01_nude_0001",
+    "pdkl": "phw_01_nude_0001",  # Seraph — no class DDS; large-atlas donor
+}
+
 MALE_CLASSES = {
     # prefix: (folder_id, display_name, native_penis_pac base name)
     "phm": ("1_phm", "Warrior", "phm_00_nude_0001.pac"),
@@ -41,8 +73,8 @@ MALE_CLASSES = {
     # Wukong / Agent — unknown prefixes; will try live meta discovery if passed
 }
 
-# Preferred donor for missing female 3D vagina mesh (closest general body)
-FEMALE_DONOR_ORDER = ["pww", "pdw", "pbw", "phw", "pvw", "pnw", "pcw", "psw"]
+# Preferred donor for missing female 3D vagina mesh (fallback order)
+FEMALE_DONOR_ORDER = ["pww", "pdw", "pbw", "phw", "pvw", "pnw", "pcw", "psw", "pew"]
 
 # Preferred donor for missing male penis mesh
 MALE_DONOR_ORDER = ["phm", "pcm", "pwm", "pgm", "pkm", "pnm"]
@@ -64,3 +96,15 @@ def female_folder(prefix: str) -> str:
 
 def male_folder(prefix: str) -> str:
     return f"character/model/1_pc/{MALE_CLASSES[prefix][0]}/nude"
+
+
+def is_new_female(prefix: str) -> bool:
+    return prefix in NEW_FEMALE_PREFIXES
+
+
+def preferred_female_genital_donor(prefix: str) -> str | None:
+    return NEW_FEMALE_GENITAL_DONOR.get(prefix)
+
+
+def preferred_female_pubic_base(prefix: str) -> str | None:
+    return NEW_FEMALE_PUBIC_BASE.get(prefix)

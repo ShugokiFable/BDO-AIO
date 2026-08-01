@@ -52,9 +52,12 @@ Where classic packs only had old classes, the AIO can **optionally** reuse a don
 | Apply mode | Label / output folder | Default |
 |------------|----------------------|---------|
 | Exact classic asset for that class | **NATIVE** / `_…_RESTORED_native` | **ON** (RESTORED path) |
-| Donor mesh/texture for missing class | **EXPERIMENTAL-REUSE** / `_…_EXPERIMENTAL_reuse` | **OFF** (opt-in in [6]/[V]) |
+| Donor for any missing class | **EXPERIMENTAL-REUSE** / `_…_EXPERIMENTAL_reuse` | **OFF** (opt-in in [6]/[V]) |
+| **New females only** (Seraph, Deadeye, Woosa, Maegu, Scholar, Nova, Corsair, Drakania, Guardian) | **EXPERIMENTAL-REUSE** / `_genital_EXPERIMENTAL_new_females`, `_pubic_hair_EXPERIMENTAL_new_females` | Options hub **[F]** |
 
-CLI: `--native-only` (default) vs `--all-classes` (experimental donor reuse).
+CLI: `--native-only` (default) · `--all-classes` · `--new-females` (preferred donors + synthesized pubic DDS).
+
+**Honesty for [F]:** genital apply **replaces** Midnight/TheGreatSage nude PAC for that class with a donor genital body. Not original art.
 
 Body **size limits** already touch every `customizationboneparamdesc` in live PAZ (all classes).
 

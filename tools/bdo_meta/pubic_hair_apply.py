@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Pubic hair overlays with best-effort multi-class coverage.
+Pubic hair overlays with NATIVE + optional EXPERIMENTAL-REUSE for new females.
 
 NATIVE: exact class bin (pbw/pdw/pew/phw/pww) onto matching base DDS.
-EXPERIMENTAL: if another nude DDS has the SAME file size as a known base,
-  reuse that bin (UV layout must match size or merge fails safely).
+EXPERIMENTAL / --all-classes: same-size donor bin on other nude DDS in base roots.
+--new-females: for Seraph/Deadeye/Woosa/… synthesize class-named DDS by applying
+  a preferred donor base + bin (no native class art).
 
-Also scans Midnight pack for all *nude*.dds body textures and tries every
-compatible bin donor.
+Shai (plw_) is skipped.
 """
 from __future__ import annotations
 
@@ -16,6 +16,12 @@ import pathlib
 import shutil
 import struct
 import sys
+
+from class_coverage import (
+    NEW_FEMALE_PREFIXES,
+    NEW_FEMALE_PUBIC_BASE,
+    preferred_female_pubic_base,
+)
 
 STYLES = [
     "shaved",
@@ -33,7 +39,6 @@ STYLES = [
     "wider_trimmed",
 ]
 
-# bin stem -> typical authored base size (bytes) when known
 BIN_STEMS = [
     "pbw_00_nude_0001",
     "pdw_00_nude_0001",
@@ -96,13 +101,101 @@ def collect_base_dds(roots: list[pathlib.Path]) -> list[pathlib.Path]:
             n = p.name.lower()
             if "nude" not in n:
                 continue
-            # skip pure normal/spec-only maps for primary try; still allow _n later only if named nude
             if n.endswith("_n.dds") or n.endswith("_sp.dds") or n.endswith("_m.dds"):
                 continue
-            # prefer larger / first
             if p.name not in found:
                 found[p.name] = p
     return list(found.values())
+
+
+def find_base_by_stem(bases: list[pathlib.Path], stem: str) -> pathlib.Path | None:
+    want = (stem + ".dds").lower()
+    for b in bases:
+        if b.name.lower() == want:
+            return b
+    # also allow stem without .dds already
+    for b in bases:
+        if b.stem.lower() == stem.lower():
+            return b
+    return None
+
+
+def pick_bin_for_base(
+    base: pathlib.Path,
+    bins: dict[str, pathlib.Path],
+    bin_sizes: dict[str, int],
+) -> pathlib.Path | None:
+    """Prefer exact stem bin, then same-size bin, else first bin that applies."""
+    stem = base.stem.lower()
+    if stem in bins:
+        return bins[stem]
+    sz = base.stat().st_size
+    for bstem, bsz in bin_sizes.items():
+        if bsz == sz and bstem in bins:
+            return bins[bstem]
+    return None
+
+
+def synthesize_new_female(
+    prefix: str,
+    bases: list[pathlib.Path],
+    bins: dict[str, pathlib.Path],
+    bin_sizes: dict[str, int],
+    offsets: list[tuple[int, int]],
+    out_tex: pathlib.Path,
+) -> list[str]:
+    """Create class-named pubic DDS for a new female via preferred donor base."""
+    notes: list[str] = []
+    donor_stem = preferred_female_pubic_base(prefix)
+    if not donor_stem:
+        log(f"  [SKIP new-F no-map] {prefix}")
+        return notes
+
+    base = find_base_by_stem(bases, donor_stem)
+    if not base:
+        log(f"  [SKIP new-F no-base] {prefix} needs {donor_stem}.dds in Midnight nude pack")
+        return notes
+
+    bpath = pick_bin_for_base(base, bins, bin_sizes)
+    tried: list[pathlib.Path] = []
+    if bpath:
+        tried.append(bpath)
+    # trial all bins if preferred fails
+    for bp in bins.values():
+        if bp not in tried:
+            tried.append(bp)
+
+    # Write both common naming patterns games use
+    out_names = [
+        f"{prefix}_00_nude_0001.dds",
+        f"{prefix}_01_nude_0001.dds",
+    ]
+    # if donor was _01_, keep that pattern first
+    if "_01_" in donor_stem:
+        out_names = [
+            f"{prefix}_01_nude_0001.dds",
+            f"{prefix}_00_nude_0001.dds",
+        ]
+
+    applied_any = False
+    for bpath in tried:
+        # test apply into temp memory via first dest
+        dest0 = out_tex / out_names[0]
+        if apply_bin_to_dds(base, bpath, offsets, dest0):
+            notes.append(
+                f"EXPERIMENTAL-REUSE new-female {out_names[0]} <- {base.name} + {bpath.name} ({prefix})"
+            )
+            log(f"  [EXPERIMENTAL-REUSE new-F] {out_names[0]} <- {base.name} + {bpath.name}")
+            # clone to alternate name
+            for extra in out_names[1:]:
+                shutil.copy2(dest0, out_tex / extra)
+                log(f"  [EXPERIMENTAL-REUSE new-F] {extra} (clone)")
+                notes.append(f"EXPERIMENTAL-REUSE new-female {extra} (clone of {out_names[0]})")
+            applied_any = True
+            break
+    if not applied_any:
+        log(f"  [SKIP new-F size/UV] {prefix} base={base.name} ({base.stat().st_size} bytes)")
+    return notes
 
 
 def main() -> int:
@@ -115,17 +208,23 @@ def main() -> int:
         "--all-classes",
         action="store_true",
         default=False,
-        help="EXPERIMENTAL: same-size donor bin on other nudes",
+        help="EXPERIMENTAL: same-size donor bin on other nudes + new-female synthesize",
+    )
+    ap.add_argument(
+        "--new-females",
+        action="store_true",
+        default=False,
+        help="EXPERIMENTAL: synthesize pubic DDS for Seraph/Deadeye/Woosa/… only",
     )
     ap.add_argument(
         "--native-only",
         action="store_true",
         default=False,
-        help="RESTORED only — exact class bins only (default when --all-classes omitted)",
+        help="RESTORED only — exact class bins only (default when reuse flags omitted)",
     )
     args = ap.parse_args()
-    # Safe default: NATIVE only. Donor reuse only with explicit --all-classes.
-    allow_reuse = bool(args.all_classes) and not bool(args.native_only)
+    new_females = bool(args.new_females)
+    allow_reuse = (bool(args.all_classes) or new_females) and not bool(args.native_only)
 
     hair_root = pathlib.Path(args.hair_root)
     style_dir = hair_root / args.style
@@ -147,13 +246,11 @@ def main() -> int:
     bases = collect_base_dds(base_roots)
     log(f"Found {len(bases)} candidate nude DDS bases")
 
-    # map bin stem -> bin path
     bins = {b.stem.lower(): b for b in style_dir.glob("*.bin")}
     if not bins:
         log(f"[FATAL] no .bin in {style_dir}")
         return 5
 
-    # measure expected size per bin by finding matching base or using first successful
     bin_sizes: dict[str, int] = {}
     for stem, bpath in bins.items():
         dds_name = stem + ".dds"
@@ -168,49 +265,46 @@ def main() -> int:
 
     ok = 0
     skip = 0
-    report = []
+    report: list[str] = []
 
-    # 1) NATIVE exact name matches
-    for stem, bpath in bins.items():
-        dds_name = stem + ".dds"
-        base = next((b for b in bases if b.name.lower() == dds_name), None)
-        if not base:
-            continue
-        dest = out_tex / base.name
-        if apply_bin_to_dds(base, bpath, offsets, dest):
-            log(f"  [NATIVE] {base.name}")
-            report.append(f"NATIVE {base.name} <- {bpath.name}")
-            ok += 1
-            bin_sizes[stem] = base.stat().st_size
-        else:
-            log(f"  [FAIL native] {base.name}")
-            skip += 1
+    # 1) NATIVE exact name matches (skip when --new-females only)
+    if not new_females:
+        for stem, bpath in bins.items():
+            dds_name = stem + ".dds"
+            base = next((b for b in bases if b.name.lower() == dds_name), None)
+            if not base:
+                continue
+            dest = out_tex / base.name
+            if apply_bin_to_dds(base, bpath, offsets, dest):
+                log(f"  [NATIVE] {base.name}")
+                report.append(f"NATIVE {base.name} <- {bpath.name}")
+                ok += 1
+                bin_sizes[stem] = base.stat().st_size
+            else:
+                log(f"  [FAIL native] {base.name}")
+                skip += 1
 
-    # 2) EXPERIMENTAL-REUSE: any other nude DDS with same size as a known bin base
-    if allow_reuse:
+    # 2) EXPERIMENTAL-REUSE: other nude DDS same size (all-classes, not new-females-only)
+    if allow_reuse and not new_females:
         size_to_bin: dict[int, pathlib.Path] = {}
         for stem, sz in bin_sizes.items():
             if stem in bins:
                 size_to_bin[sz] = bins[stem]
-        # if we never measured, try each bin against each dds size by trial
         for base in bases:
             dest = out_tex / base.name
             if dest.is_file():
-                continue  # already native
-            # skip Shai-ish tiny if desired
+                continue
             if base.name.lower().startswith("plw_"):
                 log(f"  [SKIP Shai] {base.name}")
                 skip += 1
                 continue
             sz = base.stat().st_size
             donor = size_to_bin.get(sz)
-            tried = []
-            if donor:
-                tried = [donor]
-            else:
-                tried = list(bins.values())
+            tried = [donor] if donor else list(bins.values())
             applied = False
             for bpath in tried:
+                if bpath is None:
+                    continue
                 if apply_bin_to_dds(base, bpath, offsets, dest):
                     log(f"  [EXPERIMENTAL-REUSE] {base.name} <- {bpath.name}")
                     report.append(f"EXPERIMENTAL-REUSE {base.name} <- {bpath.name}")
@@ -221,18 +315,45 @@ def main() -> int:
                 log(f"  [SKIP size/UV] {base.name} ({sz} bytes)")
                 skip += 1
 
+    # 3) NEW FEMALES: invent class-named textures from preferred donor bases
+    if new_females or (allow_reuse and args.all_classes):
+        log("=== NEW FEMALES pubic synthesize (EXPERIMENTAL-REUSE) ===")
+        log(f"  classes: {', '.join(NEW_FEMALE_PREFIXES)}")
+        for pref in NEW_FEMALE_PREFIXES:
+            # skip if we already wrote something for this prefix
+            already = any(
+                (out_tex / n).is_file()
+                for n in (f"{pref}_00_nude_0001.dds", f"{pref}_01_nude_0001.dds")
+            )
+            if already and not new_females:
+                log(f"  [SKIP new-F already] {pref}")
+                continue
+            notes = synthesize_new_female(pref, bases, bins, bin_sizes, offsets, out_tex)
+            if notes:
+                report.extend(notes)
+                ok += len(notes)
+            else:
+                skip += 1
+
     for dds in style_dir.glob("*.dds"):
         shutil.copy2(dds, out_tex / dds.name)
         log(f"  [COPY] {dds.name}")
         ok += 1
 
-    mode = "NATIVE + EXPERIMENTAL-REUSE" if allow_reuse else "NATIVE only (RESTORED)"
+    if new_females:
+        mode = "NEW-FEMALES EXPERIMENTAL-REUSE only"
+    elif allow_reuse:
+        mode = "NATIVE + EXPERIMENTAL-REUSE"
+    else:
+        mode = "NATIVE only (RESTORED)"
+
     (out_dir / "README.txt").write_text(
         f"Pubic hair style: {args.style}\n"
         f"mode={mode}\n"
         f"Applied: {ok}  Skipped: {skip}\n"
         "NATIVE = exact class bin (RESTORED)\n"
-        "EXPERIMENTAL-REUSE = same-size nude DDS used a donor bin (may look wrong if UVs differ)\n"
+        "EXPERIMENTAL-REUSE = same-size / new-female synthesized DDS (may look wrong if UVs differ)\n"
+        f"New female map: {NEW_FEMALE_PUBIC_BASE}\n"
         "Shai skipped when detected (plw_).\n"
         + "\n".join(report)
         + "\n",
