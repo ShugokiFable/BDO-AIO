@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.0.1
+
+### Hotfix (post-2.0.0 audit)
+- **Apply-all RESTORED** fixed for custom body size (`--preset custom` was invalid; now uses effective min/default/max)
+- `body_size_patcher.py` accepts `--preset custom` with required `--min/--default/--max`
+- Slot hide / body size: clean fatal when `pad00000.meta` missing (no stack trace)
+- Expanded censorship name match tightened (underpaint lb/ub + under/cull; less logo collateral)
+- `config.json` template includes `slotHideClasses` + `heishaRoot`
+- Apply-all genitals: pack presence check; new-females folders when reuse enabled
+
 ## v2.0.0
 
 ### Censorship expansion

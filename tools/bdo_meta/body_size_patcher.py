@@ -396,7 +396,12 @@ def main() -> int:
         default="",
         help="Output root for files_to_patch (default: <PAZ>/files_to_patch/_body_size_limits)",
     )
-    ap.add_argument("--preset", choices=list(PRESETS.keys()), default="high")
+    ap.add_argument(
+        "--preset",
+        choices=list(PRESETS.keys()) + ["custom"],
+        default="high",
+        help="Preset base values; 'custom' requires --min/--default/--max",
+    )
     ap.add_argument("--parts", default="breasts,butt,thighs,legs,pelvis,spine,arms", help="Comma list of body parts")
     ap.add_argument("--min", type=float, default=None)
     ap.add_argument("--default", type=float, default=None)
@@ -413,7 +418,14 @@ def main() -> int:
 
     ice = IceDecipher(dll)
     log(f"Reading meta from {paz} ...")
-    meta = MetaFile(paz, ice)
+    try:
+        meta = MetaFile(paz, ice)
+    except FileNotFoundError as e:
+        log(f"[FATAL] {e}")
+        return 2
+    except Exception as e:
+        log(f"[FATAL] failed to read meta: {e}")
+        return 2
 
     matches = [
         b
@@ -430,13 +442,19 @@ def main() -> int:
         log("[FATAL] No customizationboneparamdesc files found. Game format may have changed.")
         return 3
 
-    base = PRESETS[args.preset].copy()
-    if args.min is not None:
-        base["min"] = args.min
-    if args.default is not None:
-        base["default"] = args.default
-    if args.max is not None:
-        base["max"] = args.max
+    if args.preset == "custom":
+        if args.min is None or args.default is None or args.max is None:
+            log("[FATAL] --preset custom requires --min, --default, and --max")
+            return 4
+        base = {"min": args.min, "default": args.default, "max": args.max}
+    else:
+        base = PRESETS[args.preset].copy()
+        if args.min is not None:
+            base["min"] = args.min
+        if args.default is not None:
+            base["default"] = args.default
+        if args.max is not None:
+            base["max"] = args.max
 
     if not (base["min"] < base["default"] < base["max"]):
         log("[FATAL] Require min < default < max")

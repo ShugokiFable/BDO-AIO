@@ -14,6 +14,7 @@
   "hideHelmets": false,
   "hideWeapons": false,
   "hideStockings": false,
+  "slotHideClasses": "",
   "pubicHairStyle": "none",
   "pubicHairReuse": false,
   "censorshipTier": "off",
@@ -26,6 +27,7 @@
   "penisWizard": "none",
   "penisNinja": "none",
   "penisStriker": "none",
+  "heishaRoot": "",
   "lastRun": null
 }
 

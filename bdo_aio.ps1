@@ -1704,19 +1704,28 @@ function Apply-AllRestoredChoices {
     $ftp = Join-Path $paz 'files_to_patch'
     if (-not (Test-Path $ftp)) { New-Item -ItemType Directory -Path $ftp -Force | Out-Null }
 
-    # 1) Body size
+    # 1) Body size (same path as Apply-BodySizePatch — never pass --preset custom)
     if ($Script:Config.bodySizePreset -and $Script:Config.bodySizePreset -ne '') {
         Write-Info '--- Body size limits ---'
-        $out = Join-Path $ftp '_body_size_limits'
-        $pyArgs = @(
-            $Script:BodySizeTool, '--paz', $paz, '--out', $out,
-            '--preset', [string]$Script:Config.bodySizePreset,
-            '--parts', [string]$Script:Config.bodySizeParts
-        )
-        if ($null -ne $Script:Config.bodySizeMin) { $pyArgs += @('--min', [string]$Script:Config.bodySizeMin) }
-        if ($null -ne $Script:Config.bodySizeDefault) { $pyArgs += @('--default', [string]$Script:Config.bodySizeDefault) }
-        if ($null -ne $Script:Config.bodySizeMax) { $pyArgs += @('--max', [string]$Script:Config.bodySizeMax) }
-        try { & python @pyArgs } catch { Write-Warn $_.Exception.Message }
+        $eff = Get-EffectiveBodySizeValues
+        $parts = [string]$Script:Config.bodySizeParts
+        if (-not $parts) { $parts = 'breasts,butt,thighs,arms,legs,pelvis,spine' }
+        if (-not (Test-BodySizeOrder -Min $eff.min -Def $eff.def -Max $eff.max)) {
+            Write-Warn 'Body size config invalid (need Min < Default < Max) — skipping body size.'
+        } else {
+            $out = Join-Path $ftp '_body_size_limits'
+            # Python only accepts vanilla|mild|high|extreme; custom values go via --min/--default/--max
+            $presetArg = if ($eff.preset -eq 'custom') { 'high' } else { [string]$eff.preset }
+            $pyArgs = @(
+                $Script:BodySizeTool, '--paz', $paz, '--out', $out,
+                '--preset', $presetArg,
+                '--min', ("{0}" -f $eff.min),
+                '--default', ("{0}" -f $eff.def),
+                '--max', ("{0}" -f $eff.max),
+                '--parts', $parts
+            )
+            try { & python @pyArgs } catch { Write-Warn $_.Exception.Message }
+        }
     }
 
     # 2) Slot hide
@@ -1751,11 +1760,11 @@ function Apply-AllRestoredChoices {
         [void](Apply-CensorshipPack -NoPrompt)
     }
 
-    # 5) Genitals
+    # 5) Genitals (native / all-class reuse)
     $f3d = [bool]$Script:Config.female3dVagina
     $maleMode = [string]$Script:Config.malePenisMode
     $reuseG = [bool]$Script:Config.genitalReuse
-    if ($f3d -or ($maleMode -and $maleMode -ne 'none')) {
+    if (($f3d -or ($maleMode -and $maleMode -ne 'none')) -and (Test-Path -LiteralPath $Script:GenitalRoot)) {
         Write-Info '--- Genitals ---'
         $maleArg = 'none'
         if ($maleMode -eq 'perclass') {
@@ -1782,26 +1791,30 @@ function Apply-AllRestoredChoices {
         )
         if ($reuseG) { $pyArgs += '--all-classes' } else { $pyArgs += '--native-only' }
         try { & python @pyArgs } catch { Write-Warn $_.Exception.Message }
+    } elseif ($f3d -or ($maleMode -and $maleMode -ne 'none')) {
+        Write-Warn "Genital pack missing: $Script:GenitalRoot"
     }
 
-    # 6) New females package if reuse flags set (explicit experimental)
-    if ($reuseG -or [bool]$Script:Config.pubicHairReuse) {
-        Write-Info '--- New females EXPERIMENTAL (Seraph/etc.) ---'
+    # 6) New females dedicated folders when EXPERIMENTAL reuse is enabled
+    #    (genitals: Seraph/etc. donor meshes; pubic: synthesized class-named DDS)
+    if ($reuseG -and (Test-Path -LiteralPath $Script:GenitalRoot)) {
+        Write-Info '--- New females EXPERIMENTAL genitals ---'
         $genOut = Join-Path $ftp '_genital_EXPERIMENTAL_new_females'
         try {
             & python $Script:GenitalTool --pack-root $Script:GenitalRoot --out $genOut --new-females
         } catch { Write-Warn $_.Exception.Message }
-        if ($style -and $style -ne 'none') {
-            $pubOut = Join-Path $ftp ("_pubic_hair_EXPERIMENTAL_new_females\" + $style)
-            $baseRoots = @(
-                (Join-Path $Script:Root 'pack\midnight_xyzw\_00_suzu_nude'),
-                (Join-Path $Script:Root 'pack\midnight_xyzw\_00_thegreatsage_nude')
-            ) -join ';'
-            try {
-                & python $Script:PubicHairTool --style $style --hair-root $Script:PubicHairRoot `
-                    --base-roots $baseRoots --out $pubOut --new-females
-            } catch { Write-Warn $_.Exception.Message }
-        }
+    }
+    if (([bool]$Script:Config.pubicHairReuse -or $reuseG) -and $style -and $style -ne 'none') {
+        Write-Info '--- New females EXPERIMENTAL pubic ---'
+        $pubOut = Join-Path $ftp ("_pubic_hair_EXPERIMENTAL_new_females\" + $style)
+        $baseRoots = @(
+            (Join-Path $Script:Root 'pack\midnight_xyzw\_00_suzu_nude'),
+            (Join-Path $Script:Root 'pack\midnight_xyzw\_00_thegreatsage_nude')
+        ) -join ';'
+        try {
+            & python $Script:PubicHairTool --style $style --hair-root $Script:PubicHairRoot `
+                --base-roots $baseRoots --out $pubOut --new-females
+        } catch { Write-Warn $_.Exception.Message }
     }
 
     Ensure-ToolsInPaz

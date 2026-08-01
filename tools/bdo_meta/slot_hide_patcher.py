@@ -120,7 +120,14 @@ def main() -> int:
 
     ice = IceDecipher(dll)
     log(f"Reading meta from {paz} ...")
-    meta = MetaFile(paz, ice)
+    try:
+        meta = MetaFile(paz, ice)
+    except FileNotFoundError as e:
+        log(f"[FATAL] {e}")
+        return 4
+    except Exception as e:
+        log(f"[FATAL] failed to read pad00000.meta: {e}")
+        return 4
     if class_filter:
         log(f"Class filter: {', '.join(class_filter)}")
 

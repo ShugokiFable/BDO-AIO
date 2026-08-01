@@ -59,21 +59,24 @@ MEDIUM_HIGH_FILES = [
     "pew_02_lb_0001.dds",
 ]
 
-# Name tokens that usually mean painted-on underwear / under-layer censorship
+# Name tokens that usually mean painted-on underwear / under-layer censorship.
+# Keep this fairly tight: blanking every "*_dec*" would also kill normal outfit logos.
 EXPAND_NAME_ANY = (
-    "_dec",
     "underup",
     "_under_",
     "underwear",
-    "_cull",
-    "_uw_",  # rare as texture; keep if appears under texture/
+    "_uw_",  # rare as texture under character/texture
+    "_cull",  # classic Resorepless cull under-layer maps
+    # decals that look like under-armor paint (class + lb/ub + dec)
+    "_lb_",
+    "_ub_",
 )
-# skip pure normals/specs/ao unless they also match dec/under
 EXPAND_NAME_SKIP = (
     "_n.dds",
     "_sp.dds",
     "_m.dds",
     "_ao.dds",
+    "_w.dds",
 )
 
 
@@ -101,18 +104,24 @@ def is_expand_candidate(folder: str, name: str) -> bool:
     name_l = name.lower()
     if not name_l.endswith(".dds"):
         return False
-    if "character/texture" not in folder_l and "character\\texture" not in folder.replace("/", "\\").lower():
-        # meta may store folder as character/texture
-        if "texture" not in folder_l:
+    if "character/texture" not in folder_l:
+        if not folder_l.endswith("texture") and "/texture" not in folder_l:
             return False
     # skip Shai
     if name_l.startswith("plw_"):
         return False
-    if any(name_l.endswith(s) or s in name_l for s in EXPAND_NAME_SKIP):
-        # still allow if it's a dec/under map that ends with those (rare)
-        if not any(t in name_l for t in ("_dec", "under", "cull")):
-            return False
-    return any(t in name_l for t in EXPAND_NAME_ANY)
+    # skip pure maps
+    if any(name_l.endswith(s) for s in EXPAND_NAME_SKIP):
+        return False
+    # under-layer / underwear texture names
+    if any(t in name_l for t in ("underup", "_under_", "underwear", "_uw_")):
+        return True
+    if "_cull" in name_l and ("_lb_" in name_l or "_ub_" in name_l or "_sho_" in name_l):
+        return True
+    # lower/upper body *dec* (classic panty/underpaint decals) — not cloak/logo-only random dec
+    if "_dec" in name_l and ("_lb_" in name_l or "_ub_" in name_l or "under" in name_l):
+        return True
+    return False
 
 
 def copy_legacy(pack: pathlib.Path, tex_out: pathlib.Path, names: list[str]) -> tuple[int, int]:
