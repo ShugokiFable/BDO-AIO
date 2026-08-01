@@ -1,16 +1,13 @@
 # State
 
-- Parent snapshot: v2.0.5
-- Active snapshot: 2.0.6
-- Runtime status: tool-validated; user runtime retest required
-- Live PAZ inspected read-only: yes
-- Body root cause: scalar output first corrupted required vectors; 2.0.5 then rejected current valid vectors with a trailing padding byte. 2.0.6 preserves each source field width.
-- Failed pubic root cause: unmarked style folder plus missing new-class meta entries
-- Failed censorship root cause: thumbnail false positives plus one stale filename
-- FSR separation: no OptiScaler/FSR/DLSS DLL was present in the inspected game root; no causal attribution made
-- Midnight deploy root cause: the bundled Python deployer waited for a second `input()` after the AIO already confirmed
-- Donor scope: female reuse only; male genital packs are native-only
-- Meta Patcher routing: detected NA client, so it is skipped
-- Wukong coverage: live-regenerated armor/underwear paths under `34_pgms`; no genital donor
-- Experimental tool state: official OptiScaler 0.9.4 only; DLSS Enabler, zzDLL swaps, and DirectStorage layering removed
-- Release state: validated snapshot promoted to the authoritative checkout; local commit and full archive are the remaining mechanical gates
+- Parent snapshot: v2.0.6 (`ad1534c`)
+- Active snapshot: 2.0.7
+- Runtime status: user reports black characters and previously broken graphics settings; runtime retest required
+- Authority workflow: developed and validated in a full isolated 2.0.7 copy before promotion
+- Graphics root cause: 2.0.6 replaced the complete live `GameOption.txt` with a stale partial template, forced invalid/stale `graphicOption = 7`, and forced low textures (`2`)
+- Donor-texture root cause: generated donor DDS names did not match the material names embedded in the PAC meshes
+- Donor scope: female reuse only; male genital packs remain native-only
+- Research boundary: current installed client and official/current sources are evidence; no invented hidden engine keys
+- Current client evidence: Remastered UI index maps to saved value `9`, Ultra maps to `8`, and High texture UI index maps to saved value `0`
+- Source/asset validation: 30 tests pass; all 22 PAC diffuse bindings and three complete generation modes pass against current read-only NA metadata
+- Release state: tool-validated complete replacement; in-game retest required

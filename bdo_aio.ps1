@@ -3,7 +3,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$Script:Version = '2.0.6'
+$Script:Version = '2.0.7'
 $Script:Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script:ConfigPath = Join-Path $Script:Root 'config.json'
 $Script:PackDir = Join-Path $Script:Root 'pack'
@@ -19,6 +19,7 @@ $Script:CensorshipTool = Join-Path $Script:Root 'tools\bdo_meta\censorship_pack_
 $Script:CensorshipRoot = Join-Path $Script:Root 'tools\censorship_removal'
 $Script:GenitalTool = Join-Path $Script:Root 'tools\bdo_meta\genital_pack_apply.py'
 $Script:GenitalRoot = Join-Path $Script:Root 'tools\genital_packs'
+$Script:GameOptionTool = Join-Path $Script:Root 'tools\bdo_meta\gameoption_patcher.py'
 $Script:PazStatusTool = Join-Path $Script:Root 'tools\bdo_meta\paz_status_scan.py'
 $Script:InjectStageTool = Join-Path $Script:Root 'tools\bdo_meta\inject_stage_builder.py'
 $Script:PythonExe = $null
@@ -97,9 +98,9 @@ $Script:OptiExtraFiles = @(
 
 # Bundled GameOption profiles (filename -> short description)
 $Script:GraphicsProfiles = [ordered]@{
-    'GameOption_Remastered_1440p.txt'           = 'Remastered 1440p - best safe native gameplay'
-    'GameOption_Remastered_DLDSR_4K.txt'         = 'Remastered DLDSR 4K - best IQ on 1440p monitor (needs NVIDIA DSR 2.25x)'
-    'GameOption_Ultra_Screenshot_DLDSR_4K.txt'  = 'Ultra screenshot/video only - NOT for normal play'
+    'GameOption_Remastered_1080p.patch'       = 'Remastered 1080p - maximum-quality native gameplay'
+    'GameOption_Remastered_1440p.patch'       = 'Remastered 1440p - maximum-quality native gameplay'
+    'GameOption_Remastered_DLDSR_4K.patch'    = 'Remastered DLDSR 4K - maximum IQ on 1440p monitor (needs NVIDIA DSR 2.25x)'
 }
 
 $Script:GenderMap = [ordered]@{
@@ -413,7 +414,7 @@ function Test-PackReady {
 }
 
 function Test-GraphicsReady {
-    $missing = @()
+    $missing = @($Script:GameOptionTool | Where-Object { -not (Test-Path -LiteralPath $_) })
     foreach ($name in $Script:GraphicsProfiles.Keys) {
         $p = Join-Path $Script:GraphicsDir $name
         if (-not (Test-Path -LiteralPath $p)) { $missing += $p }
@@ -702,7 +703,7 @@ function Show-Status {
 
     $gfx = Test-GraphicsReady
     if ($gfx.Ok) {
-        Write-Ok ("Graphics  : " + $Script:GraphicsDir + "  (3 GameOption profiles)")
+        Write-Ok ("Graphics  : " + $Script:GraphicsDir + "  (3 safe GameOption merge patches)")
     } else {
         Write-Warn ("Graphics  : incomplete under " + $Script:GraphicsDir)
     }
@@ -2043,7 +2044,7 @@ function Run-MetaInjector {
     Write-Host ''
     Write-Host '  In Meta Injector if game is broken:' -ForegroundColor Yellow
     Write-Host '    choose 3 - Restore Backup   (undos pad00000.meta inject)' -ForegroundColor Cyan
-    Write-Host '  2.0.6 passes a canonical short-path stage; no XYZW collection is deleted.' -ForegroundColor Green
+    Write-Host '  The AIO passes a canonical short-path stage; no XYZW collection is deleted.' -ForegroundColor Green
     Write-Host ''
     $pazDrive = $null
     $sourceDrive = $null
@@ -2516,7 +2517,8 @@ function Apply-GraphicsProfile {
     Write-Banner
     Write-Host '  Graphics profile pack (GameOption)' -ForegroundColor White
     Write-Host '  ----------------------------------' -ForegroundColor DarkGray
-    Write-Info 'Applies a max-quality profile to Documents\Black Desert\GameOption.txt'
+    Write-Info 'Merges verified max-quality keys into Documents\Black Desert\GameOption.txt'
+    Write-Info 'Display adapter, window mode, HDR, audio, UI, gamma, and every unknown/current key are preserved.'
     Write-Warn 'Close Black Desert completely before applying.'
     Write-Host ''
 
@@ -2533,6 +2535,16 @@ function Apply-GraphicsProfile {
     Write-Info ("Target folder : " + $bdoDocs)
     Write-Info ("Target file   : " + $target)
     Write-Host ''
+
+    if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
+        Write-Err 'GameOption.txt does not exist. Start BDO once, close it completely, then retry.'
+        Pause-Any
+        return
+    }
+    if (-not (Ensure-Python)) {
+        Pause-Any
+        return
+    }
 
     Write-Host '  PROFILES' -ForegroundColor White
     Write-Host '  --------' -ForegroundColor DarkGray
@@ -2596,35 +2608,29 @@ function Apply-GraphicsProfile {
         Write-Host '  Then in BDO fullscreen pick 3840x2160' -ForegroundColor Yellow
         Write-Host '  Start DSR Smoothness around 50%' -ForegroundColor Yellow
     }
-    if ($fileName -match 'Ultra_Screenshot') {
-        Write-Host ''
-        Write-Warn 'Ultra screenshot profile is VERY expensive - not for normal grinding.'
-    }
-
     Write-Host ''
-    if (-not (Read-YesNo 'Apply this profile now? (backs up existing GameOption.txt)' $true)) {
+    if (-not (Read-YesNo 'Merge this profile now? (backs up the complete existing file)' $true)) {
         Write-Warn 'Cancelled.'
         Pause-Any
         return
     }
 
     try {
-        if (-not (Test-Path -LiteralPath $bdoDocs)) {
-            New-Item -ItemType Directory -Path $bdoDocs -Force | Out-Null
-            Write-Info 'Created Documents\Black Desert folder.'
-        }
+        $stamp = Get-Date -Format 'yyyyMMdd_HHmmss_fff'
+        $backup = Join-Path $bdoDocs ("GameOption.backup." + $stamp + ".txt")
+        Copy-Item -LiteralPath $target -Destination $backup
+        Write-Ok ("Backed up complete file -> " + [IO.Path]::GetFileName($backup))
 
-        if (Test-Path -LiteralPath $target) {
-            $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-            $backup = Join-Path $bdoDocs ("GameOption.backup." + $stamp + ".txt")
-            Copy-Item -LiteralPath $target -Destination $backup -Force
-            Write-Ok ("Backed up existing file -> " + [IO.Path]::GetFileName($backup))
-        }
-
-        Copy-Item -LiteralPath $src -Destination $target -Force
-        Write-Ok ("Installed: " + $target)
+        $ok = Invoke-BdoPythonChecked -Arguments @(
+            $Script:GameOptionTool,
+            '--game-option', $target,
+            '--profile', $src,
+            '--output', $target
+        ) -Label 'GameOption merge'
+        if (-not $ok) { throw 'GameOption merge failed; the original target was not replaced.' }
+        Write-Ok ("Merged verified keys into: " + $target)
         Write-Info 'Do NOT mark GameOption.txt read-only (game/patches may update it).'
-        Write-Info 'Start the game and verify: Texture High, Remastered/Ultra, TAA, Upscale Off.'
+        Write-Info 'Start the game and verify: Texture High, Remastered, TAA, Upscale Off.'
     } catch {
         Write-Err $_.Exception.Message
     }
@@ -3205,7 +3211,7 @@ function Show-VerifyPack {
     $gfx = Test-GraphicsReady
     Write-Info ("Graphics folder: " + $Script:GraphicsDir)
     if ($gfx.Ok) {
-        Write-Ok 'All 3 GameOption profiles present.'
+        Write-Ok 'All 3 GameOption merge patches and the safe patcher are present.'
         foreach ($name in $Script:GraphicsProfiles.Keys) {
             $p = Join-Path $Script:GraphicsDir $name
             $len = (Get-Item -LiteralPath $p).Length

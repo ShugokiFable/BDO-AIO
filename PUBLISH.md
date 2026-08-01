@@ -5,7 +5,7 @@
 1. Double-click `START.bat` → menu **9** (Verify pack integrity).
 2. Expected: thousands of files, roughly **1500–2000 MB** under `pack\`.
 3. Menu **9** must also list:
-   - all **3** GameOption profiles under `graphics\`
+   - all **3** GameOption merge patches plus `tools\bdo_meta\gameoption_patcher.py`
    - `graphics\nvidia\Black_Desert_Max_Quality.nip`
    - `tools\nvidiaProfileInspector\nvidiaProfileInspector.exe` (recommended for self-contained zip)
    - if shipping DLSS: `experimental\dlss\OptiScaler\OptiScaler.dll` + `WARNING.txt` (label release as containing **EXPERIMENTAL / NOT SAFE** tools)
@@ -53,7 +53,7 @@ BDO Modding AIO vX.Y.Z
 
 - One-folder install: START.bat
 - Bundled Midnight pack + PartCutGen + Meta Injector
-- Bundled max-quality GameOption graphics profiles (menu G)
+- Bundled safe max-quality Remastered 1080p/1440p/4K GameOption merge patches (menu G)
 - Bundled NVIDIA .nip + Profile Inspector import (menu N)
 - Optional EXPERIMENTAL OptiScaler/DLSS (menu X) — **NOT SAFE**, ban/crash risk
 - Choices: gender, armor type, optional XYZW collections

@@ -45,7 +45,7 @@ Full table: [`docs/FEATURE-LABELS.md`](docs/FEATURE-LABELS.md)
 | **Slot hide** | Gloves / boots / helmets / weapons / stockings |
 | **Pubic hair** | Style + **per-class pick** (ALL / native / new females / custom list) |
 | **Censorship tiers** | minimal / medium / high texture packs |
-| **3D vagina / penis** | Female donor reuse is optional; male penis meshes are native-only (six supported classes) |
+| **3D vagina / penis** | Female donor reuse is optional; male penis meshes are native-only (six supported classes); PAC-authored material/UV texture names are preserved |
 
 ### EXPERIMENTAL-REUSE (opt-in, not native art)
 | Area | Options |
@@ -60,7 +60,9 @@ Full table: [`docs/FEATURE-LABELS.md`](docs/FEATURE-LABELS.md)
 
 Body size → `files_to_patch\_body_size_limits\` then Meta Inject. Beauty salon or new character for slider max. Tamer breasts often ignore size limits (classic issue).
 
-The 2.0.6 body generator writes only complete three-component vectors and preserves the exact byte width of each live source attribute, including current trailing padding. It aborts instead of producing a partial or size-changing XML file.
+The body generator writes only complete three-component vectors and preserves the exact byte width of each live source attribute, including current trailing padding. It aborts instead of producing a partial or size-changing XML file.
+
+The 2.0.7 genital generator reads the material stem embedded in every restored PAC and copies that exact authored DDS set. Donor textures are no longer renamed to a class name the mesh never references; Ninja also correctly keeps the `PHM_00` atlas used by its native PAC, and normal/hard Wizard receive their distinct `PWM_01`/`PWM_00` atlases.
 
 ## End user (quick start)
 
@@ -71,7 +73,7 @@ The 2.0.6 body generator writes only complete three-component vectors and preser
 5. Press **`6`** (Full Wizard) for Midnight + optional RESTORED batch
 6. Or press **`A`** later to apply all configured RESTORED choices only
 7. Select your game **`PAZ`** folder (`pad00000.meta` inside)
-8. Finish **PartCutGen**, then **Meta Injector**. AIO 2.0.6 builds a canonical short-path stage first; it does not delete XYZW collections.
+8. Finish **PartCutGen**, then **Meta Injector**. The AIO builds a canonical short-path stage first; it does not delete XYZW collections.
 9. Optional: **`G`** GameOption · **`N`** NVIDIA .nip · **`X`** EXPERIMENTAL official OptiScaler bundle
 10. Check inject state: **`S`** scan PAZ (stock / staged / injected / restored)  
 11. Troubleshooting: **`R`** restore/clean · after game patches **`H`** heisha regen helper
@@ -110,10 +112,10 @@ BDO-AIO/
     midnight_xyzw/
     Meta Injector.exe
     PartCutGen.exe
-  graphics/              <- GameOption max-quality profiles
-    GameOption_Remastered_1440p.txt
-    GameOption_Remastered_DLDSR_4K.txt
-    GameOption_Ultra_Screenshot_DLDSR_4K.txt
+  graphics/              <- safe GameOption max-quality merge patches
+    GameOption_Remastered_1080p.patch
+    GameOption_Remastered_1440p.patch
+    GameOption_Remastered_DLDSR_4K.patch
     README.txt
     nvidia/
       Black_Desert_Max_Quality.nip
@@ -143,14 +145,15 @@ Command used: `nvidiaProfileInspector.exe -silentImport "....nip"`
 
 ## Graphics profiles (menu G)
 
-Applies to: `Documents\Black Desert\GameOption.txt`  
-(backs up your old file first)
+Safely merges into `Documents\Black Desert\GameOption.txt` and backs up the complete current file first; it never replaces the file with a partial template.
 
 | Profile | Use |
 |---------|-----|
-| Remastered 1440p | Safe native gameplay |
-| Remastered DLDSR 4K | Best IQ on 1440p (enable NVIDIA DSR 2.25x first) |
-| Ultra Screenshot DLDSR 4K | Screenshots/video only — not for grinding |
+| Remastered 1080p | Maximum-quality native 1920x1080 gameplay |
+| Remastered 1440p | Maximum-quality native 2560x1440 gameplay |
+| Remastered DLDSR 4K | Maximum IQ on 1440p (enable NVIDIA DSR 2.25x first) |
+
+All three use the current client's saved Remastered value (`graphicOption = 9`) and High textures (`textureQuality = 0`). Ultra (`8`) is intentionally not shipped. Adapter/display identity, window mode, HDR calibration, audio, UI, camera, gamma/contrast, account flags, and new/unknown client keys are preserved. The patcher fails closed if the current file is missing a required key.
 
 ## What is bundled vs not
 
@@ -170,7 +173,7 @@ Official tool pages: [Meta Injector 1.4.1](https://www.undertow.club/downloads/m
 
 **Redundant or creator-only, therefore not bundled:** PAZ Browser/Unpacker, PACtool, 3D Converter, the abandoned Resorepless UI, and the old 0.3.0 pack.
 
-## 2.0.6 deploy and injection path
+## Deploy and injection path
 
 Meta Injector 1.4.1 is a .NET Framework application whose recursive source scan can hit Windows path limits when many organizer layers are nested. AIO 2.0.6:
 

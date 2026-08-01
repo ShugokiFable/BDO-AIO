@@ -1,42 +1,59 @@
 # Validation
 
-BDO-AIO 2.0.6 is tool-validated against the current read-only NA game metadata. Structural validation is not runtime confirmation.
+BDO-AIO 2.0.7 is tool-validated against the current read-only NA client and metadata. Structural/tool validation is not runtime confirmation.
 
 ## Evidence baseline
 
+- Parent authority: clean v2.0.6 commit `ad1534c`; complete 2.0.7 rollback snapshot created before edits.
 - Live `pad00000.meta`: 44,570,140 bytes, SHA-256 `3DEFCF742F8A390D02C9F3E9ACE45F8A3C0097A6668D2200A3DDFBF0E49B6B20`, timestamp 2026-08-01 12:22:06.
-- Client region: `service.ini` reports `TYPE=NA`; Meta Patcher is therefore skipped.
-- Full snapshot inventory before archiving: 42,109 files, 2,316,714,088 bytes.
+- Client region: `service.ini` reports `TYPE=NA`; Meta Patcher remains skipped.
+- Installed-client option bytecode inspected read-only: Remastered UI index 7 maps to saved `graphicOption = 9`; Ultra maps to `8`; the High texture UI index maps to saved `textureQuality = 0`.
+- Live user `GameOption.txt` inspected read-only: 2,707 bytes and 117 lines, including current keys absent from the removed 2.0.6 templates.
 
 ## Source and control gates
 
-- Python unit tests: PASS, 25 tests.
-- Python compileall: PASS for `tools/bdo_meta` and the Midnight deployer.
-- PowerShell parser: PASS for `bdo_aio.ps1`.
-- Midnight non-interactive test: PASS with stdin closed; `--yes` deploy completes without a second ENTER.
-- Male donor regression: PASS; Dosa, Wukong, Archer, Hashashin, Sage, and Wizard revamp output counts are zero while native male packs remain available.
-- Experimental uninstall: marker required; unrelated/unverifiable proxy filenames are skipped.
+- Python unit tests: PASS, 30 tests.
+- Exact Python compile: PASS, 16 shipped AIO/Midnight Python files compiled to an external scratch directory.
+- PowerShell parser: PASS for `bdo_aio.ps1` under Windows PowerShell syntax.
+- Personal-path and credential-shaped text scan: PASS after sanitizing release documentation.
+- Generated `__pycache__` directories: none in the release tree.
+
+## Graphics semantic gates
+
+- Removed three destructive complete-file templates, including the Ultra screenshot preset.
+- Added 1080p, 1440p, and DLDSR 4K Remastered merge patches; all assert saved `graphicOption = 9` and High `textureQuality = 0`.
+- All three patches dry-run and write successfully against a scratch copy of the current live file.
+- For each output, every non-profile key and line is byte-for-byte preserved; key inventory is identical and the current test outputs remain 2,707 bytes.
+- Missing or duplicate current-client keys fail closed; writes use a same-directory temporary file and atomic replace after a complete backup is created by the AIO.
+- No invented hidden BDO engine settings are shipped. Adapter/display identity, window mode, HDR, audio, UI, camera, account values, and unknown/current keys are not touched.
+
+## Genital PAC/material gates
+
+- All 22 bundled PACs contain exactly one parsed nude-material stem and resolve to a matching diffuse DDS among the 18 bundled texture files.
+- Every matching DDS passes magic, 124-byte header, and non-zero-dimension validation.
+- Female native plus every opt-in female donor: PASS, 51 generated files, 93,659,923 bytes.
+- Native male normal: PASS, 18 generated files, 7,422,441 bytes.
+- Native male hard: PASS, 18 generated files, 6,596,347 bytes.
+- Combined all-female plus six-native-male run: PASS, 50 PAC outputs, 17 deduplicated DDS outputs.
+- Combined canonical injector dry run: PASS, 67 candidates/winners, 25 intentional new meta entries, 0 overrides, 0 invalid/current-meta failures, 1 ignored tool README.
+- Exact old material relationships verified, including female `PHW_01` sharing, Ninja `PHM_00`, normal Wizard `PWM_01`, and hard Wizard `PWM_00`.
 
 ## Current tool gate
 
 - Meta Injector 1.4.1 SHA-256 `766BF9A050637AC3CF55956084B923974DD3B55C9D5B0F290E13C24C66BF9B6A`.
 - PartCutGen 1.1.0 SHA-256 `7066B5A599CBF35445F9153B68AD56B17EC1C61B598CAF0F400A1A8EC700D9C5`.
+- NVIDIA Profile Inspector 3.0.2.1 SHA-256 `1EBD8129B3C564BF226291FB3344819FD59668066F0C5E03334A69A04A62859E`; current official upstream release at audit time.
 - OptiScaler 0.9.4-final SHA-256 `FBFB6676B829DAD7E020FB830586A16AA0EC6ADD78016DB48EF12E2AE1803231`; isolated experimental opt-in only.
-- NVIDIA Profile Inspector 3.0.2.1 SHA-256 `1EBD8129B3C564BF226291FB3344819FD59668066F0C5E03334A69A04A62859E`; the newer 3.0.2.2 is prerelease.
 - Meta Patcher 1.1.0 is not bundled and is not used for this detected NA client.
 
-## Semantic generation gates
+## Preserved 2.0.6 gates
 
-- Body-size live rerun: PASS, 75 files, 17,562 attribute edits; every file retained its exact extracted byte length and every edited field remained a complete three-component vector, including source trailing padding.
-- Full Midnight/XYZW canonical dry run: PASS, 41,800 candidates, 41,460 winners, 340 deterministic overrides, 0 invalid/current-meta failures, 0 skipped collections. Longest source path was 256 characters; canonical stage maximum was 151.
-- Restored-feature combined dry run: PASS, 3,361 candidates, 3,360 winners, one deterministic override, 35 intentional `_add` entries, 0 invalid/current-meta failures.
-- Live heisha regeneration: PASS, underwear 1,794 files with 26 Wukong paths; armor 39,280 files with 553 Wukong paths.
-- Genital combined generation: PASS, 80 files; all female donors plus exactly six native male class folders and no unsupported male donor output.
-- Slot hide: PASS, 2,753 models selected for the tested classes (plus metadata files).
-- Pubic native/donor and expanded censorship: PASS; intentional `_add` routing preserved and 451 censorship outputs generated.
+- Body-size live rerun: 75 files, 17,562 attribute edits with exact source field widths.
+- Full Midnight/XYZW canonical dry run: 41,800 candidates, 41,460 winners, 340 deterministic overrides, 0 invalid/current-meta failures, and 0 skipped collections.
+- Live heisha Wukong regeneration, slot hide, pubic/native donor, censorship, Midnight non-interactive mode, and experimental ownership-safe uninstall remain covered by the unchanged code and regression suite.
 
 ## Runtime boundary
 
-- The installed game and live PAZ were inspected read-only.
-- No game, launcher, Meta Injector, Meta Patcher, PartCutGen, or experimental client DLL was launched.
-- The reported body-slider crash, Midnight menu interaction, and full in-game stack require the user's isolated retest.
+- The installed game, live PAZ, and user GameOption were read only.
+- No game, launcher, Meta Injector, Meta Patcher, PartCutGen, NVIDIA Profile Inspector, or experimental client DLL was launched.
+- Black-character rendering, genital mesh fit/UV appearance, graphics appearance/FPS, and full patch workflow require the user's isolated in-game retest.

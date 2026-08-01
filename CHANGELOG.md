@@ -1,5 +1,35 @@
 # Changelog
 
+## v2.0.7 - 2026-08-01
+
+### Work record
+- AI application: Codex desktop
+- Parent: v2.0.6 (`ad1534c`)
+- Task: repair genital PAC/UV texture deployment and replace destructive graphics-file copying with safe Remastered-quality 1080p/1440p/4K patches
+- Runtime status at start: **contradicted** (user reports black characters and broken graphics settings)
+- Authority state: unchanged until the isolated full snapshot passes validation
+
+### Genital PAC/material repair
+- Read the nude material stem embedded in each restored PAC and deploy that exact authored diffuse/normal/material texture set under its original filename.
+- Removed donor texture renaming: renaming a PAC for another female class does not rewrite its internal material binding or UV atlas.
+- Fixed native PAC mismatches already present in the old packs: Mystic, Valkyrie, Kunoichi, Lahn, and Maehwa use `PHW_01`; Ninja uses `PHM_00`; normal Wizard uses `PWM_01`; hard Wizard uses `PWM_00`.
+- Validate PAC material count, matching diffuse DDS presence, DDS magic/header, and non-zero dimensions; fail the generator instead of deploying a black/untextured body.
+- Kept female donor reuse opt-in and kept all male choices native-only.
+
+### Safe current-client graphics patches
+- Removed all three stale complete `GameOption.txt` replacements and the Ultra screenshot profile.
+- Removed the unused hardcoded `GameOptionGraphicsPath.txt` placeholder; the AIO resolves the Windows Documents folder directly.
+- Added maximum-quality Remastered merge patches for 1920x1080, 2560x1440, and optional 3840x2160 DLDSR.
+- Added an atomic line-preserving patcher that refuses duplicate/missing keys and preserves adapter identity, window mode, HDR, audio, UI, camera, gamma/contrast, account settings, ordering, line endings, and unknown/new client fields.
+- Corrected current-client enum values from installed 2026 Lua bytecode: the Remastered UI entry saves `graphicOption = 9`, Ultra saves `8`, and High textures save `textureQuality = 0`. The stale 2.0.6 files incorrectly forced `7` and low textures (`2`).
+- Use only current, locally verified GameOption keys; no fake ray tracing, DLSS, FSR2/3, Lumen, LOD, shadow, bloom, or other invented hidden-engine keys.
+- Keep the current NVIDIA Profile Inspector 3.0.2.1 profile separate and optional; its documented driver-level texture quality settings do not replace GameOption.
+
+### Validation added
+- Added regression tests for line-preserving GameOption merges, fail-closed missing keys, and the shipped Remastered/High values.
+- Added regression tests for original PAC material filenames and missing-diffuse failure.
+- Validated all 22 bundled genital PACs against all 18 bundled DDS files and generated every female donor, male-normal, and male-hard combination against current read-only NA metadata.
+
 ## v2.0.6 - 2026-08-01
 
 ### Midnight deploy

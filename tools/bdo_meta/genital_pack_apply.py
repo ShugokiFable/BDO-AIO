@@ -17,7 +17,9 @@ from __future__ import annotations
 
 import argparse
 import pathlib
+import re
 import shutil
+import struct
 import sys
 
 from class_coverage import (
@@ -90,39 +92,45 @@ def pick_male_native(
     raise FileNotFoundError(f"no NATIVE male PAC for {want_prefix}")
 
 
-def copy_female_textures(
-    pack: pathlib.Path, out: pathlib.Path, prefix: str, donor: str, native: bool
+_PAC_MATERIAL = re.compile(rb"(?i)([a-z]{2,5}_\d{2}_nude_\d{4})")
+
+
+def pac_material_stem(pac: pathlib.Path) -> str:
+    """Return the one authored DDS stem embedded in a restored body PAC."""
+    stems = {match.decode("ascii").lower() for match in _PAC_MATERIAL.findall(pac.read_bytes())}
+    if len(stems) != 1:
+        raise ValueError(f"{pac.name}: expected one embedded nude material, found {sorted(stems)}")
+    return stems.pop()
+
+
+def validate_dds(path: pathlib.Path) -> None:
+    with path.open("rb") as stream:
+        header = stream.read(128)
+    if len(header) < 128 or header[:4] != b"DDS " or struct.unpack_from("<I", header, 4)[0] != 124:
+        raise ValueError(f"{path.name}: invalid DDS header")
+    height, width = struct.unpack_from("<II", header, 12)
+    if not width or not height:
+        raise ValueError(f"{path.name}: invalid DDS dimensions {width}x{height}")
+
+
+def copy_material_textures(
+    pack: pathlib.Path, out: pathlib.Path, pac: pathlib.Path, label: str
 ) -> list[str]:
-    """Copy genital-pack textures; when reusing, also rename donor maps to target prefix."""
-    notes: list[str] = []
-    tex_src = pack / "texture"
-    if not tex_src.is_dir():
-        return notes
+    """Copy the PAC's authored texture set without changing its material names."""
+    stem = pac_material_stem(pac)
+    sources = sorted(
+        p for p in (pack / "texture").glob("*.dds")
+        if p.stem.lower() == stem or p.stem.lower().startswith(stem + "_")
+    )
+    if not any(p.stem.lower() == stem for p in sources):
+        raise FileNotFoundError(f"{pac.name}: missing diffuse texture {stem}.dds")
     tex_out = out / "character" / "texture"
     tex_out.mkdir(parents=True, exist_ok=True)
-
-    # Prefer exact-prefix textures; fall back to donor-named maps
-    candidates: list[pathlib.Path] = []
-    for p in tex_src.glob("*nude*"):
-        n = p.name.lower()
-        if n.startswith(prefix + "_"):
-            candidates.append(p)
-    if not candidates and not native:
-        for p in tex_src.glob("*nude*"):
-            n = p.name.lower()
-            if n.startswith(donor + "_"):
-                candidates.append(p)
-
-    for src in candidates:
-        name = src.name
-        if not native and name.lower().startswith(donor + "_"):
-            # rewrite donor prefix -> target class prefix
-            dest_name = prefix + name[len(donor) :]
-        else:
-            dest_name = name
-        shutil.copy2(src, tex_out / dest_name)
-        tag = "NATIVE" if native else f"EXPERIMENTAL-REUSE tex from {donor}"
-        notes.append(f"[F tex {tag}] {dest_name}")
+    notes: list[str] = []
+    for src in sources:
+        validate_dds(src)
+        shutil.copy2(src, tex_out / src.name)
+        notes.append(f"[{label} material {stem}] {src.name}")
         log(notes[-1])
     return notes
 
@@ -148,7 +156,7 @@ def copy_female_class(
     tag = "NATIVE" if native else f"EXPERIMENTAL-REUSE from {donor}"
     notes.append(f"[F {tag}] {prefix} ({FEMALE_CLASSES[prefix][1]}) <- {src.name}")
     log(notes[-1])
-    notes.extend(copy_female_textures(pack, out, prefix, donor, native))
+    notes.extend(copy_material_textures(pack, out, src, "F"))
     return notes
 
 
@@ -167,16 +175,7 @@ def copy_male_class(
     tag = "NATIVE" if native else f"EXPERIMENTAL-REUSE from {donor}"
     notes.append(f"[M {style} {tag}] {prefix} ({MALE_CLASSES[prefix][1]}) <- {src.name}")
     log(notes[-1])
-    tex_out = out / "character" / "texture"
-    tex_out.mkdir(parents=True, exist_ok=True)
-    for tname in dict.fromkeys((f"{prefix}_00_nude_0001.dds", f"{donor}_00_nude_0001.dds", f"{donor}_01_nude_0001.dds")):
-        tsrc = pack / "texture" / tname
-        if tsrc.is_file():
-            dest_name = f"{prefix}_00_nude_0001.dds" if "_nude_" in tname else tname
-            if tname.startswith(donor) and donor != prefix:
-                dest_name = f"{prefix}_00_nude_0001.dds"
-            shutil.copy2(tsrc, tex_out / dest_name)
-            log(f"  [M tex] {dest_name}")
+    notes.extend(copy_material_textures(pack, out, src, "M"))
     return notes
 
 
@@ -278,20 +277,6 @@ def main() -> int:
             except Exception as e:
                 log(f"  [FAIL F] {pref}: {e}")
                 failures.append(f"female {pref}: {e}")
-
-        # always also dump native pack textures that match classic classes (when not new-only)
-        if not new_females:
-            tex_out = out / "character" / "texture"
-            tex_out.mkdir(parents=True, exist_ok=True)
-            for dds in (pack / "texture").glob("*nude*.dds"):
-                n = dds.name.lower()
-                if any(n.startswith(p + "_") for p in FEMALE_CLASSES if FEMALE_CLASSES[p][2]):
-                    if female_filt is not None and not any(n.startswith(p + "_") for p in female_filt):
-                        continue
-                    dest = tex_out / dds.name
-                    if not dest.exists():
-                        shutil.copy2(dds, dest)
-                        log(f"  [F tex native] {dds.name}")
 
     # male map (skipped in --new-females mode)
     penis_map: dict[str, str] = {}

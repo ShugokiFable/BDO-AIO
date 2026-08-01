@@ -18,3 +18,7 @@
 - Require the AIO install marker before experimental uninstall and verify common proxy DLL names before deletion.
 - Remove the abandoned Resorepless UI and PAZ Unpacker from the end-user menu because integrated AIO generators/extraction cover the shipped workflow.
 - Preserve user configuration locally while removing it from Git/public releases.
+- Never replace the complete current-client `GameOption.txt` with a bundled template; merge only locally verified keys and preserve all user, hardware, and unknown fields.
+- Ship Remastered at 1080p, 1440p, and optional DLDSR 4K; omit Ultra because its performance cost does not fit the requested gameplay profile.
+- Do not invent hidden BDO engine keys. Current installed client scripts are the authority: the Remastered UI button maps to saved `graphicOption = 9`, Ultra maps to `8`, and the High texture button maps to saved `textureQuality = 0`.
+- Preserve the exact material stem embedded in each genital PAC. A renamed PAC does not change its UV/material binding, so its authored donor DDS names must remain unchanged.

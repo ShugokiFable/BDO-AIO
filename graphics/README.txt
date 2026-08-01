@@ -1,60 +1,43 @@
-BLACK DESERT MAX-QUALITY PROFILE PACK
-======================================
+BLACK DESERT REMASTERED MAX-QUALITY PATCHES
+===========================================
 
-WHAT CHANGED
-- Removed the unsupported fake ray tracing, DLSS, Lumen, RTXGI, FSR2/3,
-  path tracing, virtual texture, and similar engine keys appended to the file.
-- Gameplay profiles use Remastered instead of Ultra.
-- Native upscaling/FSR is disabled for maximum image clarity.
-- Depth of field and motion blur are disabled in the gameplay profiles.
-- Effect and far-player optimization remain disabled.
-- Other players' actual costumes are enabled instead of forced defaults.
+IMPORTANT 2.0.7 FIX
+- These are small merge patches, not complete GameOption files.
+- Use START.bat -> G. Do not rename or copy a .patch file over GameOption.txt.
+- The AIO backs up the complete current file and changes only the listed keys.
+- Display adapter, window mode, refresh behavior, HDR calibration, audio, UI,
+  camera preferences, account flags, and unknown/new client keys stay untouched.
 
-INSTALL
-1. Close Black Desert completely.
-2. Back up:
-   Documents\Black Desert\GameOption.txt
-3. Pick one profile from this pack.
-4. Copy it into Documents\Black Desert\
-5. Rename it to:
-   GameOption.txt
-6. Start the game and verify the settings.
+WHY THE OLD FILES WERE REMOVED
+- 2.0.6 replaced the complete current-client file with a stale partial template.
+- It also used textureQuality = 2 even though the current client uses 0 for High.
+- The current installed client scripts map the Remastered UI button to saved
+  graphicOption 9 and Ultra to 8. These profiles use 9 and omit Ultra.
+- No fake DLSS, ray tracing, Lumen, RTXGI, FSR2/3, path tracing, virtual texture,
+  or other invented engine keys are added.
 
 PROFILES
-1. GameOption_Remastered_1440p.txt
-   Best safe native-resolution gameplay profile.
+1. GameOption_Remastered_1080p.patch
+   1920x1080 maximum-quality Remastered gameplay.
 
-2. GameOption_Remastered_DLDSR_4K.txt
-   Best overall image-quality gameplay profile for a 2560x1440 monitor.
+2. GameOption_Remastered_1440p.patch
+   2560x1440 maximum-quality Remastered gameplay.
+
+3. GameOption_Remastered_DLDSR_4K.patch
+   3840x2160 Remastered downsampling for a 2560x1440 monitor.
    First enable NVIDIA Control Panel > Manage 3D Settings > DSR Factors >
-   DL scaling 2.25x. Then choose 3840x2160 in Black Desert fullscreen mode.
+   DL scaling 2.25x, use fullscreen, then select 3840x2160 in BDO.
 
-3. GameOption_Ultra_Screenshot_DLDSR_4K.txt
-   Screenshot/video profile only. Ultra is extremely expensive and is not
-   recommended for normal gameplay.
-
-IN-GAME CHECKLIST
+QUALITY CHOICES
 - Texture Quality: High
-- Graphics: Remastered
+- Graphics: Remastered (Ultra intentionally omitted)
 - Anti-Aliasing: TAA
-- Upscale / AMD FSR: Off
-- SSAO: On
-- Tessellation: On
-- Faraway Objects: On
-- Camera Vision Range: 100
-- Effect Optimization: Off
-- Auto Frame Optimization: Off
-- Low-Power Option: Off
-- Hide Other Characters: Off
-- Effect Opacity: 100
+- SSAO and Tessellation: On
+- Native upscale / AMD FSR: Off for maximum clarity
+- Depth of field and motion blur: Off for a sharper moving image
+- Effect-frame and far-player optimization: Off
+- Other players' actual costumes: On
 
-NVIDIA PROFILE SUGGESTION
-- Texture filtering - Quality: High quality
-- Power management mode: Prefer maximum performance
-- Anisotropic filtering: 16x
-- DSR Factors: DL scaling 2.25x for the DLDSR profiles
-- Start DSR Smoothness around 50%, then adjust to taste
-- Do not force driver antialiasing; let the game use TAA
-
-Do not mark GameOption.txt read-only. The game and future patches may need to
-update it.
+The tool does not mark GameOption.txt read-only. Close BDO before applying and
+verify the settings in game afterward. If a patch changes the file format or
+removes a required key, the merge fails closed instead of manufacturing one.

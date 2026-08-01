@@ -1,0 +1,18 @@
+# Verified current-client keys only. Applied as a merge, never as a replacement.
+width = 2560
+height = 1440
+graphicOption = 9
+textureQuality = 0
+dof = 0
+antiAliasingIndex = 2
+antiAliasing = 1
+SSAO = 1
+Tessellation = 1
+postFilter = 2
+characterEffect = 1
+motionBlurPower = 0.00
+upscaleEnable = 0
+UpscaleFSREnable = 0
+useOptimizationEffectFrame = 0
+useFarPlayerOptimization = 0
+isUseDefaultCostumeOtherPlayer = 0
