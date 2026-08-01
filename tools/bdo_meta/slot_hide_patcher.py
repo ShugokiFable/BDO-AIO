@@ -209,7 +209,7 @@ def main() -> int:
 
         with open(out_dir / ".partcutdesc_exclusions.txt", "w", encoding="utf-8") as f:
             f.write("\n".join(exclusion_lines) + ("\n" if exclusion_lines else ""))
-        with open(out_dir / "README.txt", "w", encoding="utf-8") as f:
+        with open(out_dir / ".README.txt", "w", encoding="utf-8") as f:
             f.write(
                 f"Slot hide: {slot}\n"
                 f"Models hidden: {count}\n"

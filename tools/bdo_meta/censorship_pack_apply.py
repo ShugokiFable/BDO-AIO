@@ -10,8 +10,8 @@ Tiers:
   expanded - legacy medium + BEST-EFFORT blank of under-armor / decal textures
              found in live PAZ for ALL classes (including new outfits). Requires --paz.
 
-Expanded matches character/texture names that look like built-in underwear paint
-(decals, under-layers, cull masks). Blanks keep exact original file size for inject.
+Expanded matches exact character/texture entries that look like built-in underwear
+paint (decals, under-layers, cull masks). Blanks keep the original file size.
 """
 from __future__ import annotations
 
@@ -79,6 +79,10 @@ EXPAND_NAME_SKIP = (
     "_w.dds",
 )
 
+# Adult-only safety boundary. These names are never emitted by this tool even if
+# a loose texture token happens to match them.
+AGE_AMBIGUOUS_NAME_TOKENS = ("child", "kid", "shai", "#na#")
+
 
 def log(m: str) -> None:
     print(m, flush=True)
@@ -87,7 +91,7 @@ def log(m: str) -> None:
 def blank_keep_size(original: bytes) -> bytes:
     """Zero image payload after DDS header; keep exact size for Meta Injector."""
     if len(original) < 128:
-        return bytes(len(original))  # tiny stubs already blank-ish
+        raise ValueError("archive content is not a valid DDS payload")
     # DDS magic
     if original[:4] == b"DDS ":
         header_len = 128
@@ -96,19 +100,30 @@ def blank_keep_size(original: bytes) -> bytes:
             header_len = 148
         return original[:header_len] + bytes(len(original) - header_len)
     # unknown format — full zero of same size
-    return bytes(len(original))
+    raise ValueError("archive content is not a valid DDS payload")
+
+
+def decode_archive_dds(data: bytes, ice: IceDecipher) -> bytes:
+    """Handle stored DDS entries that remain ICE-encrypted in the PAZ."""
+    if data[:4] == b"DDS ":
+        return data
+    if data and len(data) % 8 == 0:
+        decrypted = ice.decrypt(data)
+        if decrypted[:4] == b"DDS ":
+            return decrypted
+    raise ValueError("live archive entry did not decode to DDS")
 
 
 def is_expand_candidate(folder: str, name: str) -> bool:
-    folder_l = folder.replace("\\", "/").lower()
+    folder_l = folder.replace("\\", "/").strip("/").lower()
     name_l = name.lower()
     if not name_l.endswith(".dds"):
         return False
-    if "character/texture" not in folder_l:
-        if not folder_l.endswith("texture") and "/texture" not in folder_l:
-            return False
-    # skip Shai
-    if name_l.startswith("plw_"):
+    # Meta Injector maintains the complete path. Thumbnail and similarly named
+    # folders are not interchangeable with character/texture.
+    if folder_l != "character/texture":
+        return False
+    if "plw_" in name_l or any(token in name_l for token in AGE_AMBIGUOUS_NAME_TOKENS):
         return False
     # skip pure maps
     if any(name_l.endswith(s) for s in EXPAND_NAME_SKIP):
@@ -124,9 +139,18 @@ def is_expand_candidate(folder: str, name: str) -> bool:
     return False
 
 
-def copy_legacy(pack: pathlib.Path, tex_out: pathlib.Path, names: list[str]) -> tuple[int, int]:
+def copy_legacy(
+    pack: pathlib.Path,
+    tex_out: pathlib.Path,
+    names: list[str],
+    live_names: set[str] | None = None,
+) -> tuple[int, int]:
     ok = miss = 0
     for name in names:
+        if live_names is not None and name.lower() not in live_names:
+            log(f"  [STALE legacy] {name} is absent from live character/texture")
+            miss += 1
+            continue
         src = pack / name
         if not src.is_file():
             hits = list(pack.glob(name))
@@ -135,6 +159,10 @@ def copy_legacy(pack: pathlib.Path, tex_out: pathlib.Path, names: list[str]) -> 
                 miss += 1
                 continue
             src = hits[0]
+        if src.read_bytes()[:4] != b"DDS ":
+            log(f"  [BAD legacy] {name} is not a DDS file")
+            miss += 1
+            continue
         shutil.copy2(src, tex_out / src.name)
         ok += 1
         log(f"  [LEGACY] {src.name}")
@@ -142,11 +170,12 @@ def copy_legacy(pack: pathlib.Path, tex_out: pathlib.Path, names: list[str]) -> 
 
 
 def expand_from_paz(
-    paz: pathlib.Path, tex_out: pathlib.Path, dll: pathlib.Path
+    paz: pathlib.Path,
+    tex_out: pathlib.Path,
+    meta: MetaFile,
+    ice: IceDecipher,
 ) -> tuple[int, int]:
-    ice = IceDecipher(dll)
     log(f"Scanning live PAZ for under-armor / decal textures: {paz}")
-    meta = MetaFile(paz, ice)
     ok = skip = 0
     seen: set[str] = set()
     for block in meta.fileBlocks:
@@ -154,7 +183,7 @@ def expand_from_paz(
         name = block.fileName or ""
         if not is_expand_candidate(folder, name):
             continue
-        key = name.lower()
+        key = f"{folder.strip('/').lower()}/{name.lower()}"
         if key in seen:
             continue
         seen.add(key)
@@ -165,7 +194,7 @@ def expand_from_paz(
             skip += 1
             continue
         try:
-            data = extract_block(paz, block, ice)
+            data = decode_archive_dds(extract_block(paz, block, ice), ice)
             if not data:
                 # fall back: zero buffer of meta size
                 blank = bytes(block.size if block.size > 0 else 176)
@@ -214,23 +243,38 @@ def main() -> int:
     ok = miss = 0
     expand_ok = expand_skip = 0
 
-    if args.tier == "minimal":
-        ok, miss = copy_legacy(pack, tex, MINIMAL_FILES)
-    elif args.tier in ("medium", "high"):
-        ok, miss = copy_legacy(pack, tex, MEDIUM_HIGH_FILES)
-    else:  # expanded
-        ok, miss = copy_legacy(pack, tex, MEDIUM_HIGH_FILES)
-        if not args.paz:
-            log("[FATAL] --paz required for expanded tier")
-            return 2
-        paz = pathlib.Path(args.paz)
+    paz: pathlib.Path | None = pathlib.Path(args.paz) if args.paz else None
+    meta: MetaFile | None = None
+    ice: IceDecipher | None = None
+    live_names: set[str] | None = None
+    if paz is not None:
         dll = pathlib.Path(__file__).resolve().parent / "ice_decipher.dll"
         if not dll.is_file():
             log(f"[FATAL] missing {dll}")
             return 3
-        expand_ok, expand_skip = expand_from_paz(paz, tex, dll)
+        ice = IceDecipher(dll)
+        meta = MetaFile(paz, ice)
+        live_names = {
+            (block.fileName or "").lower()
+            for block in meta.fileBlocks
+            if (block.folderName or "").replace("\\", "/").strip("/").lower()
+            == "character/texture"
+            and block.fileName
+        }
 
-    (out / "README.txt").write_text(
+    if args.tier == "minimal":
+        ok, miss = copy_legacy(pack, tex, MINIMAL_FILES, live_names)
+    elif args.tier in ("medium", "high"):
+        ok, miss = copy_legacy(pack, tex, MEDIUM_HIGH_FILES, live_names)
+    else:  # expanded
+        if paz is None or meta is None or ice is None:
+            log("[FATAL] --paz required for expanded tier")
+            return 2
+        ok, miss = copy_legacy(pack, tex, MEDIUM_HIGH_FILES, live_names)
+        expand_ok, expand_skip = expand_from_paz(paz, tex, meta, ice)
+
+    # A leading dot is an explicit Meta Injector 1.4.1 ignore marker.
+    (out / ".README.txt").write_text(
         f"Censorship removal tier: {args.tier}\n"
         f"Legacy textures copied: {ok}  missing: {miss}\n"
         f"Expanded blanks: {expand_ok}  skip/fail: {expand_skip}\n"

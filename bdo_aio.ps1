@@ -3,6 +3,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+$Script:Version = '2.0.5'
 $Script:Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script:ConfigPath = Join-Path $Script:Root 'config.json'
 $Script:PackDir = Join-Path $Script:Root 'pack'
@@ -19,10 +20,9 @@ $Script:CensorshipRoot = Join-Path $Script:Root 'tools\censorship_removal'
 $Script:GenitalTool = Join-Path $Script:Root 'tools\bdo_meta\genital_pack_apply.py'
 $Script:GenitalRoot = Join-Path $Script:Root 'tools\genital_packs'
 $Script:PazStatusTool = Join-Path $Script:Root 'tools\bdo_meta\paz_status_scan.py'
-$Script:PathLengthTool = Join-Path $Script:Root 'tools\bdo_meta\path_length_check.py'
-$Script:ResoreplessExe = 'Z:\Backup\BDO\heisha\contrib\resorepless-v3.6f\resorepless.exe'
-$Script:PazUnpackerExe = 'Z:\Backup\BDO\PAZ-UnpackerV2.6.0\PAZ-Unpacker.exe'
-$Script:DefaultHeishaRoot = 'Z:\Backup\BDO\heisha'
+$Script:InjectStageTool = Join-Path $Script:Root 'tools\bdo_meta\inject_stage_builder.py'
+$Script:PythonExe = $null
+$Script:DefaultHeishaRoot = Join-Path $Script:Root 'heisha'
 $Script:UpgradesDir = Join-Path $Script:ExperimentalDlssDir 'upgrades'
 # AIO-generated folders under files_to_patch (safe to clear on restore)
 $Script:AioPatchFolderPrefixes = @(
@@ -119,7 +119,7 @@ function Write-Banner {
     Clear-Host
     Write-Host ''
     Write-Host '  ============================================================' -ForegroundColor Cyan
-    Write-Host '   BDO MODDING AIO  |  Self-contained  |  2026 pipeline' -ForegroundColor White
+    Write-Host ("   BDO MODDING AIO  " + $Script:Version + '  |  Self-contained  |  2026 pipeline') -ForegroundColor White
     Write-Host '   MODERN + RESTORED options  |  [X] EXPERIMENTAL only = from-scratch' -ForegroundColor DarkCyan
     Write-Host '  ============================================================' -ForegroundColor Cyan
     Write-Host ''
@@ -505,10 +505,43 @@ function Find-CommonPazCandidates {
 }
 
 function Ensure-Python {
-    $py = Get-Command python -ErrorAction SilentlyContinue
-    if ($py) {
-        Write-Ok ("Python found: " + $py.Source)
-        return $true
+    if ($Script:PythonExe -and (Test-Path -LiteralPath $Script:PythonExe)) { return $true }
+
+    $commands = @(Get-Command python.exe -All -ErrorAction SilentlyContinue)
+    foreach ($command in $commands) {
+        try {
+            $resolved = & $command.Source -c 'import sys; print(sys.executable)' 2>$null
+            $resolvedPath = [string](@($resolved)[-1])
+            if ($LASTEXITCODE -eq 0 -and $resolvedPath -and (Test-Path -LiteralPath $resolvedPath)) {
+                $Script:PythonExe = $resolvedPath
+                Write-Ok ("Python found: " + $Script:PythonExe)
+                return $true
+            }
+        } catch {}
+    }
+
+    $launcher = Get-Command py.exe -ErrorAction SilentlyContinue
+    if ($launcher) {
+        try {
+            $resolved = & $launcher.Source -3 -c 'import sys; print(sys.executable)' 2>$null
+            $resolvedPath = [string](@($resolved)[-1])
+            if ($LASTEXITCODE -eq 0 -and $resolvedPath -and (Test-Path -LiteralPath $resolvedPath)) {
+                $Script:PythonExe = $resolvedPath
+                Write-Ok ("Python found through py launcher: " + $Script:PythonExe)
+                return $true
+            }
+        } catch {}
+    }
+
+    $localPrograms = Join-Path $env:LOCALAPPDATA 'Programs\Python'
+    if (Test-Path -LiteralPath $localPrograms) {
+        $local = Get-ChildItem -LiteralPath $localPrograms -Filter python.exe -File -Recurse -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending | Select-Object -First 1
+        if ($local) {
+            $Script:PythonExe = $local.FullName
+            Write-Ok ("Python found: " + $Script:PythonExe)
+            return $true
+        }
     }
     Write-Err 'Python is not installed (or not on PATH).'
     Write-Info 'Midnight deploy needs Python once (system install).'
@@ -520,10 +553,32 @@ function Ensure-Python {
         } catch {
             Write-Warn 'Could not launch winget. Install Python from python.org or Microsoft Store.'
         }
-        $py2 = Get-Command python -ErrorAction SilentlyContinue
-        if ($py2) { Write-Ok 'Python is available now.'; return $true }
+        $py2 = Get-Command python.exe -ErrorAction SilentlyContinue
+        if ($py2) {
+            $Script:PythonExe = $py2.Source
+            Write-Ok ("Python is available now: " + $Script:PythonExe)
+            return $true
+        }
     }
     return $false
+}
+
+function Invoke-BdoPythonChecked {
+    param(
+        [object[]]$Arguments,
+        [string]$Label = 'Python tool'
+    )
+    try {
+        & $Script:PythonExe @Arguments
+        if ($LASTEXITCODE -ne 0) {
+            Write-Err ("$Label failed with exit code $LASTEXITCODE")
+            return $false
+        }
+        return $true
+    } catch {
+        Write-Err ("$Label failed: " + $_.Exception.Message)
+        return $false
+    }
 }
 
 function Show-DevModeHint {
@@ -547,7 +602,7 @@ function Get-PazStatusReport {
     if (-not (Test-Path -LiteralPath $Script:PazStatusTool)) { return $null }
     if (-not (Ensure-Python)) { return $null }
     try {
-        $json = & python $Script:PazStatusTool --paz $PazFolder --json 2>$null
+        $json = & $Script:PythonExe $Script:PazStatusTool --paz $PazFolder --json 2>$null
         if (-not $json) { return $null }
         return ($json | ConvertFrom-Json)
     } catch {
@@ -574,7 +629,7 @@ function Show-PazInjectStatus {
     if (-not (Ensure-Python)) { return }
 
     if ($Detailed) {
-        & python $Script:PazStatusTool --paz $PazFolder --write-status auto
+        & $Script:PythonExe $Script:PazStatusTool --paz $PazFolder --write-status auto
         return
     }
 
@@ -791,7 +846,6 @@ function Configure-ModChoices {
     Write-Host '   [7] Apply pubic hair now' -ForegroundColor Green
     Write-Host '   [C] Censorship tier presets  [RESTORED / old outfit textures]' -ForegroundColor Green
     Write-Host '   [V] Penis / 3D vagina  [RESTORED = native classes only by default]' -ForegroundColor Green
-    Write-Host '   [9] Launch original Resorepless.exe (reference only)' -ForegroundColor DarkYellow
     Write-Host ''
 
     Write-Host '  --- EXPERIMENTAL-REUSE (not classic NATIVE art) ---' -ForegroundColor Red
@@ -803,7 +857,6 @@ function Configure-ModChoices {
 
     Write-Host '  --- TOOLS / INFO ---' -ForegroundColor Yellow
     Write-Host '   [8] Feature origin matrix (modern / restored / experimental)' -ForegroundColor Yellow
-    Write-Host '   [P] Launch PAZ Unpacker' -ForegroundColor Yellow
     Write-Host '   [0] Back' -ForegroundColor DarkGray
     Write-Host ''
     $c = (Read-Host '  Select').Trim().ToUpperInvariant()
@@ -820,8 +873,6 @@ function Configure-ModChoices {
         'F' { Configure-NewFemalesBody }
         'X' { Show-ExperimentalDlssMenu }
         '8' { Show-OptionsMatrix }
-        '9' { Launch-LegacyResorepless }
-        'P' { Launch-PazUnpacker }
         default { return }
     }
 }
@@ -868,12 +919,15 @@ function Apply-CensorshipPack {
     $out = Join-Path $Script:Config.pazFolder ("files_to_patch\_censorship_" + $tier)
     Write-Info ("tier=$tier out=$out")
     if (-not $NoPrompt -and -not (Read-YesNo 'Copy / expand texture pack?' $true)) { Pause-Any; return $false }
-    $pyArgs = @($Script:CensorshipTool, '--tier', $tier, '--pack-root', $Script:CensorshipRoot, '--out', $out)
+    $pyArgs = @(
+        $Script:CensorshipTool, '--tier', $tier,
+        '--pack-root', $Script:CensorshipRoot, '--out', $out,
+        '--paz', [string]$Script:Config.pazFolder
+    )
     if ($tier -eq 'expanded') {
-        $pyArgs += @('--paz', [string]$Script:Config.pazFolder)
         Write-Warn 'Expanded scans full meta (can take a minute)...'
     }
-    & python @pyArgs
+    & $Script:PythonExe @pyArgs
     $ok = -not ($LASTEXITCODE -and $LASTEXITCODE -ne 0)
     if ($ok) { Write-Ok 'Censorship pack ready. Meta Inject after Midnight.'; Ensure-ToolsInPaz } else { Write-Err "Exit $LASTEXITCODE" }
     if (-not $NoPrompt) { Pause-Any }
@@ -990,11 +1044,12 @@ function Apply-NewFemalesBody {
         $Script:GenitalTool,
         '--pack-root', $Script:GenitalRoot,
         '--out', $genOut,
+        '--paz', [string]$Script:Config.pazFolder,
         '--new-females',
         '--female-classes', $fClasses
     )
     try {
-        & python @pyGen
+        & $Script:PythonExe @pyGen
         if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
             Write-Err ("Genital exit " + $LASTEXITCODE)
         } else {
@@ -1005,7 +1060,7 @@ function Apply-NewFemalesBody {
     }
 
     if ($style -and $style -ne 'none') {
-        $pubOut = Join-Path $paz ("files_to_patch\_pubic_hair_EXPERIMENTAL_new_females\" + $style)
+        $pubOut = Join-Path $paz ("files_to_patch\_pubic_hair_EXPERIMENTAL_new_females\_" + $style)
         $pClasses = [string]$Script:Config.pubicHairClasses
         if (-not $pClasses) { $pClasses = $fClasses }
         Write-Info "pubic out = $pubOut"
@@ -1016,11 +1071,12 @@ function Apply-NewFemalesBody {
                 '--hair-root', $Script:PubicHairRoot,
                 '--base-roots', $baseRoots,
                 '--out', $pubOut,
+                '--paz', [string]$Script:Config.pazFolder,
                 '--new-females',
                 '--classes', $pClasses
             )
             try {
-                & python @pyPub
+                & $Script:PythonExe @pyPub
                 if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
                     Write-Err ("Pubic exit " + $LASTEXITCODE)
                 } else {
@@ -1153,6 +1209,7 @@ function Apply-GenitalPacks {
         $Script:GenitalTool,
         '--pack-root', $Script:GenitalRoot,
         '--out', $out,
+        '--paz', [string]$Script:Config.pazFolder,
         '--female-3d-vagina', $f3d,
         '--male-penis', $maleArg
     )
@@ -1160,7 +1217,7 @@ function Apply-GenitalPacks {
     if ($reuse) { $pyArgs += '--all-classes' } else { $pyArgs += '--native-only' }
 
     Write-Info ("female classes = " + (Format-ClassList $fClasses))
-    & python @pyArgs
+    & $Script:PythonExe @pyArgs
     if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { Write-Err "Exit $LASTEXITCODE" } else {
         Write-Ok 'Genital packs written. Deploy Midnight underwear hide too, then Meta Inject + PartCutGen.'
         if ($reuse) { Write-Warn 'Output folder name marks EXPERIMENTAL-REUSE. Check README inside for NATIVE vs donor lines.' }
@@ -1256,7 +1313,7 @@ function Apply-SlotHidePatch {
     if ($cls) { $pyArgs += @('--classes', $cls) }
     $ok = $false
     try {
-        & python @pyArgs
+        & $Script:PythonExe @pyArgs
         if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
             Write-Err ("Exit code " + $LASTEXITCODE)
         } else {
@@ -1374,7 +1431,7 @@ function Apply-PubicHair {
     ) -join ';'
     $reuse = [bool]$Script:Config.pubicHairReuse
     $cls = [string]$Script:Config.pubicHairClasses
-    $outName = if ($reuse) { "_pubic_hair_EXPERIMENTAL_reuse\$style" } else { "_pubic_hair_RESTORED_native\$style" }
+    $outName = if ($reuse) { "_pubic_hair_EXPERIMENTAL_reuse\_$style" } else { "_pubic_hair_RESTORED_native\_$style" }
     $out = Join-Path $Script:Config.pazFolder ("files_to_patch\" + $outName)
     Write-Info ("Style   : " + $style)
     Write-Info ("Classes : " + (Format-ClassList $cls))
@@ -1389,12 +1446,13 @@ function Apply-PubicHair {
         '--style', $style,
         '--hair-root', $Script:PubicHairRoot,
         '--base-roots', $baseRoots,
-        '--out', $out
+        '--out', $out,
+        '--paz', [string]$Script:Config.pazFolder
     )
     if ($cls) { $pyArgs += @('--classes', $cls) }
     if ($reuse) { $pyArgs += '--all-classes' } else { $pyArgs += '--native-only' }
     try {
-        & python @pyArgs
+        & $Script:PythonExe @pyArgs
         if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
             Write-Err ("Exit " + $LASTEXITCODE)
         } else {
@@ -1715,7 +1773,7 @@ function Apply-BodySizePatch {
         '--parts', $parts
     )
     try {
-        & python @pyArgs
+        & $Script:PythonExe @pyArgs
         if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
             Write-Err ("Patcher exit code " + $LASTEXITCODE)
         } else {
@@ -1748,7 +1806,7 @@ function Show-OptionsMatrix {
     Write-Host '  Pubic hair styles (old texture bins)'
     Write-Host '  Censorship tiers minimal/medium/high (old outfit textures)'
     Write-Host '  Penis none/normal/hard + 3D vagina (old class meshes)'
-    Write-Host '  Optional: launch original resorepless.exe'
+    Write-Host '  Old Resorepless UI omitted: its restored features are native AIO options'
     Write-Host ''
     Write-Host '  EXPERIMENTAL (from-scratch in BDO-AIO — NOT a classic restore)' -ForegroundColor Red
     Write-Host '  -------------------------------------------------------------' -ForegroundColor DarkGray
@@ -1775,38 +1833,6 @@ function Show-OptionsMatrix {
     Pause-Any
 }
 
-function Launch-LegacyResorepless {
-    Write-Banner
-    Write-Host '  LEGACY Resorepless 3.6f' -ForegroundColor Yellow
-    Write-Host '  -----------------------' -ForegroundColor DarkGray
-    Write-Warn 'Abandoned ~2018. Missing modern classes (Seraph, Deadeye, Woosa, …).'
-    Write-Warn 'Use only for old-class experiments. Prefer AIO body size + Midnight for 2026.'
-    $exe = $Script:ResoreplessExe
-    if (-not (Test-Path -LiteralPath $exe)) {
-        Write-Err ("Not found: " + $exe)
-        Write-Info 'Expected under Z:\Backup\BDO\heisha\contrib\resorepless-v3.6f\'
-        Pause-Any
-        return
-    }
-    if (Read-YesNo 'Launch resorepless.exe anyway?' $false) {
-        Start-Process -FilePath $exe -WorkingDirectory (Split-Path -Parent $exe)
-        Write-Ok 'Launched. Configure sizes there if you insist on the old UI.'
-    }
-    Pause-Any
-}
-
-function Launch-PazUnpacker {
-    $exe = $Script:PazUnpackerExe
-    if (-not (Test-Path -LiteralPath $exe)) {
-        Write-Err ("Not found: " + $exe)
-        Pause-Any
-        return
-    }
-    Start-Process -FilePath $exe -WorkingDirectory (Split-Path -Parent $exe)
-    Write-Ok 'PAZ Unpacker launched.'
-    Pause-Any
-}
-
 function Ensure-ToolsInPaz {
     $paz = [string]$Script:Config.pazFolder
     if (-not (Test-IsPazFolder $paz)) { return }
@@ -1825,6 +1851,13 @@ function Ensure-ToolsInPaz {
             Write-Warn ("Missing in pack: " + $src)
         }
     }
+}
+
+function Test-BdoToolkitInstalled {
+    $gac = Join-Path $env:windir 'Microsoft.NET\assembly\GAC_MSIL\BDOToolkit\v4.0_1.3.0.0__e09839e68adb5566\BDOToolkit.dll'
+    if (Test-Path -LiteralPath $gac) { return $true }
+    $local = Join-Path ([string]$Script:Config.pazFolder) 'BDOToolkit.dll'
+    return (Test-Path -LiteralPath $local)
 }
 
 function Deploy-Midnight {
@@ -1889,7 +1922,7 @@ function Deploy-Midnight {
     Write-Host ''
     Write-Info 'Running Midnight deploy (first run can take a while)...'
     try {
-        & python @pyArgs
+        & $Script:PythonExe @pyArgs
         if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
             Write-Err ("Python exited with code " + $LASTEXITCODE)
             Pause-Any
@@ -1940,43 +1973,47 @@ function Run-PartCutGen {
     Pause-Any
 }
 
-function Test-FilesToPatchPathLengths {
-    param([string]$PazFolder)
-    $ftp = Join-Path $PazFolder 'files_to_patch'
-    if (-not (Test-Path -LiteralPath $ftp)) { return $true }
-    if (-not (Test-Path -LiteralPath $Script:PathLengthTool)) { return $true }
-    if (-not (Ensure-Python)) { return $true }
-    Write-Info 'Checking files_to_patch for Windows path-length limit (MAX_PATH ~260)...'
-    & python $Script:PathLengthTool --root $ftp --limit 240 --hard 260
-    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
-        Write-Err 'Long paths detected — Meta Injector often fails near the end with a filename length error.'
-        Write-Warn 'Usual cause: XYZW collections with deep folder names under Program Files.'
-        Write-Host ''
-        Write-Host '  Recommended fix before inject:' -ForegroundColor Yellow
-        Write-Host '    1) Delete files_to_patch\_midnight_xyzw\_01_xyzw_collections' -ForegroundColor Cyan
-        Write-Host '    2) Re-deploy Midnight with XYZW collections OFF' -ForegroundColor Cyan
-        Write-Host '    3) Re-run PartCutGen, then Meta Injector' -ForegroundColor Cyan
-        Write-Host ''
-        if (Read-YesNo 'Delete the long-path XYZW collections folder now?' $true) {
-            $col = Join-Path $ftp '_midnight_xyzw\_01_xyzw_collections'
-            if (Test-Path -LiteralPath $col) {
-                Remove-Item -LiteralPath $col -Recurse -Force
-                Write-Ok 'Removed _01_xyzw_collections (long paths).'
-            } else {
-                Write-Warn 'Collections folder not found; run path check again after cleanup.'
-            }
-            & python $Script:PathLengthTool --root $ftp --limit 240 --hard 260
-            if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
-                Write-Warn 'Still have long paths. Launch Meta Injector only if you accept failed files.'
-                return (Read-YesNo 'Launch Meta Injector anyway?' $false)
-            }
-            Write-Ok 'Path length check passed after cleanup.'
-            return $true
-        }
-        return (Read-YesNo 'Launch Meta Injector anyway (expect filename-length failures)?' $false)
+function Get-FreeBdoDriveLetter {
+    foreach ($code in 90..68) {
+        $drive = ([char]$code).ToString() + ':'
+        if (-not (Test-Path -LiteralPath ($drive + '\'))) { return $drive }
     }
-    Write-Ok 'Path length check OK.'
-    return $true
+    throw 'No free temporary drive letter is available.'
+}
+
+function Mount-BdoTemporaryDrive {
+    param([string]$Target)
+    $drive = Get-FreeBdoDriveLetter
+    & "$env:SystemRoot\System32\subst.exe" $drive $Target | Out-Null
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath ($drive + '\'))) {
+        throw "Could not create temporary short-path drive $drive for $Target"
+    }
+    return $drive
+}
+
+function Dismount-BdoTemporaryDrive {
+    param([string]$Drive)
+    if ($Drive) { & "$env:SystemRoot\System32\subst.exe" $Drive /D 2>$null | Out-Null }
+}
+
+function Prepare-BdoInjectStage {
+    param(
+        [string]$PazDrive,
+        [string]$SourceDrive
+    )
+    if (-not (Test-Path -LiteralPath $Script:InjectStageTool)) {
+        throw "Missing canonical stage builder: $Script:InjectStageTool"
+    }
+    $stage = $PazDrive + '\BDO_AIO_INJECT'
+    Write-Info 'Building canonical injection tree (all collections kept; organizer folders flattened)...'
+    & $Script:PythonExe $Script:InjectStageTool `
+        --paz ($PazDrive + '\') `
+        --source ($SourceDrive + '\') `
+        --stage $stage
+    if ($LASTEXITCODE -ne 0) {
+        throw "Canonical injection stage failed with exit code $LASTEXITCODE. No injection was started."
+    }
+    return $stage
 }
 
 function Run-MetaInjector {
@@ -1992,26 +2029,66 @@ function Run-MetaInjector {
         Pause-Any
         return
     }
-    if (-not (Test-FilesToPatchPathLengths -PazFolder ([string]$Script:Config.pazFolder))) {
-        Write-Warn 'Meta Injector launch cancelled.'
+    if (-not (Ensure-Python)) {
         Pause-Any
         return
     }
     Ensure-ToolsInPaz
-    $exe = Join-Path $Script:Config.pazFolder 'Meta Injector.exe'
+    $paz = [string]$Script:Config.pazFolder
+    $source = Join-Path $paz 'files_to_patch'
+    $exe = Join-Path $paz 'Meta Injector.exe'
     if (-not (Test-Path -LiteralPath $exe)) {
         Write-Err ("Missing: " + $exe)
         Pause-Any
         return
     }
-    Write-Info ("Launching: " + $exe)
+    if (-not (Test-BdoToolkitInstalled)) {
+        Write-Err 'Meta Injector 1.4.1 requires BDO Toolkit 1.3.0, but it was not found.'
+        Write-Info 'Install the official BDO Toolkit package, then run this step again.'
+        Write-Host '  https://www.undertow.club/downloads/meta-injector.4367/' -ForegroundColor Cyan
+        Pause-Any
+        return
+    }
+    if (-not (Test-Path -LiteralPath $source)) {
+        Write-Err ("Missing: " + $source)
+        Pause-Any
+        return
+    }
     Write-Host ''
     Write-Host '  In Meta Injector if game is broken:' -ForegroundColor Yellow
     Write-Host '    choose 3 - Restore Backup   (undos pad00000.meta inject)' -ForegroundColor Cyan
-    Write-Host '  Then fix long paths / re-deploy, PartCutGen, inject again.' -ForegroundColor Yellow
+    Write-Host '  2.0.5 passes a canonical short-path stage; no XYZW collection is deleted.' -ForegroundColor Green
     Write-Host ''
-    Start-Process -FilePath $exe -WorkingDirectory $Script:Config.pazFolder
-    Write-Ok 'Meta Injector launched. Use its UI to patch or Restore Backup.'
+    $pazDrive = $null
+    $sourceDrive = $null
+    try {
+        $pazDrive = Mount-BdoTemporaryDrive -Target $paz
+        $sourceDrive = Mount-BdoTemporaryDrive -Target $source
+        $stage = Prepare-BdoInjectStage -PazDrive $pazDrive -SourceDrive $sourceDrive
+        $shortExe = $pazDrive + '\Meta Injector.exe'
+        Write-Info ("Launching through short path: " + $shortExe)
+        $process = Start-Process -FilePath $shortExe -WorkingDirectory ($pazDrive + '\') `
+            -ArgumentList @('-files', $stage) -PassThru -Wait
+        Write-Ok ("Meta Injector closed (process exit code " + $process.ExitCode + ").")
+        $metaPatcher = $pazDrive + '\Meta Patcher.exe'
+        if (Test-Path -LiteralPath $metaPatcher) {
+            Write-Info 'Meta Patcher is a separate correcting step, not a duplicate injector.'
+            if (Read-YesNo 'Run Meta Patcher now?' $true) {
+                $patcherProcess = Start-Process -FilePath $metaPatcher `
+                    -WorkingDirectory ($pazDrive + '\') -PassThru -Wait
+                Write-Ok ("Meta Patcher closed (process exit code " + $patcherProcess.ExitCode + ").")
+            }
+        } else {
+            Write-Warn 'Meta Patcher 1.1.0 is not installed. Some clients/regions require its correcting pass.'
+            Write-Host '  Official page: https://www.undertow.club/downloads/meta-patcher.7829/' -ForegroundColor Cyan
+        }
+    } catch {
+        Write-Err $_.Exception.Message
+        Write-Warn 'No files were deleted. Fix the reported input and run Meta Injector again.'
+    } finally {
+        Dismount-BdoTemporaryDrive -Drive $sourceDrive
+        Dismount-BdoTemporaryDrive -Drive $pazDrive
+    }
     Pause-Any
 }
 
@@ -2048,6 +2125,7 @@ function Apply-AllRestoredChoices {
     $paz = [string]$Script:Config.pazFolder
     $ftp = Join-Path $paz 'files_to_patch'
     if (-not (Test-Path $ftp)) { New-Item -ItemType Directory -Path $ftp -Force | Out-Null }
+    $allOk = $true
 
     # 1) Body size (same path as Apply-BodySizePatch — never pass --preset custom)
     if ($Script:Config.bodySizePreset -and $Script:Config.bodySizePreset -ne '') {
@@ -2069,7 +2147,7 @@ function Apply-AllRestoredChoices {
                 '--max', ("{0}" -f $eff.max),
                 '--parts', $parts
             )
-            try { & python @pyArgs } catch { Write-Warn $_.Exception.Message }
+            if (-not (Invoke-BdoPythonChecked -Arguments $pyArgs -Label 'Body size patcher')) { $allOk = $false }
         }
     }
 
@@ -2077,7 +2155,7 @@ function Apply-AllRestoredChoices {
     $slots = @(Get-EnabledHideSlots)
     if ($slots.Count -gt 0) {
         Write-Info '--- Slot hide ---'
-        [void](Apply-SlotHidePatch -NoPrompt)
+        if (-not (Apply-SlotHidePatch -NoPrompt)) { $allOk = $false }
     }
 
     # 3) Pubic (per-class filter)
@@ -2087,7 +2165,7 @@ function Apply-AllRestoredChoices {
         $reuse = [bool]$Script:Config.pubicHairReuse
         $cls = [string]$Script:Config.pubicHairClasses
         Write-Info ("  classes = " + (Format-ClassList $cls))
-        $outName = if ($reuse) { "_pubic_hair_EXPERIMENTAL_reuse\$style" } else { "_pubic_hair_RESTORED_native\$style" }
+        $outName = if ($reuse) { "_pubic_hair_EXPERIMENTAL_reuse\_$style" } else { "_pubic_hair_RESTORED_native\_$style" }
         $out = Join-Path $ftp $outName
         $baseRoots = @(
             (Join-Path $Script:Root 'pack\midnight_xyzw\_00_suzu_nude'),
@@ -2095,17 +2173,17 @@ function Apply-AllRestoredChoices {
         ) -join ';'
         $pyArgs = @(
             $Script:PubicHairTool, '--style', $style, '--hair-root', $Script:PubicHairRoot,
-            '--base-roots', $baseRoots, '--out', $out
+            '--base-roots', $baseRoots, '--out', $out, '--paz', $paz
         )
         if ($cls) { $pyArgs += @('--classes', $cls) }
         if ($reuse) { $pyArgs += '--all-classes' } else { $pyArgs += '--native-only' }
-        try { & python @pyArgs } catch { Write-Warn $_.Exception.Message }
+        if (-not (Invoke-BdoPythonChecked -Arguments $pyArgs -Label 'Pubic hair patcher')) { $allOk = $false }
     }
 
     # 4) Censorship
     if ([string]$Script:Config.censorshipTier -and $Script:Config.censorshipTier -ne 'off') {
         Write-Info '--- Censorship ---'
-        [void](Apply-CensorshipPack -NoPrompt)
+        if (-not (Apply-CensorshipPack -NoPrompt)) { $allOk = $false }
     }
 
     # 5) Genitals (native / all-class reuse)
@@ -2135,12 +2213,13 @@ function Apply-AllRestoredChoices {
         $fClasses = [string]$Script:Config.genitalFemaleClasses
         $pyArgs = @(
             $Script:GenitalTool, '--pack-root', $Script:GenitalRoot, '--out', $out,
+            '--paz', $paz,
             '--female-3d-vagina', $(if ($f3d) { 'on' } else { 'off' }),
             '--male-penis', $maleArg
         )
         if ($fClasses) { $pyArgs += @('--female-classes', $fClasses) }
         if ($reuseG) { $pyArgs += '--all-classes' } else { $pyArgs += '--native-only' }
-        try { & python @pyArgs } catch { Write-Warn $_.Exception.Message }
+        if (-not (Invoke-BdoPythonChecked -Arguments $pyArgs -Label 'Genital patcher')) { $allOk = $false }
     } elseif ($f3d -or ($maleMode -and $maleMode -ne 'none')) {
         Write-Warn "Genital pack missing: $Script:GenitalRoot"
     }
@@ -2151,13 +2230,13 @@ function Apply-AllRestoredChoices {
     if ($reuseG -and (Test-Path -LiteralPath $Script:GenitalRoot)) {
         Write-Info '--- New females EXPERIMENTAL genitals ---'
         $genOut = Join-Path $ftp '_genital_EXPERIMENTAL_new_females'
-        $pyArgs = @($Script:GenitalTool, '--pack-root', $Script:GenitalRoot, '--out', $genOut, '--new-females')
+        $pyArgs = @($Script:GenitalTool, '--pack-root', $Script:GenitalRoot, '--out', $genOut, '--paz', $paz, '--new-females')
         if ($fClasses) { $pyArgs += @('--female-classes', $fClasses) }
-        try { & python @pyArgs } catch { Write-Warn $_.Exception.Message }
+        if (-not (Invoke-BdoPythonChecked -Arguments $pyArgs -Label 'New-female genital patcher')) { $allOk = $false }
     }
     if (([bool]$Script:Config.pubicHairReuse -or $reuseG) -and $style -and $style -ne 'none') {
         Write-Info '--- New females EXPERIMENTAL pubic ---'
-        $pubOut = Join-Path $ftp ("_pubic_hair_EXPERIMENTAL_new_females\" + $style)
+        $pubOut = Join-Path $ftp ("_pubic_hair_EXPERIMENTAL_new_females\_" + $style)
         $pClasses = [string]$Script:Config.pubicHairClasses
         if (-not $pClasses) { $pClasses = $fClasses }
         $baseRoots = @(
@@ -2166,16 +2245,20 @@ function Apply-AllRestoredChoices {
         ) -join ';'
         $pyArgs = @(
             $Script:PubicHairTool, '--style', $style, '--hair-root', $Script:PubicHairRoot,
-            '--base-roots', $baseRoots, '--out', $pubOut, '--new-females'
+            '--base-roots', $baseRoots, '--out', $pubOut, '--paz', $paz, '--new-females'
         )
         if ($pClasses) { $pyArgs += @('--classes', $pClasses) }
-        try { & python @pyArgs } catch { Write-Warn $_.Exception.Message }
+        if (-not (Invoke-BdoPythonChecked -Arguments $pyArgs -Label 'New-female pubic patcher')) { $allOk = $false }
     }
 
     Ensure-ToolsInPaz
-    Write-Ok 'RESTORED batch finished. Run PartCutGen then Meta Injector.'
+    if ($allOk) {
+        Write-Ok 'RESTORED batch finished. Run PartCutGen then Meta Injector.'
+    } else {
+        Write-Err 'RESTORED batch completed with one or more failed generators. Do not inject until fixed.'
+    }
     if (-not $NoPrompt) { Pause-Any }
-    return $true
+    return $allOk
 }
 
 function Get-HeishaRoot {
@@ -2206,7 +2289,7 @@ function Show-HeishaRegenHelper {
     if ($root) {
         Write-Ok ("heisha root: " + $root)
     } else {
-        Write-Warn 'heisha not found at default Z:\Backup\BDO\heisha'
+        Write-Warn 'heisha not found in the saved path or this AIO folder.'
         if (Read-YesNo 'Browse for heisha folder now?' $true) {
             Add-Type -AssemblyName System.Windows.Forms
             $d = New-Object System.Windows.Forms.FolderBrowserDialog
@@ -2839,7 +2922,7 @@ function Install-ExperimentalDlss {
     # Marker for uninstall awareness
     $marker = Join-Path $gameRoot 'BDO-AIO-EXPERIMENTAL-DLSS.txt'
     @(
-        'EXPERIMENTAL / NOT SAFE - installed by BDO-AIO v2',
+        ('EXPERIMENTAL / NOT SAFE - installed by BDO-AIO ' + $Script:Version),
         ('Installed: ' + (Get-Date).ToString('s')),
         ('Proxy: ' + $proxyName),
         ('Upscaler: ' + $upName),
@@ -3177,17 +3260,19 @@ function Show-Guide2026 {
     Write-Host '  -------------------------------' -ForegroundColor DarkGray
     Write-Host '  Black Desert Online install (PAZ folder)'
     Write-Host '  Documents\Black Desert (created/used for GameOption.txt)'
-    Write-Host '  Python 3 on PATH (one-time system install, for mod deploy)'
+    Write-Host '  Python 3 (python.exe, py launcher, or normal per-user install)'
+    Write-Host '  BDO Toolkit 1.3.0 (required by bundled Meta Injector 1.4.1)'
+    Write-Host '  Meta Patcher 1.1.0 may be required by your client/region after inject'
     Write-Host '  NVIDIA GPU + driver (for .nip import / DLSS path)'
     Write-Host ''
-    Write-Host '  NOT needed / not bundled' -ForegroundColor Yellow
-    Write-Host '  ------------------------' -ForegroundColor DarkGray
-    Write-Host '  Meta Patcher, BDOToolkit, PAZ Browser, PACtool, 3D Converter,'
-    Write-Host '  Resorepless, old 0.3.0 pack, SkyrimUpscaler (wrong game)'
+    Write-Host '  REDUNDANT / creator-only (not bundled)' -ForegroundColor Yellow
+    Write-Host '  --------------------------------------' -ForegroundColor DarkGray
+    Write-Host '  Resorepless UI, PAZ Unpacker/Browser, PACtool, 3D Converter,'
+    Write-Host '  old 0.3.0 pack, SkyrimUpscaler (wrong game)'
     Write-Host ''
     Write-Host '  PIPELINE' -ForegroundColor White
     Write-Host '  --------' -ForegroundColor DarkGray
-    Write-Host '  Mods: Deploy (from pack) -> PartCutGen -> Meta Injector -> Launch'
+    Write-Host '  Mods: Deploy -> PartCutGen -> canonical stage -> Meta Injector -> optional Meta Patcher -> Launch'
     Write-Host '  GFX : Menu G -> GameOption.txt'
     Write-Host '  NPI : Menu N -> import .nip driver profile'
     Write-Host '  DLSS: Menu X -> EXPERIMENTAL OptiScaler (NOT SAFE)'
@@ -3267,7 +3352,7 @@ function Show-MainMenu {
     while ($true) {
         Write-Banner
         Show-Status
-        Write-Host '  MENU  (BDO-AIO 2.x)' -ForegroundColor White
+        Write-Host ("  MENU  (BDO-AIO " + $Script:Version + ')') -ForegroundColor White
         Write-Host '  ------------------' -ForegroundColor DarkGray
         Write-Host '   [1] Set / find game PAZ folder' -ForegroundColor Cyan
         Write-Host '   [2] Options hub  (MODERN + RESTORED + EXPERIMENTAL-REUSE)' -ForegroundColor Cyan

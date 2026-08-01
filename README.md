@@ -64,12 +64,12 @@ Body size → `files_to_patch\_body_size_limits\` then Meta Inject. Beauty salon
 
 1. Clone or extract this folder (prefer the **full** GitHub release for Midnight + experimental binaries).
 2. Fill **`pack\`** with a Midnight PAZ pack (see `pack/README.md`) if not already present.
-3. Install **Python 3** once if needed: `winget install Python.Python.3.12`
+3. Install **Python 3** once if needed: `winget install Python.Python.3.12`. The AIO detects `python.exe`, the `py` launcher, and normal per-user installs.
 4. Double-click **`START.bat`**
 5. Press **`6`** (Full Wizard) for Midnight + optional RESTORED batch
 6. Or press **`A`** later to apply all configured RESTORED choices only
 7. Select your game **`PAZ`** folder (`pad00000.meta` inside)
-8. Finish **PartCutGen**, then **Meta Injector**
+8. Finish **PartCutGen**, then **Meta Injector**. AIO 2.0.5 builds a canonical short-path stage first; it does not delete XYZW collections.
 9. Optional: **`G`** GameOption · **`N`** NVIDIA .nip · **`X`** EXPERIMENTAL upscale (DLSS/FSR/DStorage)
 10. Check inject state: **`S`** scan PAZ (stock / staged / injected / restored)  
 11. Troubleshooting: **`R`** restore/clean · after game patches **`H`** heisha regen helper
@@ -97,7 +97,8 @@ Install requires typing **`YES`**, then a second confirm (default **No**).
 BDO-AIO/
   START.bat              <- entry point
   bdo_aio.ps1            <- menu + wizard
-  config.json            <- user settings only (safe defaults)
+  config.example.json    <- sanitized settings template
+  config.json            <- generated user settings (ignored; do not publish)
   README.md
   CREDITS.md
   DESIGN.md
@@ -160,21 +161,40 @@ Applies to: `Documents\Black Desert\GameOption.txt`
 | Graphics GameOption profiles | |
 | Easy menu / wizard | |
 
-**Not included on purpose:** Meta Patcher, BDOToolkit, PAZ Browser, PACtool, 3D Converter, Resorepless, old 0.3.0 pack.
+**Required external dependency:** bundled Meta Injector 1.4.1 requires **BDO Toolkit 1.3.0**. The AIO checks for it before injection.
+
+**Separate optional/client-dependent step:** Meta Patcher 1.1.0 is not redundant with Meta Injector. If `Meta Patcher.exe` is present in PAZ, the AIO offers to run it after injection. Download it from the original author rather than redistributing it here.
+
+Official tool pages: [Meta Injector 1.4.1](https://www.undertow.club/downloads/meta-injector.4367/) and [Meta Patcher 1.1.0](https://www.undertow.club/downloads/meta-patcher.7829/).
+
+**Redundant or creator-only, therefore not bundled:** PAZ Browser/Unpacker, PACtool, 3D Converter, the abandoned Resorepless UI, and the old 0.3.0 pack.
+
+## 2.0.5 injection-path fix
+
+Meta Injector 1.4.1 is a .NET Framework application whose recursive source scan can hit Windows path limits when many organizer layers are nested. AIO 2.0.5 now:
+
+1. reads every file in `files_to_patch`;
+2. mirrors Meta Injector's `_` / `.` organizer-marker rules;
+3. resolves same-game-path overrides deterministically;
+4. validates normal files against the current live `pad00000.meta`;
+5. creates a flat canonical stage and mounts temporary short drive roots;
+6. launches Meta Injector with its supported `-files` argument.
+
+No XYZW collection is removed. Truly invalid or obsolete game paths stop the run and are reported instead of being mislabeled as path-length failures.
 
 ## Publisher checklist
 
 1. Run menu **`[9] Verify pack integrity`** — pack should be ~1.5–2 GB, not a few MB.
 2. Confirm **`pack\`** has: `midnight_xyzw.cmd`, `midnight_xyzw\`, `PartCutGen.exe`, `Meta Injector.exe`
 3. Keep **`CREDITS.md`** in every release
-4. Reset `config.json` `pazFolder` to `""` before zip (no personal game paths)
+4. Confirm `config.json` is not in the release and `config.example.json` has no personal paths
 5. Zip the whole `BDO-AIO` folder (do not zip only scripts without `pack\`)
 6. Prefer **7-Zip** solid archive; warn users extract path has no weird permissions
 
 ## Pipeline
 
 ```text
-Deploy from pack  ->  PartCutGen  ->  Meta Injector  ->  Launch game
+Deploy from pack -> PartCutGen -> canonical stage -> Meta Injector -> optional Meta Patcher -> Launch game
 ```
 
 ## Risk

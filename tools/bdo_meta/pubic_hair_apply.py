@@ -23,6 +23,7 @@ from class_coverage import (
     preferred_female_pubic_base,
     prefix_from_filename,
 )
+from inject_stage_builder import load_known_meta, route_missing_generated_files
 
 STYLES = [
     "shaved",
@@ -213,6 +214,7 @@ def main() -> int:
     ap.add_argument("--hair-root", required=True)
     ap.add_argument("--base-roots", required=True, help="Semicolon-separated Midnight nude roots")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--paz", required=True, help="Live PAZ folder used to route genuinely new files through _add")
     ap.add_argument(
         "--classes",
         default="",
@@ -281,6 +283,8 @@ def main() -> int:
                 break
 
     out_dir = pathlib.Path(args.out)
+    if out_dir.exists():
+        shutil.rmtree(out_dir)
     out_tex = out_dir / "character" / "texture"
     out_tex.mkdir(parents=True, exist_ok=True)
 
@@ -378,11 +382,17 @@ def main() -> int:
         mode = "NATIVE only (RESTORED)"
     filt_s = ",".join(sorted(class_filt)) if class_filt else "ALL"
 
-    (out_dir / "README.txt").write_text(
+    added = route_missing_generated_files(out_dir, load_known_meta(pathlib.Path(args.paz)))
+    for internal in added:
+        log(f"  [ADD new meta entry] {internal}")
+        report.append(f"ADD new meta entry {internal}")
+
+    (out_dir / ".README.txt").write_text(
         f"Pubic hair style: {args.style}\n"
         f"mode={mode}\n"
         f"classes={filt_s}\n"
         f"Applied: {ok}  Skipped: {skip}\n"
+        f"New meta entries: {len(added)}\n"
         "NATIVE = exact class bin (RESTORED)\n"
         "EXPERIMENTAL-REUSE = same-size / new-female synthesized DDS (may look wrong if UVs differ)\n"
         f"New female map: {NEW_FEMALE_PUBIC_BASE}\n"

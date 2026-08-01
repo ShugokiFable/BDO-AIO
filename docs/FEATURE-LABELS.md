@@ -28,7 +28,6 @@ Features that **existed in Resorepless-era tooling**, reimplemented or repackage
 | Post-patch regen | Main **[H]** | heisha `run.cmd` helper |
 | Restore / clean | Main **[R]** | Clear AIO patches / experimental DLLs / backup restore |
 | Penis / 3D vagina | Options **V** | Classic mesh packs; old classes |
-| Original resorepless.exe | Options **9** | Reference launcher only |
 
 `files_to_patch` outputs for these use clear names, e.g. `_body_size_limits`, `_slot_hide_*`, `_pubic_hair`, `_censorship_*`, `_genital_legacy`.
 

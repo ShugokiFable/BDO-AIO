@@ -1,5 +1,45 @@
 # Changelog
 
+## v2.0.5 - 2026-08-01
+
+### Work record
+- AI application: Codex desktop
+- Model: GPT-5
+- Reasoning mode: high
+- Parent: v2.0.4 (`783202e`)
+- Task: fix the body-slider crash, replace the path-length skip with a real unlimited-content staging strategy, classify failed patch inputs, and audit redundant tools
+- Intended files: `bdo_aio.ps1`, `tools/bdo_meta/body_size_patcher.py`, path/injection helpers, tests, release/control documentation
+- Runtime status at start: **contradicted** (user reports slider-only crash)
+
+### Body slider crash fix
+- Replaced scalar XML edits such as `Min="0.7"` with the three-component vectors BDO actually stores, such as `Min="0.70 0.70 0.70"`.
+- Patch only the matching `BoneName` tag, including duplicate attributes, without normalizing BDO's non-standard XML dialect.
+- Preserve the byte length of every extracted `customizationboneparamdesc.xml`; abort the entire generator on malformed/scalar source instead of emitting a partial patch.
+- Live-PAZ reproduction: 75 files, 6,786 attribute edits, every output exactly the original byte length.
+
+### No-delete injection path
+- Replaced the v2.0.4 MAX_PATH warning/deletion flow with `inject_stage_builder.py`.
+- Canonicalize Meta Injector 1.4.1 organizer markers, flatten non-game layers, resolve overrides deterministically, and invoke the injector through temporary short drive roots with its official `-files` argument.
+- Keep all Midnight XYZW collections. No collection is deleted or skipped for path length.
+- Validate normal paths against the current live meta; preserve `_add` and `_legacy` semantics.
+- Migrate old unmarked pubic style folders and old generated new-class files into correct organizer/`_add` staging automatically.
+
+### Failed-file fixes
+- Pubic style folders now use an underscore organizer marker, and generated README files use Meta Injector's dot-ignore marker.
+- New-class pubic/genital files absent from current meta are intentionally routed through `_add`, not reported as failures.
+- Removed redundant donor-named PAC copies from new-class genital output.
+- Exact expanded-censorship scan now excludes `texture_thumbnail`, stale legacy names, Shai/child/age-ambiguous names, and non-DDS decode failures.
+- Stored ICE-encrypted DDS entries are decrypted and magic-validated before output.
+- Pubic composited nude DDS deterministically wins collisions with plain nude textures carried by genital packs.
+
+### Suite reliability and tool audit
+- Detect Python through `python.exe`, the `py` launcher, or normal per-user installs.
+- Apply-all now reports and returns generator failures instead of claiming success.
+- Removed dead Resorepless and PAZ Unpacker launchers plus the obsolete path-length deletion helper.
+- Meta Injector 1.4.1 now preflights its exact BDO Toolkit 1.3.0 dependency.
+- Meta Patcher 1.1.0 is correctly treated as a separate optional/client-dependent correcting pass and offered when present.
+- `config.json` is now generated/ignored; `config.example.json` is the sanitized public template.
+
 ## v2.0.4
 
 ### Meta Injector path-length guard

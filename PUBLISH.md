@@ -9,7 +9,7 @@
    - `graphics\nvidia\Black_Desert_Max_Quality.nip`
    - `tools\nvidiaProfileInspector\nvidiaProfileInspector.exe` (recommended for self-contained zip)
    - if shipping DLSS: `experimental\dlss\OptiScaler\OptiScaler.dll` + `WARNING.txt` (label release as containing **EXPERIMENTAL / NOT SAFE** tools)
-4. Open `config.json` and clear personal paths:
+4. Confirm `config.json` is absent from the release source. It is generated locally and ignored. Keep `config.example.json` sanitized:
 
 ```json
 {
@@ -39,7 +39,9 @@ From the parent of `BDO-AIO`:
 Or Windows:
 
 ```powershell
-Compress-Archive -Path 'C:\Users\karlo\Downloads\BDO-AIO\*' -DestinationPath 'C:\Users\karlo\Downloads\BDO-AIO-v1.0.0.zip' -Force
+$source = Join-Path $PWD 'BDO-AIO\*'
+$archive = Join-Path $PWD 'BDO-AIO-vX.Y.Z.zip'
+Compress-Archive -Path $source -DestinationPath $archive -Force
 ```
 
 (Compress-Archive is slower and makes larger zips than 7-Zip.)

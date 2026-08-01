@@ -1,11 +1,11 @@
-﻿{
+{
   "pazFolder": "",
   "gender": "F",
   "armor": "A",
   "xyzwCollections": true,
   "npiPath": "",
   "bodySizePreset": "high",
-  "bodySizeParts": "breasts,butt,thighs",
+  "bodySizeParts": "breasts,butt,thighs,arms,legs,pelvis,spine",
   "bodySizeMin": null,
   "bodySizeDefault": null,
   "bodySizeMax": null,
@@ -17,8 +17,10 @@
   "slotHideClasses": "",
   "pubicHairStyle": "none",
   "pubicHairReuse": false,
+  "pubicHairClasses": "",
   "censorshipTier": "off",
   "female3dVagina": false,
+  "genitalFemaleClasses": "",
   "genitalReuse": false,
   "malePenisMode": "none",
   "penisWarrior": "none",
@@ -30,4 +32,3 @@
   "heishaRoot": "",
   "lastRun": null
 }
-

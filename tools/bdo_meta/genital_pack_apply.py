@@ -30,6 +30,7 @@ from class_coverage import (
     male_folder,
     preferred_female_genital_donor,
 )
+from inject_stage_builder import load_known_meta, route_missing_generated_files
 
 
 def log(m: str) -> None:
@@ -152,9 +153,9 @@ def copy_female_class(
         f"{prefix}_00_nude_0001.pac",
         f"{prefix}_00_uw_0001.pac",
     ]
-    # also keep donor legacy name when reusing (some tools look for original)
-    if not native and donor != prefix:
-        targets.append(src.name)
+    # Do not copy the donor's original filename into the target-class folder.
+    # The game references the target names; adding the donor name creates an
+    # unreferenced meta entry and previously inflated every reuse package.
     for t in targets:
         shutil.copy2(src, dest_dir / t)
     tag = "NATIVE" if native else f"EXPERIMENTAL-REUSE from {donor}"
@@ -196,6 +197,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--pack-root", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--paz", required=True, help="Live PAZ folder used to route genuinely new files through _add")
     ap.add_argument("--female-3d-vagina", choices=["on", "off"], default="off")
     ap.add_argument(
         "--male-penis",
@@ -257,6 +259,7 @@ def main() -> int:
     out.mkdir(parents=True)
 
     report: list[str] = []
+    failures: list[str] = []
     if new_females:
         mode = "NEW-FEMALES EXPERIMENTAL-REUSE only"
     elif allow_reuse:
@@ -287,6 +290,7 @@ def main() -> int:
                 report.extend(notes)
             except Exception as e:
                 log(f"  [FAIL F] {pref}: {e}")
+                failures.append(f"female {pref}: {e}")
 
         # always also dump native pack textures that match classic classes (when not new-only)
         if not new_females:
@@ -355,8 +359,14 @@ def main() -> int:
                 report.extend(notes)
             except Exception as e:
                 log(f"  [FAIL M] {pref}: {e}")
+                failures.append(f"male {pref}: {e}")
 
-    readme = out / "README.txt"
+    added = route_missing_generated_files(out, load_known_meta(pathlib.Path(args.paz)))
+    for internal in added:
+        log(f"  [ADD new meta entry] {internal}")
+        report.append(f"[ADD new meta entry] {internal}")
+
+    readme = out / ".README.txt"
     readme.write_text(
         "Genital pack apply\n"
         "==================\n"
@@ -370,11 +380,15 @@ def main() -> int:
         f"male_penis={args.male_penis}\n"
         f"allow_reuse={allow_reuse}\n"
         f"entries={len(report)}\n\n"
+        f"failures={len(failures)}\n"
         + "\n".join(report)
+        + ("\n\nFAILURES\n" + "\n".join(failures) if failures else "")
         + "\n\nUse with Midnight underwear hide. Meta Inject + PartCutGen.\n",
         encoding="utf-8",
     )
     log(f"Done. mode={mode} report_lines={len(report)} out={out}")
+    if failures:
+        return 2
     return 0 if report else 1
 
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import math
 import pathlib
 import re
 import sys
@@ -284,98 +285,81 @@ def extract_block(paz_folder: pathlib.Path, block: FileBlock, ice: IceDecipher |
     return data
 
 
-def fmt_num(v: float) -> str:
-    # keep compact float similar to game XML
-    s = f"{v:.2f}".rstrip("0").rstrip(".")
-    if "." not in s:
-        s += ".0"
-    return s
+_TAG_WITH_BONE = re.compile(rb"<[^<>]*\bBoneName\s*=\s*\"[^\"]+\"[^<>]*>", re.IGNORECASE)
+_BONE_ATTR = re.compile(rb"\bBoneName\s*=\s*\"([^\"]+)\"", re.IGNORECASE)
+_VECTOR_NUMBER = rb"[+-]?(?:\d+(?:\.\d*)?|\.\d+)"
+_VECTOR_VALUE = re.compile(
+    rb"\s*" + _VECTOR_NUMBER + rb"\s+" + _VECTOR_NUMBER + rb"\s+" + _VECTOR_NUMBER + rb"\s*"
+)
 
 
-def patch_xml_text(text: str, bone_values: dict[str, dict[str, float]]) -> tuple[str, int]:
-    """
-    Patch Min/Default/Max that precede each BoneName in customizationboneparamdesc style XML.
-    Strategy: for each BoneName="X", find the nearest preceding Min/Default/Max attributes in the same element-ish window.
-    """
+def fmt_vector_component(v: float) -> str:
+    """Use the fixed-width numeric convention from Resorepless (4 chars/component)."""
+    if not math.isfinite(v):
+        raise ValueError("body size values must be finite")
+    if -10.0 < v < 0.0:
+        text = f"{v:.1f}"
+    elif 0.0 <= v < 10.0:
+        text = f"{v:.2f}"
+    elif 10.0 <= v < 100.0:
+        text = f"{v:.1f}"
+    else:
+        raise ValueError(f"body size value {v} cannot be represented safely")
+    if len(text) != 4:
+        raise ValueError(f"body size value {v} does not fit the 4-byte game field")
+    return text
+
+
+def fmt_vector(v: float) -> bytes:
+    component = fmt_vector_component(v)
+    return f"{component} {component} {component}".encode("ascii")
+
+
+def patch_xml_bytes(raw: bytes, bone_values: dict[str, dict[str, float]]) -> tuple[bytes, int, int]:
+    """Patch only complete ParamDesc tags while preserving every other byte and file size."""
     changes = 0
-    # Match blocks that contain BoneName="..."
-    # Work line-oriented + window: many BDO files are one long line; use regex on full text.
+    matched_tags = 0
 
-    def repl_bone(match: re.Match) -> str:
-        nonlocal changes
-        chunk = match.group(0)
-        bone = match.group(1)
-        if bone not in bone_values:
-            return chunk
-        vals = bone_values[bone]
-
-        def set_attr(src: str, attr: str, value: float) -> str:
-            nonlocal changes
-            pat = re.compile(rf'({attr}\s*=\s*")([^"]*)(")', re.IGNORECASE)
-
-            def r(m):
-                nonlocal changes
-                changes += 1
-                return m.group(1) + fmt_num(value) + m.group(3)
-
-            new_src, n = pat.subn(r, src, count=1)
-            return new_src if n else src
-
-        # Only rewrite Min/Default/Max that appear BEFORE BoneName in this chunk
-        # Split at BoneName
-        pre, post = chunk.rsplit(f'BoneName="{bone}"', 1)
-        pre = set_attr(pre, "Min", vals["min"])
-        pre = set_attr(pre, "Default", vals["default"])
-        pre = set_attr(pre, "Max", vals["max"])
-        return pre + f'BoneName="{bone}"' + post
-
-    # Each "element" often looks like ... Min=".." Default=".." Max=".." ... BoneName=".."
-    pattern = re.compile(
-        r'(?:Min\s*=\s*"[^"]*"\s*)?(?:Default\s*=\s*"[^"]*"\s*)?(?:Max\s*=\s*"[^"]*"\s*)?'
-        r'(?:[^>]{0,400}?)BoneName\s*=\s*"([^"]+)"',
-        re.IGNORECASE | re.DOTALL,
-    )
-    # Simpler robust approach: for each target bone, find BoneName="bone" and search backward for attrs
-    out = text
-    for bone, vals in bone_values.items():
-        # find all occurrences
-        idx = 0
-        while True:
-            m = re.search(rf'BoneName\s*=\s*"{re.escape(bone)}"', out[idx:], re.IGNORECASE)
-            if not m:
-                break
-            abs_start = idx + m.start()
-            # look back up to 800 chars for Min/Default/Max
-            window_start = max(0, abs_start - 800)
-            window = out[window_start:abs_start]
-            new_window = window
-
-            def replace_last(attr: str, value: float, src: str) -> str:
-                nonlocal changes
-                matches = list(re.finditer(rf'{attr}\s*=\s*"[^"]*"', src, re.IGNORECASE))
-                if not matches:
-                    return src
-                last = matches[-1]
-                changes += 1
-                return src[: last.start()] + f'{attr}="{fmt_num(value)}"' + src[last.end() :]
-
-            # preserve original attribute casing by reading match text
-            for attr_key, val_key in (("Min", "min"), ("Default", "default"), ("Max", "max")):
-                matches = list(re.finditer(rf'({attr_key})\s*=\s*"[^"]*"', new_window, re.IGNORECASE))
-                if matches:
-                    last = matches[-1]
-                    attr_name = last.group(1)
-                    new_window = (
-                        new_window[: last.start()]
-                        + f'{attr_name}="{fmt_num(vals[val_key])}"'
-                        + new_window[last.end() :]
+    def patch_tag(tag_match: re.Match[bytes]) -> bytes:
+        nonlocal changes, matched_tags
+        tag = tag_match.group(0)
+        bone_match = _BONE_ATTR.search(tag)
+        if bone_match is None:
+            return tag
+        try:
+            bone = bone_match.group(1).decode("ascii")
+        except UnicodeDecodeError:
+            return tag
+        values = bone_values.get(bone)
+        if values is None:
+            return tag
+        matched_tags += 1
+        patched = tag
+        for attr, key in ((b"Min", "min"), (b"Default", "default"), (b"Max", "max")):
+            attr_pattern = re.compile(rb"(\b" + attr + rb"\s*=\s*\")([^\"]*)(\")", re.IGNORECASE)
+            matches = list(attr_pattern.finditer(patched))
+            if not matches:
+                raise ValueError(f'{bone}: expected a {attr.decode("ascii")} attribute in its tag')
+            new_value = fmt_vector(values[key])
+            for attr_match in reversed(matches):
+                old_value = attr_match.group(2)
+                if _VECTOR_VALUE.fullmatch(old_value) is None:
+                    raise ValueError(
+                        f'{bone}: {attr.decode("ascii")} is not a three-component numeric vector: {old_value!r}'
                     )
-                    changes += 1
+                if len(new_value) != len(old_value):
+                    raise ValueError(
+                        f'{bone}: refusing size-changing edit for {attr.decode("ascii")} '
+                        f"({len(old_value)} -> {len(new_value)} bytes)"
+                    )
+                patched = patched[: attr_match.start(2)] + new_value + patched[attr_match.end(2) :]
+                changes += 1
+        return patched
 
-            out = out[:window_start] + new_window + out[abs_start:]
-            idx = window_start + len(new_window) + len(m.group(0))
-
-    return out, changes
+    patched = _TAG_WITH_BONE.sub(patch_tag, raw)
+    if len(patched) != len(raw):
+        raise ValueError(f"refusing output size change ({len(raw)} -> {len(patched)} bytes)")
+    return patched, changes, matched_tags
 
 
 def build_bone_values(parts: dict[str, dict[str, float]]) -> dict[str, dict[str, float]]:
@@ -481,37 +465,28 @@ def main() -> int:
             log(f"  [SKIP] extract failed {block.fileName}: {e}")
             continue
 
-        text = None
-        for enc in ("utf-8", "utf-16", "utf-16-le", "cp949", "latin-1"):
-            try:
-                cand = raw.decode(enc)
-                if "BoneName" in cand or "bonename" in cand.lower():
-                    text = cand
-                    break
-                if text is None and ("Min" in cand or "<?xml" in cand or "<!--" in cand):
-                    text = cand
-            except Exception:
-                pass
-        if text is None:
-            log(f"  [SKIP] cannot decode {block.fileName} (len={len(raw)})")
-            continue
-
-        if "BoneName" not in text and "bonename" not in text.lower():
+        if b"bonename" not in raw.lower():
             log(f"  [SKIP] no BoneName in {block.fileName} head={raw[:40]!r}")
             continue
-
-        patched, n = patch_xml_text(text, bone_values)
-        if n == 0:
-            log(f"  [WARN] 0 attribute writes in {block.fileName}")
+        try:
+            patched, n, tag_count = patch_xml_bytes(raw, bone_values)
+        except ValueError as e:
+            log(f"  [FATAL] unsafe source {block.fileName}: {e}")
+            return 6
+        if n == 0 or tag_count == 0:
+            log(f"  [SKIP] no selected body bones in {block.fileName}")
+            continue
+        if n < tag_count * 3:
+            log(f"  [FATAL] validation mismatch in {block.fileName}: tags={tag_count} edits={n}")
+            return 6
         total_changes += n
 
         rel = pathlib.Path(block.folderName) / block.fileName
         dest = out_root / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
-        # write utf-8 without BOM (game often accepts; if original was utf-16 we still try utf-8 first)
-        dest.write_bytes(patched.encode("utf-8"))
+        dest.write_bytes(patched)
         written += 1
-        log(f"  wrote {rel}  ({n} edits)")
+        log(f"  wrote {rel}  ({tag_count} vector tags, {n} attribute edits, {len(patched)} bytes preserved)")
 
     log(f"Done. files={written} attribute_edits={total_changes}")
     log(f"Output: {out_root}")

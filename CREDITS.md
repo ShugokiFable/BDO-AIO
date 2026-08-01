@@ -27,6 +27,8 @@ This package bundles tools and content created by others. All credit goes to the
 - Respect original authors' permissions on Undertow / Discord where the assets came from.
 - This AIO menu/script is a convenience wrapper; the heavy content is third-party.
 
-## Not bundled (on purpose)
+## External and omitted tools
 
-Creator-only / legacy tools stay out of the end-user package: BDOToolkit, PAZ Browser, PACtool, 3D Converter, Resorepless, Meta Patcher.
+- **BDO Toolkit 1.3.0** is an external runtime dependency of [Meta Injector 1.4.1](https://www.undertow.club/downloads/meta-injector.4367/). The AIO detects it but does not redistribute it.
+- [**Meta Patcher 1.1.0**](https://www.undertow.club/downloads/meta-patcher.7829/) is a separate correcting pass and may be needed by some clients/regions. It is not a duplicate injector; obtain it from the original author.
+- Creator-only or superseded launchers stay out of the end-user package: PAZ Browser/Unpacker, PACtool, 3D Converter, and the abandoned Resorepless UI.

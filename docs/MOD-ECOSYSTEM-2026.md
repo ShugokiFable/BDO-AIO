@@ -11,6 +11,7 @@ This is a field map for the AIO maintainers. It is **not** a download mirror of 
 | **TheGreatSage (Discord)** | Active mesh fixer | Improved Suzu meshes; Midnight credits them for body mesh fixes + Seraph mesh. |
 | **Resorepless 3.6f** | **Abandoned (~2018)** | Missing modern classes. **Do not use** as primary base. Midnight removed it in v0.2.0 (2024). |
 | **Meta Injector + PartCutGen** | Still required | End-user inject path. PartCutGen mandatory since ~2024 (no hard-coded partcut). |
+| **Meta Patcher 1.1.0** | Separate/client-dependent | Correcting pass after Meta Injector for clients that require it; not a duplicate injector. Latest public author page found was updated 2022-08-11. |
 | **PACtool / 3D Converter / PAZ Browser** | Creator tools | Mesh export/import, not needed for pure “hide underwear” regen. |
 
 ## Class coverage (heisha / your pack, through Seraph)

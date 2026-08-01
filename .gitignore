@@ -1,4 +1,5 @@
 # User local settings (may contain machine paths)
+config.json
 config.local.json
 
 # Huge third-party mod payload (~1.8GB) — not for git
