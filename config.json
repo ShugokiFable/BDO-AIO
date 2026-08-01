@@ -1,8 +1,10 @@
 ﻿{
-    "pazFolder":  "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Black Desert Online\\PAZ",
-    "gender":  "F",
-    "armor":  "U",
-    "xyzwCollections":  true,
-    "npiPath":  "",
-    "lastRun":  "2026-08-01T01:10:01"
+  "pazFolder": "",
+  "gender": "F",
+  "armor": "A",
+  "xyzwCollections": true,
+  "npiPath": "",
+  "bodySizePreset": "high",
+  "bodySizeParts": "breasts,butt,thighs,arms,legs,pelvis,spine",
+  "lastRun": null
 }
