@@ -9,14 +9,6 @@ Easy Windows menu for Black Desert Online client modding:
 
 Double-click **`START.bat`**.
 
-## 2.0.9 restored pubic-texture hotfix
-
-Restored pubic styles now work on Midnight's uncompressed 4K Ranger, Sorceress, and Witch diffuse textures. The AIO translates the original Resorepless DXT1 block overlay into the current DDS pixel layout while preserving the current header, mip chain, alpha, and body texture. Tamer and Dark Knight keep the original exact DXT1 patch path.
-
-## 2.0.8 Meta Injector hotfix
-
-The canonical stage builder now prints its report without contaminating the stage-path return value. Meta Injector receives one explicit `-files` argument string on Windows PowerShell, fixing the `System.Object[]` to `System.String` launch failure. PartCutGen `matched 0 files` notices are informational when the tool finishes with `Saving ... DONE`.
-
 ## GitHub clone vs full offline folder
 
 | Source | What you get |
@@ -49,16 +41,16 @@ Full table: [`docs/FEATURE-LABELS.md`](docs/FEATURE-LABELS.md)
 ### RESTORED (classic)
 | Area | Options |
 |------|---------|
-| **Body size limits** | Min / Default / Max presets **or custom numbers** + custom part list |
+| **Body size limits** | Per-part maxes (breasts / thighs / butt) — presets or a custom `name:max` spec; never writes Default, never touches a bone's declared HeightAxis (bone length) |
 | **Slot hide** | Gloves / boots / helmets / weapons / stockings |
-| **Pubic hair** | Style + **per-class pick** (ALL / native / new females / custom list) |
+| **Pubic hair** | Per-class styles (`prefix=style`) — private-atlas classes styled in place, shared-atlas groups styled only when all sharers pick one style; texture-only, zero PAC writes |
 | **Censorship tiers** | minimal / medium / high texture packs |
 | **3D vagina / penis** | Female donor reuse is optional; male penis meshes are native-only (six supported classes); PAC-authored material/UV texture names are preserved |
 
 ### EXPERIMENTAL-REUSE (opt-in, not native art)
 | Area | Options |
 |------|---------|
-| **New females genitals + pubic** | Options hub **[F]** — Seraph/Deadeye/Woosa/… preferred donors + synthesized pubic DDS |
+| **New females genitals** | Options hub **[F]** — donor mesh/bin reuse for missing females |
 | Donor mesh/bin for missing females | Also asked inside Options **[6]** / **[V]**; default **OFF**; never applied to Dosa/Wukong males |
 
 ### EXPERIMENTAL (from-scratch only)
@@ -215,6 +207,20 @@ Other official regions: Deploy -> PartCutGen -> canonical stage -> Meta Injector
 ## Risk
 
 Client mods can break after patches and may violate game ToS. Use at your own risk.
+
+## Changelog
+
+### v2.1.0 - 2026-08-04
+- **Body size sliders rebuilt.** Per-part maxes (breasts / thighs / butt) via presets or a single `name:max` spec — recommended `breasts:2.0,thighs:1.5,butt:1.4`. The patcher never writes `Default` (the game's per-class anisotropic baseline stays), never touches a bone's declared `HeightAxis` (bone length — characters cannot be made taller), and only ever widens. `legs`/`spine`/`arms` retired; `butt` = hips + pelvis (pelvis carries the shape on classes where the game locks Hip Max at ≤ 1.00).
+- **Per-class pubic hair, texture-only.** The generator reads each class's real texture atlas from its nude PAC (new `body_atlas.py` — no donor guessing). Classes that own their atlas are styled in place; classes sharing an atlas are styled once when every sharer picks the same style, otherwise skipped with a clear notice. Zero PAC writes — the earlier material-alias approach made bodies invisible in game and was removed.
+- **Restore to vanilla.** New `vanilla_restore.py` auto-backups the meta before every inject and safely restores the oldest backup, removing injected PAZ archives.
+- Config simplified to one literal `bodySizeParts` spec; old Min/Default/Max keys migrate once.
+
+### v2.0.9 - 2026-08-01
+Restored pubic styles now work on Midnight's uncompressed 4K Ranger, Sorceress, and Witch diffuse textures. The AIO translates the original Resorepless DXT1 block overlay into the current DDS pixel layout while preserving the current header, mip chain, alpha, and body texture. Tamer and Dark Knight keep the original exact DXT1 patch path.
+
+### v2.0.8
+The canonical stage builder now prints its report without contaminating the stage-path return value. Meta Injector receives one explicit `-files` argument string on Windows PowerShell, fixing the `System.Object[]` to `System.String` launch failure. PartCutGen `matched 0 files` notices are informational when the tool finishes with `Saving ... DONE`.
 
 ## Credits
 
