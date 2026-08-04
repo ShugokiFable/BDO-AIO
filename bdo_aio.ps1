@@ -49,6 +49,19 @@ $Script:PubicHairStyles = [ordered]@{
     'trimmed'            = 'Trimmed'
     'wider_trimmed'      = 'Wider trimmed'
 }
+
+# Only these classes own their body texture, so only these can be given their own
+# style. Corsair owns one too but no shipped hair bin matches its size.
+$Script:PubicPrivateAtlasPrefixes = @('pbw', 'pdw', 'pew', 'pgw', 'pww')
+
+# Curated look, limited by what the assets actually allow. The other 13 classes
+# all render from ONE texture, so they can only ever share a single style -- see
+# Show-PubicIsolationNotice. Classes meant to read as bare are simply left out.
+$Script:PubicImmersivePreset = [ordered]@{
+    'pgw' = 'full_bush'
+    'pew' = 'medium_bush'
+    'pww' = 'medium_bush'
+}
 # Female class prefixes for per-class pubic/genital pickers (Shai excluded)
 $Script:FemaleClasses = [ordered]@{
     'phw'  = 'Sorceress'
@@ -73,14 +86,34 @@ $Script:FemaleClasses = [ordered]@{
 }
 $Script:NativePubicPrefixes = @('pbw', 'pdw', 'pew', 'phw', 'pww')
 $Script:NewFemalePrefixes = @('pgw', 'ppw', 'pfw', 'pqw', 'pkow', 'pmyf', 'pnyw', 'pwge', 'pdkl')
+
+# Measured from the Midnight nude PACs: these 13 all render from ONE texture,
+# phw_01_nude_0001. Styling that DDS styles every one of them, which is why the
+# old per-class pubic selector appeared to do nothing. Each of these needs a
+# private texture copy to be styled on its own. The other six classes
+# (pbw, pdw, pew, pfw, pgw, pww) own their texture and cost nothing extra.
+$Script:SharedAtlasPrefixes = @(
+    'phw', 'pnw', 'pcw', 'psw', 'ppw', 'pkww', 'pqw',
+    'pkow', 'pmyf', 'pnyw', 'pvw', 'pwge', 'pdkl'
+)
 $Script:Config = $null
 
+# Body size: 2.1.0 supports exactly three girth groups.
+#   butt == hip + pelvis. On 33 of the game's 75 body files the hip bone's Max is
+#   locked at <=1.00 (the butt slider cannot move at all), and pelvis is the only
+#   bone there with headroom -- so they are patched as one option.
+# legs/spine/arms were dropped: those scale bone LENGTH, and they are children of
+#   pelvis, so they already inherit its scale.
+$Script:BodySizeParts = @('breasts', 'thighs', 'butt')
+
 $Script:BodySizePresets = [ordered]@{
-    'vanilla'  = 'Vanilla limits (max 1.25)'
-    'mild'     = 'Mild unlock (max 1.75)'
-    'high'     = 'High unlock (max 2.5) — classic Resorepless-style'
-    'extreme'  = 'Extreme (max 3.0) — may clip badly'
+    'vanilla'     = @{ Label = 'Vanilla limits (1.25 / 1.25 / 1.25)'; Spec = 'breasts:1.25,thighs:1.25,butt:1.25' }
+    'mild'        = @{ Label = 'Mild unlock (1.75 / 1.35 / 1.20)'; Spec = 'breasts:1.75,thighs:1.35,butt:1.20' }
+    'recommended' = @{ Label = 'RECOMMENDED (breasts 2.0 / thighs 1.5 / butt 1.4)'; Spec = 'breasts:2.0,thighs:1.5,butt:1.4' }
+    'extreme'     = @{ Label = 'Extreme (3.0 / 2.0 / 1.6) — may clip badly'; Spec = 'breasts:3.0,thighs:2.0,butt:1.6' }
 }
+
+$Script:BodySizeDefaultSpec = $Script:BodySizePresets['recommended'].Spec
 
 # Files we may place in game root for experimental OptiScaler (uninstall list)
 $Script:OptiProxyNames = @('dxgi.dll', 'winmm.dll', 'version.dll', 'd3d12.dll', 'dbghelp.dll', 'wininet.dll', 'winhttp.dll')
@@ -282,11 +315,8 @@ function Load-Config {
             armor           = 'A'
             xyzwCollections = $true
             npiPath         = ''
-            bodySizePreset  = 'high'
-            bodySizeParts   = 'breasts,butt,thighs,arms,legs,pelvis,spine'
-            bodySizeMin     = $null
-            bodySizeDefault = $null
-            bodySizeMax     = $null
+            bodySizePreset  = 'recommended'
+            bodySizeParts   = 'breasts:2.0,thighs:1.5,butt:1.4'
             hideGloves      = $false
             hideBoots       = $false
             hideHelmets     = $false
@@ -294,6 +324,7 @@ function Load-Config {
             hideStockings   = $false
             slotHideClasses = ''
             pubicHairStyle  = 'none'
+            pubicHairStyles = ''
             pubicHairReuse  = $false
             pubicHairClasses = ''
             censorshipTier  = 'off'
@@ -311,14 +342,14 @@ function Load-Config {
             lastRun         = $null
         }
     }
-    foreach ($p in @('pazFolder', 'gender', 'armor', 'xyzwCollections', 'npiPath', 'bodySizePreset', 'bodySizeParts', 'bodySizeMin', 'bodySizeDefault', 'bodySizeMax', 'hideGloves', 'hideBoots', 'hideHelmets', 'hideWeapons', 'hideStockings', 'slotHideClasses', 'pubicHairStyle', 'pubicHairReuse', 'pubicHairClasses', 'censorshipTier', 'female3dVagina', 'genitalFemaleClasses', 'genitalReuse', 'malePenisMode', 'penisWarrior', 'penisBerserker', 'penisMusa', 'penisWizard', 'penisNinja', 'penisStriker', 'heishaRoot', 'lastRun')) {
+    foreach ($p in @('pazFolder', 'gender', 'armor', 'xyzwCollections', 'npiPath', 'bodySizePreset', 'bodySizeParts', 'hideGloves', 'hideBoots', 'hideHelmets', 'hideWeapons', 'hideStockings', 'slotHideClasses', 'pubicHairStyle', 'pubicHairStyles', 'pubicHairReuse', 'pubicHairClasses', 'censorshipTier', 'female3dVagina', 'genitalFemaleClasses', 'genitalReuse', 'malePenisMode', 'penisWarrior', 'penisBerserker', 'penisMusa', 'penisWizard', 'penisNinja', 'penisStriker', 'heishaRoot', 'lastRun')) {
         if (-not ($Script:Config.PSObject.Properties.Name -contains $p)) {
             $val = switch ($p) {
                 'gender' { 'F' }
                 'armor'  { 'A' }
                 'xyzwCollections' { $true }
-                'bodySizePreset' { 'high' }
-                'bodySizeParts' { 'breasts,butt,thighs,arms,legs,pelvis,spine' }
+                'bodySizePreset' { 'recommended' }
+                'bodySizeParts' { $Script:BodySizeDefaultSpec }
                 'hideGloves' { $false }
                 'hideBoots' { $false }
                 'hideHelmets' { $false }
@@ -326,6 +357,7 @@ function Load-Config {
                 'hideStockings' { $false }
                 'slotHideClasses' { '' }
                 'pubicHairStyle' { 'none' }
+                'pubicHairStyles' { '' }
                 'pubicHairReuse' { $false }
                 'pubicHairClasses' { '' }
                 'censorshipTier' { 'off' }
@@ -342,11 +374,45 @@ function Load-Config {
                 'heishaRoot' { '' }
                 default { $null }
             }
-            if ($null -eq $val -and $p -notin @('bodySizeMin', 'bodySizeDefault', 'bodySizeMax', 'lastRun')) {
+            if ($null -eq $val -and $p -ne 'lastRun') {
                 if ($p -match '^hide') { $val = $false } else { $val = '' }
             }
             Add-Member -InputObject $Script:Config -NotePropertyName $p -NotePropertyValue $val
         }
+    }
+    Update-BodySizeConfig
+}
+
+# 2.1.0 migration. Pre-2.1.0 configs stored a single min/default/max applied to
+# every part, including legs/spine/arms, and overwrote the game's per-class
+# Default -- that is what stretched bodies. Those settings have no equivalent
+# under the new widen-only model, so a legacy config is moved to the
+# recommended preset once. A config already using the name:max form is kept.
+function Update-BodySizeConfig {
+    foreach ($dead in @('bodySizeMin', 'bodySizeDefault', 'bodySizeMax')) {
+        if ($Script:Config.PSObject.Properties.Name -contains $dead) {
+            $Script:Config.PSObject.Properties.Remove($dead)
+        }
+    }
+    # A named preset always re-derives its spec, so tuning a preset's numbers in a
+    # new version reaches users who picked that preset. Only 'custom' is literal.
+    $preset = [string]$Script:Config.bodySizePreset
+    if ($preset -and $Script:BodySizePresets.Contains($preset)) {
+        $Script:Config.bodySizeParts = $Script:BodySizePresets[$preset].Spec
+        return
+    }
+
+    $spec = [string]$Script:Config.bodySizeParts
+    if ($spec -and $spec.Contains(':')) { return }
+
+    $Script:Config.bodySizeParts = $Script:BodySizeDefaultSpec
+    $Script:Config.bodySizePreset = 'recommended'
+    if ($spec) {
+        Write-Host ''
+        Write-Host ('  [MIGRATED] Body sliders "' + $spec + '" -> ' + $Script:BodySizeDefaultSpec) -ForegroundColor Yellow
+        Write-Host '             2.1.0 patches breasts/thighs/butt only, widen-only, and no' -ForegroundColor DarkGray
+        Write-Host '             longer rewrites the game Default or any bone-length axis.' -ForegroundColor DarkGray
+        Write-Host '             Re-run menu 2 if you want different numbers.' -ForegroundColor DarkGray
     }
 }
 
@@ -361,9 +427,6 @@ function Save-Config {
         npiPath         = [string]$Script:Config.npiPath
         bodySizePreset  = [string]$Script:Config.bodySizePreset
         bodySizeParts   = [string]$Script:Config.bodySizeParts
-        bodySizeMin     = $Script:Config.bodySizeMin
-        bodySizeDefault = $Script:Config.bodySizeDefault
-        bodySizeMax     = $Script:Config.bodySizeMax
         hideGloves      = [bool]$Script:Config.hideGloves
         hideBoots       = [bool]$Script:Config.hideBoots
         hideHelmets     = [bool]$Script:Config.hideHelmets
@@ -371,6 +434,7 @@ function Save-Config {
         hideStockings   = [bool]$Script:Config.hideStockings
         slotHideClasses = [string]$Script:Config.slotHideClasses
         pubicHairStyle  = [string]$Script:Config.pubicHairStyle
+        pubicHairStyles = [string]$Script:Config.pubicHairStyles
         pubicHairReuse  = [bool]$Script:Config.pubicHairReuse
         pubicHairClasses = [string]$Script:Config.pubicHairClasses
         censorshipTier  = [string]$Script:Config.censorshipTier
@@ -736,9 +800,8 @@ function Show-Status {
     $xyzwText = if ($x) { 'Yes' } else { 'No' }
     Write-Host ("  Collections (XYZW outfits): " + $xyzwText) -ForegroundColor Gray
     try {
-        $eff = Get-EffectiveBodySizeValues
-        Write-Host ("  Body size: {0}  min={1:0.##} def={2:0.##} max={3:0.##}" -f $eff.preset, $eff.min, $eff.def, $eff.max) -ForegroundColor Gray
-        Write-Host ("  Body parts: " + $(if ($Script:Config.bodySizeParts) { $Script:Config.bodySizeParts } else { 'all' })) -ForegroundColor Gray
+        Write-Host ("  Body size: " + [string]$Script:Config.bodySizePreset) -ForegroundColor Gray
+        Write-Host ("  Body parts: " + (Format-BodySizeSpec (Get-BodySizeSpec))) -ForegroundColor Gray
     } catch {
         Write-Host '  Body size: (configure in menu 2)' -ForegroundColor Gray
     }
@@ -1059,35 +1122,16 @@ function Apply-NewFemalesBody {
         Write-Err $_.Exception.Message
     }
 
-    if ($style -and $style -ne 'none') {
-        $pubOut = Join-Path $paz ("files_to_patch\_pubic_hair_EXPERIMENTAL_new_females\_" + $style)
-        $pClasses = [string]$Script:Config.pubicHairClasses
-        if (-not $pClasses) { $pClasses = $fClasses }
-        Write-Info "pubic out = $pubOut"
-        if (Read-YesNo ("Apply pubic style '$style' for selected classes?") $true) {
-            $pyPub = @(
-                $Script:PubicHairTool,
-                '--style', $style,
-                '--hair-root', $Script:PubicHairRoot,
-                '--base-roots', $baseRoots,
-                '--out', $pubOut,
-                '--paz', [string]$Script:Config.pazFolder,
-                '--new-females',
-                '--classes', $pClasses
-            )
-            try {
-                & $Script:PythonExe @pyPub
-                if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
-                    Write-Err ("Pubic exit " + $LASTEXITCODE)
-                } else {
-                    Write-Ok 'New-female pubic textures written.'
-                }
-            } catch {
-                Write-Err $_.Exception.Message
-            }
+    # Pubic hair is no longer split into a separate "new females" pass; every class
+    # is handled by the one per-class generator so the two runs cannot disagree.
+    $stylesArg = Get-PubicStylesArg
+    if ($stylesArg) {
+        Write-Info ("pubic selection = " + $stylesArg)
+        if (Read-YesNo 'Apply the saved per-class pubic selection now?' $true) {
+            Apply-PubicHair
         }
     } else {
-        Write-Info 'Pubic skipped (style=none).'
+        Write-Info 'Pubic skipped (no per-class selection saved).'
     }
 
     Write-Host ''
@@ -1339,79 +1383,225 @@ function Configure-PubicHair {
         return
     }
 
-    Write-Host '  --- RESTORED: pick style ---' -ForegroundColor Green
-    $keys = @($Script:PubicHairStyles.Keys)
-    for ($i = 0; $i -lt $keys.Count; $i++) {
-        $k = $keys[$i]
-        $mark = if ($k -eq 'full_bush') { ' (popular)' } elseif ($k -eq 'none') { '' } else { '' }
-        $col = if ($i -eq 0) { 'DarkGray' } else { 'Cyan' }
-        Write-Host ("    [{0}] {1}{2}" -f ($i + 1), $Script:PubicHairStyles[$k], $mark) -ForegroundColor $col
+    Write-Host '  Pick the classes you want, then a style for each one.' -ForegroundColor Gray
+    Write-Host '  Classes you do not pick are left completely untouched.' -ForegroundColor DarkGray
+    Write-Host ''
+    Write-Host '    [I] IMMERSIVE preset (recommended) — a different look per class' -ForegroundColor Green
+    Write-Host '    [C] Choose classes and styles yourself' -ForegroundColor Cyan
+    Write-Host '    [P] Open preview image first' -ForegroundColor Yellow
+    Write-Host '    [X] Clear pubic hair selection' -ForegroundColor DarkGray
+    $mode = (Read-Host '  Choice').Trim().ToUpperInvariant()
+    if ($mode -eq 'I') {
+        Write-Host ''
+        Write-Host '  IMMERSIVE preset' -ForegroundColor Green
+        Write-Host '  ----------------' -ForegroundColor DarkGray
+        Write-Host '  Individually styled (these classes own their body texture):' -ForegroundColor Gray
+        $picked = [ordered]@{}
+        foreach ($p in $Script:PubicImmersivePreset.Keys) {
+            $picked[$p] = $Script:PubicImmersivePreset[$p]
+            $label = if ($Script:FemaleClasses.Contains($p)) { $Script:FemaleClasses[$p] } else { $p }
+            Write-Host ("    {0,-20} {1}" -f $label, $Script:PubicHairStyles[$Script:PubicImmersivePreset[$p]]) -ForegroundColor Gray
+        }
+        Show-PubicIsolationNotice $picked
+        Write-Host ''
+        Write-Host '  The other 13 classes all render from ONE shared texture:' -ForegroundColor Yellow
+        Write-Host ('    ' + (($Script:SharedAtlasPrefixes | ForEach-Object { $Script:FemaleClasses[$_] }) -join ', ')) -ForegroundColor DarkGray
+        Write-Host '  They can only have ONE style between them, or stay bare.' -ForegroundColor DarkGray
+        Write-Host ''
+        if (Read-YesNo 'Give that whole group of 13 a style too?' $false) {
+            $styleKeys = @($Script:PubicHairStyles.Keys | Where-Object { $_ -ne 'none' })
+            for ($i = 0; $i -lt $styleKeys.Count; $i++) {
+                Write-Host ("    [{0}] {1}" -f ($i + 1), $Script:PubicHairStyles[$styleKeys[$i]]) -ForegroundColor Cyan
+            }
+            while ($true) {
+                $ans = (Read-Host '  Style number for all 13').Trim()
+                if ($ans -notmatch '^\d+$') { Write-Warn 'Enter a number.'; continue }
+                $n = [int]$ans
+                if ($n -lt 1 -or $n -gt $styleKeys.Count) { Write-Warn 'Out of range.'; continue }
+                foreach ($p in $Script:SharedAtlasPrefixes) { $picked[$p] = $styleKeys[$n - 1] }
+                break
+            }
+        } else {
+            Write-Info 'Those 13 stay bare (not touched at all).'
+        }
+        Write-Host ''
+        if (-not (Read-YesNo 'Use this preset?' $true)) { Pause-Any; return }
+        $Script:Config.pubicHairStyles = (($picked.Keys |
+            ForEach-Object { '{0}={1}' -f $_, $picked[$_] }) -join ',')
+        $Script:Config.pubicHairClasses = ($picked.Keys -join ',')
+        $Script:Config.pubicHairStyle = @($picked.Values)[0]
+        Save-Config
+        Write-Ok 'Immersive preset saved.'
+        if (Read-YesNo 'Apply pubic hair textures now?' $true) { Apply-PubicHair } else { Pause-Any }
+        return
     }
-    Write-Host '    [P] Open preview image (if present)' -ForegroundColor Yellow
-    $pick = (Read-Host '  Select style number').Trim().ToUpperInvariant()
-    if ($pick -eq 'P') {
+    if ($mode -eq 'P') {
         $prev = Join-Path $Script:PubicHairRoot 'preview.jpg'
         if (Test-Path $prev) { Start-Process $prev } else { Write-Warn 'preview.jpg missing' }
         Pause-Any
         Configure-PubicHair
         return
     }
-    if ($pick -notmatch '^\d+$') {
+    if ($mode -eq 'X') {
+        $Script:Config.pubicHairStyles = ''
+        $Script:Config.pubicHairStyle = 'none'
+        $Script:Config.pubicHairClasses = ''
+        Save-Config
+        Write-Ok 'Pubic hair selection cleared.'
+        Pause-Any
+        return
+    }
+    if ($mode -ne 'C') {
         Write-Warn 'Cancelled.'
         Pause-Any
         return
     }
-    $idx = [int]$pick - 1
-    if ($idx -lt 0 -or $idx -ge $keys.Count) {
-        Write-Warn 'Invalid.'
+
+    $classes = Select-FemaleClasses -Title 'Pubic hair — pick classes' -CurrentCsv (Get-PubicClassCsv)
+    if ([string]::IsNullOrWhiteSpace($classes)) {
+        Write-Warn 'No classes selected — nothing will be generated.'
+        $Script:Config.pubicHairStyles = ''
+        $Script:Config.pubicHairStyle = 'none'
+        $Script:Config.pubicHairClasses = ''
+        Save-Config
         Pause-Any
         return
     }
-    $Script:Config.pubicHairStyle = $keys[$idx]
+
+    $existing = Get-PubicStyleMap
+    $picked = [ordered]@{}
+    $styleKeys = @($Script:PubicHairStyles.Keys | Where-Object { $_ -ne 'none' })
+    $lastChoice = 0
 
     Write-Host ''
-    Write-Host '  --- WHICH CLASSES get this style? ---' -ForegroundColor White
-    Write-Host '  Pick one class, several, native-only, new females, or ALL.' -ForegroundColor Gray
-    $Script:Config.pubicHairClasses = Select-FemaleClasses -Title 'Pubic hair — female classes' -CurrentCsv ([string]$Script:Config.pubicHairClasses) -DefaultAll
-
+    Write-Host '  --- STYLE PER CLASS ---' -ForegroundColor White
+    Write-Host '  Enter a style number for each class. Blank repeats your previous answer.' -ForegroundColor DarkGray
+    Write-Host '  Enter 0 to skip that class entirely.' -ForegroundColor DarkGray
     Write-Host ''
-    Write-Host '  --- EXPERIMENTAL-REUSE (for selected classes without native bins) ---' -ForegroundColor Red
-    Write-Host '  Needed for Seraph/Deadeye/etc. Uses donor texture + bin (not original art).' -ForegroundColor DarkYellow
-    $needExper = $false
-    $clsCsv = [string]$Script:Config.pubicHairClasses
-    if ([string]::IsNullOrWhiteSpace($clsCsv)) {
-        $needExper = $true  # ALL includes new females
-    } else {
-        foreach ($p in ($clsCsv -split ',')) {
-            if ($p.Trim() -in $Script:NewFemalePrefixes) { $needExper = $true; break }
-            if ($p.Trim() -and ($p.Trim() -notin $Script:NativePubicPrefixes)) { $needExper = $true; break }
+    for ($i = 0; $i -lt $styleKeys.Count; $i++) {
+        Write-Host ("    [{0}] {1}" -f ($i + 1), $Script:PubicHairStyles[$styleKeys[$i]]) -ForegroundColor Cyan
+    }
+    Write-Host ''
+
+    foreach ($prefix in ($classes -split '[,;]+')) {
+        $prefix = $prefix.Trim()
+        if (-not $prefix) { continue }
+        $label = if ($Script:FemaleClasses.Contains($prefix)) { $Script:FemaleClasses[$prefix] } else { $prefix }
+        $default = $lastChoice
+        if ($existing.Contains($prefix)) {
+            $idx = [array]::IndexOf($styleKeys, $existing[$prefix])
+            if ($idx -ge 0) { $default = $idx + 1 }
+        }
+        while ($true) {
+            $hint = if ($default -gt 0) { " [$default]" } else { '' }
+            $ans = (Read-Host ("  " + $label + " (" + $prefix + ")" + $hint)).Trim()
+            if (-not $ans -and $default -gt 0) { $ans = "$default" }
+            if ($ans -notmatch '^\d+$') { Write-Warn 'Enter a number.'; continue }
+            $n = [int]$ans
+            if ($n -eq 0) { break }
+            if ($n -lt 1 -or $n -gt $styleKeys.Count) { Write-Warn 'Out of range.'; continue }
+            $picked[$prefix] = $styleKeys[$n - 1]
+            $lastChoice = $n
+            break
         }
     }
-    if ($needExper) {
-        Write-Info 'Your class list includes classes without native bins — EXPERIMENTAL reuse is recommended.'
-        $Script:Config.pubicHairReuse = Read-YesNo 'Enable EXPERIMENTAL reuse/synthesize for those classes?' $true
-    } else {
-        $Script:Config.pubicHairReuse = Read-YesNo 'Enable EXPERIMENTAL same-size reuse anyway (usually OFF)?' $false
+
+    if ($picked.Count -eq 0) {
+        Write-Warn 'Every class was skipped — nothing will be generated.'
+        $Script:Config.pubicHairStyles = ''
+        $Script:Config.pubicHairStyle = 'none'
+        $Script:Config.pubicHairClasses = ''
+        Save-Config
+        Pause-Any
+        return
     }
 
+    $Script:Config.pubicHairStyles = (($picked.Keys | ForEach-Object { '{0}={1}' -f $_, $picked[$_] }) -join ',')
+    # Kept in sync so older status screens and the run-all path stay meaningful.
+    $Script:Config.pubicHairClasses = (($picked.Keys) -join ',')
+    $Script:Config.pubicHairStyle = @($picked.Values)[0]
     Save-Config
-    Write-Ok ("Pubic hair style: " + $Script:PubicHairStyles[$Script:Config.pubicHairStyle])
-    Write-Host ("  classes = " + (Format-ClassList $Script:Config.pubicHairClasses)) -ForegroundColor Gray
-    Write-Host ("  reuse (EXPERIMENTAL) = " + $Script:Config.pubicHairReuse) -ForegroundColor Gray
-    if ($Script:Config.pubicHairStyle -ne 'none' -and (Read-YesNo 'Apply pubic hair textures now?' $true)) {
+
+    Write-Host ''
+    Write-Ok 'Pubic hair selection saved:'
+    foreach ($p in $picked.Keys) {
+        $label = if ($Script:FemaleClasses.Contains($p)) { $Script:FemaleClasses[$p] } else { $p }
+        Write-Host ("    {0,-14} {1}" -f $label, $Script:PubicHairStyles[$picked[$p]]) -ForegroundColor Gray
+    }
+    Show-PubicIsolationNotice $picked
+    if (Read-YesNo 'Apply pubic hair textures now?' $true) {
         Apply-PubicHair
     } else {
         Pause-Any
     }
 }
 
+# Selected classes -> ordered map of prefix=style, from the saved config.
+function Get-PubicStyleMap {
+    $map = [ordered]@{}
+    foreach ($token in ([string]$Script:Config.pubicHairStyles -split '[,;]+')) {
+        $token = $token.Trim()
+        if (-not $token) { continue }
+        $bits = $token -split '=', 2
+        if ($bits.Count -ne 2) { continue }
+        $p = $bits[0].Trim().ToLowerInvariant()
+        $s = $bits[1].Trim().ToLowerInvariant()
+        if ($p -and $s -and $Script:PubicHairStyles.Contains($s)) { $map[$p] = $s }
+    }
+    return $map
+}
+
+function Get-PubicClassCsv {
+    return ((Get-PubicStyleMap).Keys -join ',')
+}
+
+function Get-PubicStylesArg {
+    $map = Get-PubicStyleMap
+    if ($map.Count -eq 0) { return $null }
+    return (($map.Keys | ForEach-Object { '{0}={1}' -f $_, $map[$_] }) -join ',')
+}
+
+# 13 of 19 female bodies render from ONE texture (phw_01_nude_0001). Tell the user
+# what that costs before they generate, instead of surprising them with GB of files.
+# Warns about selections the assets cannot satisfy, BEFORE anything is generated.
+function Show-PubicIsolationNotice {
+    param($Picked)
+    # Corsair's texture is a size no shipped hair bin matches, so it cannot be
+    # styled at all. Say so up front rather than letting it look like a failure.
+    if ($Picked.Contains('pfw')) {
+        Write-Host ''
+        Write-Warn 'Corsair has no compatible hair bin in this pack and will be skipped.'
+    }
+    $shared = @($Picked.Keys | Where-Object { $_ -in $Script:SharedAtlasPrefixes })
+    if ($shared.Count -eq 0) { return }
+
+    $missing = @($Script:SharedAtlasPrefixes | Where-Object { -not $Picked.Contains($_) })
+    $styles = @($shared | ForEach-Object { $Picked[$_] } | Select-Object -Unique)
+    if ($missing.Count -eq 0 -and $styles.Count -eq 1) {
+        Write-Host ''
+        Write-Info ('All 13 shared-texture classes selected with one style — they will all get ' + $Script:PubicHairStyles[$styles[0]] + '.')
+        return
+    }
+    Write-Host ''
+    Write-Warn 'These picked classes all render from ONE shared body texture, so they'
+    Write-Warn 'cannot have different styles and WILL BE SKIPPED:'
+    Write-Host ('    ' + (($shared | ForEach-Object { $Script:FemaleClasses[$_] }) -join ', ')) -ForegroundColor DarkGray
+    if ($styles.Count -gt 1) {
+        Write-Host ('    conflicting styles requested: ' + ($styles -join ', ')) -ForegroundColor DarkGray
+    }
+    if ($missing.Count -gt 0) {
+        Write-Host ('    not selected, would also be changed: ' + (($missing | ForEach-Object { $Script:FemaleClasses[$_] }) -join ', ')) -ForegroundColor DarkGray
+    }
+    Write-Host '    To style them, pick ALL 13 with the SAME style.' -ForegroundColor DarkGray
+}
+
 function Apply-PubicHair {
     Write-Banner
     Write-Host '  Apply pubic hair' -ForegroundColor Magenta
-    Write-Host '  Per-class selection + optional EXPERIMENTAL-REUSE' -ForegroundColor DarkGray
-    $style = [string]$Script:Config.pubicHairStyle
-    if (-not $style -or $style -eq 'none') {
-        Write-Warn 'Style is none — pick a style first (menu 2 option 6).'
+    Write-Host '  Per-class styles; unselected classes are left untouched' -ForegroundColor DarkGray
+    $stylesArg = Get-PubicStylesArg
+    if (-not $stylesArg) {
+        Write-Warn 'No classes selected — pick classes and styles first (menu 2 option 6).'
         Pause-Any
         return
     }
@@ -1426,41 +1616,54 @@ function Apply-PubicHair {
         (Join-Path $Script:Root 'pack\midnight_xyzw\_00_suzu_nude'),
         (Join-Path $Script:Root 'pack\midnight_xyzw\_00_thegreatsage_nude')
     ) -join ';'
-    $reuse = [bool]$Script:Config.pubicHairReuse
-    $cls = [string]$Script:Config.pubicHairClasses
-    $outName = if ($reuse) { "_pubic_hair_EXPERIMENTAL_reuse\_$style" } else { "_pubic_hair_RESTORED_native\_$style" }
-    $out = Join-Path $Script:Config.pazFolder ("files_to_patch\" + $outName)
-    Write-Info ("Style   : " + $style)
-    Write-Info ("Classes : " + (Format-ClassList $cls))
-    Write-Info ("Mode    : " + $(if ($reuse) { 'NATIVE + EXPERIMENTAL-REUSE' } else { 'NATIVE only (RESTORED)' }))
-    Write-Info ("Out     : " + $out)
+    # One package for the whole selection: a per-style folder would leave the
+    # previous run's package behind and re-inject classes you just deselected.
+    $out = Join-Path $Script:Config.pazFolder 'files_to_patch\_pubic_hair_perclass'
+    Write-Info ("Selection : " + $stylesArg)
+    Write-Info ("Out       : " + $out)
     if (-not (Read-YesNo 'Merge hair bins onto nude DDS and write files_to_patch?' $true)) {
         Pause-Any
         return
     }
+    Remove-StalePubicPackages
     $pyArgs = @(
         $Script:PubicHairTool,
-        '--style', $style,
         '--hair-root', $Script:PubicHairRoot,
         '--base-roots', $baseRoots,
         '--out', $out,
-        '--paz', [string]$Script:Config.pazFolder
+        '--paz', [string]$Script:Config.pazFolder,
+        '--styles', $stylesArg
     )
-    if ($cls) { $pyArgs += @('--classes', $cls) }
-    if ($reuse) { $pyArgs += '--all-classes' } else { $pyArgs += '--native-only' }
     try {
         & $Script:PythonExe @pyArgs
         if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
             Write-Err ("Exit " + $LASTEXITCODE)
         } else {
             Write-Ok 'Pubic hair textures ready. Meta Inject after Midnight deploy (nude body first).'
-            if ($reuse) { Write-Warn 'Folder name marks EXPERIMENTAL-REUSE.' }
             Ensure-ToolsInPaz
         }
     } catch {
         Write-Err $_.Exception.Message
     }
     Pause-Any
+}
+
+# Old builds wrote one package per style/mode, so switching style or narrowing the
+# class list left the previous package in files_to_patch and it kept getting
+# injected. That is the other half of "I picked two classes and got all of them".
+function Remove-StalePubicPackages {
+    $ftp = Join-Path $Script:Config.pazFolder 'files_to_patch'
+    if (-not (Test-Path -LiteralPath $ftp)) { return }
+    $stale = @(Get-ChildItem -LiteralPath $ftp -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like '_pubic_hair_*' -and $_.Name -ne '_pubic_hair_perclass' })
+    foreach ($dir in $stale) {
+        try {
+            Remove-Item -LiteralPath $dir.FullName -Recurse -Force -Confirm:$false
+            Write-Info ("Removed stale pubic package: " + $dir.Name)
+        } catch {
+            Write-Warn ("Could not remove " + $dir.Name + ": " + $_.Exception.Message)
+        }
+    }
 }
 
 function Configure-MidnightChoices {
@@ -1519,46 +1722,42 @@ function Read-FloatValue {
     }
 }
 
-function Get-BodySizePresetValues {
-    param([string]$Name)
-    switch ($Name) {
-        'vanilla' { return @{ min = 0.90; def = 1.00; max = 1.25 } }
-        'mild'    { return @{ min = 0.85; def = 1.00; max = 1.75 } }
-        'high'    { return @{ min = 0.80; def = 1.05; max = 2.50 } }
-        'extreme' { return @{ min = 0.70; def = 1.10; max = 3.00 } }
-        default   { return @{ min = 0.80; def = 1.05; max = 2.50 } }
-    }
-}
-
-function Get-EffectiveBodySizeValues {
-    $preset = [string]$Script:Config.bodySizePreset
-    if (-not $preset) { $preset = 'high' }
-    if ($preset -eq 'custom') {
-        $min = $Script:Config.bodySizeMin
-        $def = $Script:Config.bodySizeDefault
-        $max = $Script:Config.bodySizeMax
-        if ($null -eq $min) { $min = 0.80 }
-        if ($null -eq $def) { $def = 1.05 }
-        if ($null -eq $max) { $max = 2.50 }
-        return @{
-            preset = 'custom'
-            min    = [double]$min
-            def    = [double]$def
-            max    = [double]$max
+# The parts string is the single source of truth: "name:max" pairs, e.g.
+# "breasts:2.0,thighs:1.5,butt:1.25". Returns $null when it is unusable.
+function Get-BodySizeSpec {
+    $raw = [string]$Script:Config.bodySizeParts
+    if (-not $raw) { return $null }
+    $out = [ordered]@{}
+    foreach ($token in ($raw -split '[,;]+')) {
+        $token = $token.Trim()
+        if (-not $token) { continue }
+        $bits = $token -split ':', 2
+        $name = $bits[0].Trim().ToLowerInvariant()
+        if ($name -in @('pelvis', 'ass', 'hips', 'hip')) { $name = 'butt' }
+        if ($name -notin $Script:BodySizeParts) { continue }
+        $max = $null
+        if ($bits.Count -eq 2) { [void][double]::TryParse($bits[1].Trim(), [ref]$max) }
+        if ($null -eq $max -or $max -lt 1.0 -or $max -gt 99.0) { continue }
+        if ($out.Contains($name)) {
+            if ($max -gt $out[$name]) { $out[$name] = $max }
+        } else {
+            $out[$name] = $max
         }
     }
-    $v = Get-BodySizePresetValues $preset
-    return @{
-        preset = $preset
-        min    = $v.min
-        def    = $v.def
-        max    = $v.max
-    }
+    if ($out.Count -eq 0) { return $null }
+    return $out
 }
 
-function Test-BodySizeOrder {
-    param([double]$Min, [double]$Def, [double]$Max)
-    return ($Min -lt $Def -and $Def -lt $Max)
+function Format-BodySizeSpec {
+    param($Spec)
+    if (-not $Spec) { return '(none)' }
+    return (($Spec.Keys | ForEach-Object { '{0} max {1:0.##}' -f $_, $Spec[$_] }) -join ', ')
+}
+
+function Get-BodySizeArg {
+    $spec = Get-BodySizeSpec
+    if (-not $spec) { return $null }
+    return (($spec.Keys | ForEach-Object { '{0}:{1}' -f $_, $spec[$_] }) -join ',')
 }
 
 function Configure-BodySizeLimits {
@@ -1566,146 +1765,74 @@ function Configure-BodySizeLimits {
     Write-Host '  BODY SIZE LIMITS  [RESTORED — all classes via live PAZ]' -ForegroundColor White
     Write-Host '  -----------------------------------------------------' -ForegroundColor DarkGray
     Write-Info 'Patches ALL customizationboneparamdesc files in the live game (every class).'
-    Write-Info 'Raises Min / Default / Max so in-game sliders can go further (Resorepless-style).'
+    Write-Info 'Raises the slider Max on the parts you pick. Nothing else is touched.'
     Write-Warn 'After inject: beauty salon or new character. Tamer breasts often ignore this.'
     Write-Host ''
-    Write-Host '  Easy path = recommended presets. Power path = type any custom numbers.' -ForegroundColor Gray
+    Write-Host '  Only three groups are supported, and each carries its own max:' -ForegroundColor Gray
+    Write-Host '    breasts   thighs   butt (= hip + pelvis, they are one shape in BDO)' -ForegroundColor Gray
+    Write-Host '  legs / spine / arms were removed in 2.1.0: they scale bone LENGTH, which' -ForegroundColor DarkGray
+    Write-Host '  is what made characters stretch. Unpicked parts stay byte-identical.' -ForegroundColor DarkGray
     Write-Host ''
-
-    $cur = Get-EffectiveBodySizeValues
-    Write-Host ("  Current: preset={0}  min={1:0.##}  default={2:0.##}  max={3:0.##}" -f $cur.preset, $cur.min, $cur.def, $cur.max) -ForegroundColor DarkCyan
-    Write-Host ("  Parts  : " + $(if ($Script:Config.bodySizeParts) { $Script:Config.bodySizeParts } else { 'all' })) -ForegroundColor DarkCyan
+    Write-Host ("  Current: " + (Format-BodySizeSpec (Get-BodySizeSpec))) -ForegroundColor DarkCyan
     Write-Host ''
 
     Write-Host '  SIZE VALUES' -ForegroundColor White
-    Write-Host '    [1] vanilla   0.90 / 1.00 / 1.25   stock game' -ForegroundColor Cyan
-    Write-Host '    [2] mild      0.85 / 1.00 / 1.75' -ForegroundColor Cyan
-    Write-Host '    [3] high      0.80 / 1.05 / 2.50   RECOMMENDED (classic)' -ForegroundColor Green
-    Write-Host '    [4] extreme   0.70 / 1.10 / 3.00   may clip hard' -ForegroundColor Yellow
-    Write-Host '    [5] CUSTOM    type your own Min / Default / Max' -ForegroundColor Magenta
-    Write-Host '    [6] Keep current values' -ForegroundColor DarkGray
+    Write-Host '    [1] vanilla       1.25 / 1.25 / 1.25   stock game' -ForegroundColor Cyan
+    Write-Host '    [2] mild          1.75 / 1.35 / 1.20' -ForegroundColor Cyan
+    Write-Host '    [3] recommended   2.00 / 1.50 / 1.40   RECOMMENDED' -ForegroundColor Green
+    Write-Host '    [4] extreme       3.00 / 2.00 / 1.60   may clip hard' -ForegroundColor Yellow
+    Write-Host '    [5] CUSTOM        pick parts and type each max yourself' -ForegroundColor Magenta
+    Write-Host '    [6] Keep current' -ForegroundColor DarkGray
+    Write-Host '                      (order above: breasts / thighs / butt)' -ForegroundColor DarkGray
     $p = Read-Choice 'Choice' @('1', '2', '3', '4', '5', '6')
 
     switch ($p) {
-        '1' {
-            $Script:Config.bodySizePreset = 'vanilla'
-            $Script:Config.bodySizeMin = $null
-            $Script:Config.bodySizeDefault = $null
-            $Script:Config.bodySizeMax = $null
-        }
-        '2' {
-            $Script:Config.bodySizePreset = 'mild'
-            $Script:Config.bodySizeMin = $null
-            $Script:Config.bodySizeDefault = $null
-            $Script:Config.bodySizeMax = $null
-        }
-        '3' {
-            $Script:Config.bodySizePreset = 'high'
-            $Script:Config.bodySizeMin = $null
-            $Script:Config.bodySizeDefault = $null
-            $Script:Config.bodySizeMax = $null
-        }
-        '4' {
-            $Script:Config.bodySizePreset = 'extreme'
-            $Script:Config.bodySizeMin = $null
-            $Script:Config.bodySizeDefault = $null
-            $Script:Config.bodySizeMax = $null
-        }
+        '1' { $Script:Config.bodySizePreset = 'vanilla';     $Script:Config.bodySizeParts = $Script:BodySizePresets['vanilla'].Spec }
+        '2' { $Script:Config.bodySizePreset = 'mild';        $Script:Config.bodySizeParts = $Script:BodySizePresets['mild'].Spec }
+        '3' { $Script:Config.bodySizePreset = 'recommended'; $Script:Config.bodySizeParts = $Script:BodySizePresets['recommended'].Spec }
+        '4' { $Script:Config.bodySizePreset = 'extreme';     $Script:Config.bodySizeParts = $Script:BodySizePresets['extreme'].Spec }
         '5' {
             Write-Host ''
-            Write-Host '  CUSTOM VALUES' -ForegroundColor Magenta
-            Write-Info 'Rule: Min < Default < Max   (examples: min 0.8, default 1.05, max 2.5)'
-            Write-Info 'Old Resorepless UI suggested max around 2.5; higher can look extreme/clip.'
-            $base = Get-EffectiveBodySizeValues
-            while ($true) {
-                $min = Read-FloatValue -Prompt 'Min size' -Default $base.min -MinAllowed -2.0 -MaxAllowed 5.0
-                $def = Read-FloatValue -Prompt 'Default size (slider middle-ish)' -Default $base.def -MinAllowed -2.0 -MaxAllowed 5.0
-                $max = Read-FloatValue -Prompt 'Max size (what you care about most)' -Default $base.max -MinAllowed 0.1 -MaxAllowed 10.0
-                if (Test-BodySizeOrder -Min $min -Def $def -Max $max) {
-                    $Script:Config.bodySizePreset = 'custom'
-                    $Script:Config.bodySizeMin = $min
-                    $Script:Config.bodySizeDefault = $def
-                    $Script:Config.bodySizeMax = $max
-                    Write-Ok ("Custom saved: min={0:0.##} default={1:0.##} max={2:0.##}" -f $min, $def, $max)
-                    break
-                }
-                Write-Err 'Need Min < Default < Max. Try again.'
-            }
-        }
-        '6' {
-            Write-Info 'Keeping existing size values.'
-        }
-    }
-
-    # Optional fine-tune after preset (friendly: ask once)
-    if ($p -in @('1', '2', '3', '4')) {
-        Write-Host ''
-        if (Read-YesNo 'Fine-tune numbers after this preset (custom override)?' $false) {
-            $base = Get-EffectiveBodySizeValues
-            while ($true) {
-                $min = Read-FloatValue -Prompt 'Min size' -Default $base.min -MinAllowed -2.0 -MaxAllowed 5.0
-                $def = Read-FloatValue -Prompt 'Default size' -Default $base.def -MinAllowed -2.0 -MaxAllowed 5.0
-                $max = Read-FloatValue -Prompt 'Max size' -Default $base.max -MinAllowed 0.1 -MaxAllowed 10.0
-                if (Test-BodySizeOrder -Min $min -Def $def -Max $max) {
-                    $Script:Config.bodySizePreset = 'custom'
-                    $Script:Config.bodySizeMin = $min
-                    $Script:Config.bodySizeDefault = $def
-                    $Script:Config.bodySizeMax = $max
-                    Write-Ok ("Custom override: min={0:0.##} default={1:0.##} max={2:0.##}" -f $min, $def, $max)
-                    break
-                }
-                Write-Err 'Need Min < Default < Max. Try again.'
-            }
-        }
-    }
-
-    Write-Host ''
-    Write-Host '  BODY PARTS' -ForegroundColor White
-    Write-Host '    [1] Breasts only' -ForegroundColor Cyan
-    Write-Host '    [2] Breasts + butt + thighs   (RECOMMENDED for most people)' -ForegroundColor Green
-    Write-Host '    [3] ALL parts (breasts, butt, thighs, arms, legs, pelvis, spine)' -ForegroundColor Cyan
-    Write-Host '    [4] CUSTOM list (type names yourself)' -ForegroundColor Magenta
-    Write-Host '    [5] Keep current parts list' -ForegroundColor DarkGray
-    $bp = Read-Choice 'Parts choice' @('1', '2', '3', '4', '5')
-    switch ($bp) {
-        '1' { $Script:Config.bodySizeParts = 'breasts' }
-        '2' { $Script:Config.bodySizeParts = 'breasts,butt,thighs' }
-        '3' { $Script:Config.bodySizeParts = 'breasts,butt,thighs,arms,legs,pelvis,spine' }
-        '4' {
+            Write-Host '  CUSTOM' -ForegroundColor Magenta
+            Write-Info 'Answer y/n per part, then give that part its max. Parts you skip are'
+            Write-Info 'not written at all, so they keep exactly the values the game shipped.'
             Write-Host ''
-            Write-Info 'Valid names: breasts, butt, thighs, arms, legs, pelvis, spine'
-            Write-Info 'Example: breasts,butt   or   breasts,thighs,arms'
-            $legal = @('breasts', 'butt', 'thighs', 'arms', 'legs', 'pelvis', 'spine')
-            while ($true) {
-                $raw = (Read-Host '  Parts (comma-separated)').Trim().ToLowerInvariant()
-                if ([string]::IsNullOrEmpty($raw)) {
-                    Write-Warn 'Empty — try again or use a preset choice.'
-                    continue
+            $base = Get-BodySizeSpec
+            $chosen = [ordered]@{}
+            $labels = @{
+                breasts = 'Breasts  (no length axis — safest to push, 2.0 suggested)'
+                thighs  = 'Thighs   (girth only; leg length stays vanilla, 1.5 suggested)'
+                butt    = 'Butt     (hip + pelvis together, 1.4 suggested — pelvis parents'
+            }
+            $suggest = @{ breasts = 2.0; thighs = 1.5; butt = 1.4 }
+            foreach ($part in $Script:BodySizeParts) {
+                Write-Host ('    ' + $labels[$part]) -ForegroundColor DarkGray
+                if ($part -eq 'butt') { Write-Host '               the whole lower body, so keep it modest)' -ForegroundColor DarkGray }
+                if (Read-YesNo ("Patch " + $part + "?") $true) {
+                    $default = $suggest[$part]
+                    if ($base -and $base.Contains($part)) { $default = $base[$part] }
+                    $chosen[$part] = Read-FloatValue -Prompt ("  " + $part + " max") -Default $default -MinAllowed 1.0 -MaxAllowed 5.0
                 }
-                $tokens = @($raw -split '[,;\s]+' | Where-Object { $_ })
-                $bad = @($tokens | Where-Object { $_ -notin $legal })
-                if ($bad.Count -gt 0) {
-                    Write-Warn ("Unknown: " + ($bad -join ', '))
-                    continue
-                }
-                if ($tokens.Count -eq 0) { continue }
-                $Script:Config.bodySizeParts = ($tokens | Select-Object -Unique) -join ','
-                Write-Ok ("Parts: " + $Script:Config.bodySizeParts)
-                break
+                Write-Host ''
+            }
+            if ($chosen.Count -eq 0) {
+                Write-Err 'Nothing selected — keeping your previous settings.'
+            } else {
+                $Script:Config.bodySizePreset = 'custom'
+                $Script:Config.bodySizeParts = (($chosen.Keys | ForEach-Object { '{0}:{1}' -f $_, $chosen[$_] }) -join ',')
+                Write-Ok ('Custom saved: ' + (Format-BodySizeSpec $chosen))
             }
         }
-        '5' { Write-Info 'Keeping existing parts list.' }
+        '6' { Write-Info 'Keeping existing settings.' }
     }
 
     Save-Config
-    $eff = Get-EffectiveBodySizeValues
     Write-Host ''
     Write-Ok 'Body size settings saved.'
-    Write-Host ("  Preset : " + $eff.preset) -ForegroundColor Gray
-    Write-Host ("  Min    : {0:0.##}" -f $eff.min) -ForegroundColor Gray
-    Write-Host ("  Default: {0:0.##}" -f $eff.def) -ForegroundColor Gray
-    Write-Host ("  Max    : {0:0.##}" -f $eff.max) -ForegroundColor Gray
-    Write-Host ("  Parts  : " + $Script:Config.bodySizeParts) -ForegroundColor Gray
+    Write-Host ("  Preset : " + $Script:Config.bodySizePreset) -ForegroundColor Gray
+    Write-Host ("  Applies: " + (Format-BodySizeSpec (Get-BodySizeSpec))) -ForegroundColor Gray
+    Write-Host '  Untouched: game Default, every bone-length axis, and every part above' -ForegroundColor DarkGray
+    Write-Host '             that you did not pick.' -ForegroundColor DarkGray
     Write-Host ''
     if (Read-YesNo 'Apply body size patch to game files_to_patch now?' $true) {
         Apply-BodySizePatch
@@ -1734,23 +1861,17 @@ function Apply-BodySizePatch {
         return
     }
 
-    $eff = Get-EffectiveBodySizeValues
-    $parts = [string]$Script:Config.bodySizeParts
-    if (-not $parts) { $parts = 'breasts,butt,thighs,arms,legs,pelvis,spine' }
-    $out = Join-Path $Script:Config.pazFolder 'files_to_patch\_body_size_limits'
-
-    if (-not (Test-BodySizeOrder -Min $eff.min -Def $eff.def -Max $eff.max)) {
-        Write-Err 'Invalid sizes (need Min < Default < Max). Re-run menu 2 body size config.'
+    $parts = Get-BodySizeArg
+    if (-not $parts) {
+        Write-Err 'No usable body parts configured. Re-run menu 2 body size config.'
         Pause-Any
         return
     }
+    $out = Join-Path $Script:Config.pazFolder 'files_to_patch\_body_size_limits'
 
     Write-Info ("PAZ     : " + $Script:Config.pazFolder)
-    Write-Info ("Preset  : " + $eff.preset)
-    Write-Info ("Min     : {0:0.##}" -f $eff.min)
-    Write-Info ("Default : {0:0.##}" -f $eff.def)
-    Write-Info ("Max     : {0:0.##}" -f $eff.max)
-    Write-Info ("Parts   : " + $parts)
+    Write-Info ("Preset  : " + $Script:Config.bodySizePreset)
+    Write-Info ("Applies : " + (Format-BodySizeSpec (Get-BodySizeSpec)))
     Write-Info ("Output  : " + $out)
     Write-Warn 'Extracts ~75 customizationboneparamdesc.xml from live game (takes a minute).'
     if (-not (Read-YesNo 'Run body size patcher with these values?' $true)) {
@@ -1758,15 +1879,11 @@ function Apply-BodySizePatch {
         return
     }
 
-    # Always pass explicit numbers so custom + presets both go through the same path
+    # The parts string carries each part's own max, so this is the only knob.
     $pyArgs = @(
         $Script:BodySizeTool,
         '--paz', [string]$Script:Config.pazFolder,
         '--out', $out,
-        '--preset', 'high',
-        '--min', ("{0}" -f $eff.min),
-        '--default', ("{0}" -f $eff.def),
-        '--max', ("{0}" -f $eff.max),
         '--parts', $parts
     )
     try {
@@ -2041,9 +2158,15 @@ function Run-MetaInjector {
         Pause-Any
         return
     }
+    # Snapshot a pristine meta before the very first inject. Once injected, the
+    # only pre-inject copy left is Meta Injector's own backup, and losing it means
+    # a full Steam/launcher repair.
     Write-Host ''
-    Write-Host '  In Meta Injector if game is broken:' -ForegroundColor Yellow
-    Write-Host '    choose 3 - Restore Backup   (undos pad00000.meta inject)' -ForegroundColor Cyan
+    Write-Info 'Checking for a vanilla meta backup...'
+    [void](Invoke-VanillaRestoreTool @('backup'))
+
+    Write-Host ''
+    Write-Host '  If the game breaks, menu [R] -> [V] restores vanilla without Steam.' -ForegroundColor Yellow
     Write-Host '  The AIO passes a canonical short-path stage; no XYZW collection is deleted.' -ForegroundColor Green
     Write-Host ''
     $pazDrive = $null
@@ -2107,7 +2230,7 @@ function Apply-AllRestoredChoices {
     Write-Host ("    bodySizePreset = " + $Script:Config.bodySizePreset) -ForegroundColor Gray
     Write-Host ("    slots          = " + ((Get-EnabledHideSlots) -join ', ')) -ForegroundColor Gray
     Write-Host ("    slot classes   = " + $(if ($Script:Config.slotHideClasses) { $Script:Config.slotHideClasses } else { 'ALL' })) -ForegroundColor Gray
-    Write-Host ("    pubic          = " + $Script:Config.pubicHairStyle + " reuse=" + $Script:Config.pubicHairReuse) -ForegroundColor Gray
+    Write-Host ("    pubic          = " + $(if (Get-PubicStylesArg) { Get-PubicStylesArg } else { 'none' })) -ForegroundColor Gray
     Write-Host ("    censorship     = " + $Script:Config.censorshipTier) -ForegroundColor Gray
     Write-Host ("    female3d       = " + $Script:Config.female3dVagina + " genitalReuse=" + $Script:Config.genitalReuse) -ForegroundColor Gray
     Write-Host ("    malePenisMode  = " + $Script:Config.malePenisMode) -ForegroundColor Gray
@@ -2122,24 +2245,17 @@ function Apply-AllRestoredChoices {
     if (-not (Test-Path $ftp)) { New-Item -ItemType Directory -Path $ftp -Force | Out-Null }
     $allOk = $true
 
-    # 1) Body size (same path as Apply-BodySizePatch — never pass --preset custom)
+    # 1) Body size — same single --parts argument as Apply-BodySizePatch
     if ($Script:Config.bodySizePreset -and $Script:Config.bodySizePreset -ne '') {
         Write-Info '--- Body size limits ---'
-        $eff = Get-EffectiveBodySizeValues
-        $parts = [string]$Script:Config.bodySizeParts
-        if (-not $parts) { $parts = 'breasts,butt,thighs,arms,legs,pelvis,spine' }
-        if (-not (Test-BodySizeOrder -Min $eff.min -Def $eff.def -Max $eff.max)) {
-            Write-Warn 'Body size config invalid (need Min < Default < Max) — skipping body size.'
+        $parts = Get-BodySizeArg
+        if (-not $parts) {
+            Write-Warn 'Body size config unusable — skipping body size.'
         } else {
+            Write-Info ("Applies : " + (Format-BodySizeSpec (Get-BodySizeSpec)))
             $out = Join-Path $ftp '_body_size_limits'
-            # Python only accepts vanilla|mild|high|extreme; custom values go via --min/--default/--max
-            $presetArg = if ($eff.preset -eq 'custom') { 'high' } else { [string]$eff.preset }
             $pyArgs = @(
                 $Script:BodySizeTool, '--paz', $paz, '--out', $out,
-                '--preset', $presetArg,
-                '--min', ("{0}" -f $eff.min),
-                '--default', ("{0}" -f $eff.def),
-                '--max', ("{0}" -f $eff.max),
                 '--parts', $parts
             )
             if (-not (Invoke-BdoPythonChecked -Arguments $pyArgs -Label 'Body size patcher')) { $allOk = $false }
@@ -2153,25 +2269,22 @@ function Apply-AllRestoredChoices {
         if (-not (Apply-SlotHidePatch -NoPrompt)) { $allOk = $false }
     }
 
-    # 3) Pubic (per-class filter)
-    $style = [string]$Script:Config.pubicHairStyle
-    if ($style -and $style -ne 'none') {
+    # 3) Pubic hair — one package for the whole per-class selection
+    $stylesArg = Get-PubicStylesArg
+    if ($stylesArg) {
         Write-Info '--- Pubic hair ---'
-        $reuse = [bool]$Script:Config.pubicHairReuse
-        $cls = [string]$Script:Config.pubicHairClasses
-        Write-Info ("  classes = " + (Format-ClassList $cls))
-        $outName = if ($reuse) { "_pubic_hair_EXPERIMENTAL_reuse\_$style" } else { "_pubic_hair_RESTORED_native\_$style" }
-        $out = Join-Path $ftp $outName
+        Write-Info ("  selection = " + $stylesArg)
+        Remove-StalePubicPackages
+        $out = Join-Path $ftp '_pubic_hair_perclass'
         $baseRoots = @(
             (Join-Path $Script:Root 'pack\midnight_xyzw\_00_suzu_nude'),
             (Join-Path $Script:Root 'pack\midnight_xyzw\_00_thegreatsage_nude')
         ) -join ';'
         $pyArgs = @(
-            $Script:PubicHairTool, '--style', $style, '--hair-root', $Script:PubicHairRoot,
-            '--base-roots', $baseRoots, '--out', $out, '--paz', $paz
+            $Script:PubicHairTool, '--hair-root', $Script:PubicHairRoot,
+            '--base-roots', $baseRoots, '--out', $out, '--paz', $paz,
+            '--styles', $stylesArg
         )
-        if ($cls) { $pyArgs += @('--classes', $cls) }
-        if ($reuse) { $pyArgs += '--all-classes' } else { $pyArgs += '--native-only' }
         if (-not (Invoke-BdoPythonChecked -Arguments $pyArgs -Label 'Pubic hair patcher')) { $allOk = $false }
     }
 
@@ -2229,22 +2342,9 @@ function Apply-AllRestoredChoices {
         if ($fClasses) { $pyArgs += @('--female-classes', $fClasses) }
         if (-not (Invoke-BdoPythonChecked -Arguments $pyArgs -Label 'New-female genital patcher')) { $allOk = $false }
     }
-    if (([bool]$Script:Config.pubicHairReuse -or $reuseG) -and $style -and $style -ne 'none') {
-        Write-Info '--- New females EXPERIMENTAL pubic ---'
-        $pubOut = Join-Path $ftp ("_pubic_hair_EXPERIMENTAL_new_females\_" + $style)
-        $pClasses = [string]$Script:Config.pubicHairClasses
-        if (-not $pClasses) { $pClasses = $fClasses }
-        $baseRoots = @(
-            (Join-Path $Script:Root 'pack\midnight_xyzw\_00_suzu_nude'),
-            (Join-Path $Script:Root 'pack\midnight_xyzw\_00_thegreatsage_nude')
-        ) -join ';'
-        $pyArgs = @(
-            $Script:PubicHairTool, '--style', $style, '--hair-root', $Script:PubicHairRoot,
-            '--base-roots', $baseRoots, '--out', $pubOut, '--paz', $paz, '--new-females'
-        )
-        if ($pClasses) { $pyArgs += @('--classes', $pClasses) }
-        if (-not (Invoke-BdoPythonChecked -Arguments $pyArgs -Label 'New-female pubic patcher')) { $allOk = $false }
-    }
+    # The old "new females EXPERIMENTAL pubic" pass wrote a SECOND pubic package
+    # with its own class list in the same run, which re-applied hair to classes the
+    # main pass had deliberately skipped. Every class now goes through step 3.
 
     Ensure-ToolsInPaz
     if ($allOk) {
@@ -2334,6 +2434,51 @@ function Show-HeishaRegenHelper {
     Pause-Any
 }
 
+# Remove only AIO-generated packages; user-created folders and the Midnight
+# deploy are left alone.
+function Clear-AioGenerated {
+    $ftp = Join-Path ([string]$Script:Config.pazFolder) 'files_to_patch'
+    if (-not (Test-Path -LiteralPath $ftp)) { Write-Warn 'No files_to_patch.'; return 0 }
+    $n = 0
+    Get-ChildItem -LiteralPath $ftp -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+        $name = $_.Name
+        $hit = $false
+        foreach ($p in $Script:AioPatchFolderPrefixes) {
+            if ($name -eq $p.TrimEnd('_') -or $name.StartsWith($p)) { $hit = $true; break }
+        }
+        if ($hit) {
+            Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Host ("  removed: files_to_patch\" + $name) -ForegroundColor DarkGray
+            $n++
+        }
+    }
+    return $n
+}
+
+# Runs tools\bdo_meta\vanilla_restore.py against the configured PAZ folder.
+# Returns $true when the tool reported success.
+function Invoke-VanillaRestoreTool {
+    param([string[]]$ToolArgs)
+    if (-not (Ensure-Python)) { return $false }
+    $tool = Join-Path $Script:Root 'tools\bdo_meta\vanilla_restore.py'
+    if (-not (Test-Path -LiteralPath $tool)) {
+        Write-Err ("Missing tool: " + $tool)
+        return $false
+    }
+    $pyArgs = @($tool) + $ToolArgs + @('--paz', [string]$Script:Config.pazFolder)
+    try {
+        & $Script:PythonExe @pyArgs
+    } catch {
+        Write-Err $_.Exception.Message
+        return $false
+    }
+    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+        Write-Err ("vanilla_restore exit " + $LASTEXITCODE)
+        return $false
+    }
+    return $true
+}
+
 function Restore-UneditedGameFiles {
     Write-Banner
     Write-Host '  RESTORE / CLEAN AIO CHANGES' -ForegroundColor Yellow
@@ -2352,10 +2497,12 @@ function Restore-UneditedGameFiles {
 
     Show-PazInjectStatus -PazFolder $paz
     Write-Host ''
-    Write-Host '  To restore pad00000.meta to pre-inject: run Meta Injector -> Restore Backup' -ForegroundColor Yellow
-    Write-Host '  (menu 5 launches it). Then re-scan with menu [S].' -ForegroundColor Yellow
-    Write-Host ''
 
+    Write-Host '   [V] RESTORE GAME TO VANILLA  (meta backup + delete injected PAZ)' -ForegroundColor Green
+    Write-Host '       No Steam verify needed. Shows a dry run first.' -ForegroundColor DarkGray
+    Write-Host '   [S] Scan meta / backup state' -ForegroundColor Cyan
+    Write-Host '   [B] Make a vanilla meta backup now (do this while unmodded)' -ForegroundColor Cyan
+    Write-Host ''
     Write-Host '   [1] Clear AIO-generated folders under files_to_patch only' -ForegroundColor Cyan
     Write-Host '       (_body_size, _slot_hide_*, _pubic_*, _censorship_*, _genital_*)' -ForegroundColor DarkGray
     Write-Host '   [2] Clear ENTIRE files_to_patch (includes Midnight deploy)' -ForegroundColor Yellow
@@ -2364,25 +2511,38 @@ function Restore-UneditedGameFiles {
     Write-Host '   [5] Do 1 + 3 (recommended soft reset)' -ForegroundColor Green
     Write-Host '   [6] Open Pearl Abyss launcher note (verify game files)' -ForegroundColor Magenta
     Write-Host '   [0] Cancel' -ForegroundColor DarkGray
-    $c = (Read-Host '  Select').Trim()
+    $c = (Read-Host '  Select').Trim().ToUpperInvariant()
     if ($c -eq '0' -or [string]::IsNullOrWhiteSpace($c)) { return }
 
-    function Clear-AioGenerated {
-        if (-not (Test-Path -LiteralPath $ftp)) { Write-Warn 'No files_to_patch.'; return 0 }
-        $n = 0
-        Get-ChildItem -LiteralPath $ftp -Directory -ErrorAction SilentlyContinue | ForEach-Object {
-            $name = $_.Name
-            $hit = $false
-            foreach ($p in $Script:AioPatchFolderPrefixes) {
-                if ($name -eq $p.TrimEnd('_') -or $name.StartsWith($p)) { $hit = $true; break }
-            }
-            if ($hit) {
-                Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
-                Write-Host ("  removed: files_to_patch\" + $name) -ForegroundColor DarkGray
-                $n++
-            }
+    if ($c -eq 'S') { Invoke-VanillaRestoreTool @('scan'); Pause-Any; return }
+    if ($c -eq 'B') { Invoke-VanillaRestoreTool @('backup'); Pause-Any; return }
+    if ($c -eq 'V') {
+        Write-Host ''
+        Write-Info 'DRY RUN first — nothing is changed yet:'
+        Write-Host ''
+        if (-not (Invoke-VanillaRestoreTool @('restore'))) { Pause-Any; return }
+        Write-Host ''
+        Write-Warn 'This restores pad00000.meta from the oldest backup and deletes the'
+        Write-Warn 'injected PAZ files listed above. Your AIO settings are NOT touched.'
+        if (-not (Read-YesNo 'Restore the game to vanilla now?' $false)) {
+            Write-Info 'Cancelled — nothing changed.'
+            Pause-Any
+            return
         }
-        return $n
+        $keepPaz = -not (Read-YesNo 'Also delete the injected PAZ files (frees the space)?' $true)
+        $restoreArgs = @('restore', '--apply')
+        if ($keepPaz) { $restoreArgs += '--keep-paz' }
+        if (Invoke-VanillaRestoreTool $restoreArgs) {
+            Write-Host ''
+            Write-Ok 'Game restored to vanilla.'
+            if (Read-YesNo 'Also clear AIO-generated files_to_patch folders?' $true) {
+                $n = Clear-AioGenerated
+                Write-Ok ("Cleared $n AIO folder(s).")
+            }
+            Write-Info 'Your pubic/slider choices are kept in config.json — just re-apply and inject.'
+        }
+        Pause-Any
+        return
     }
 
     if ($c -in @('1', '5')) {

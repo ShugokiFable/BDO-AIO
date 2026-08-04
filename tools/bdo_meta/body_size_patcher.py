@@ -5,8 +5,16 @@ BDO character-creation body size limit patcher (Resorepless-style).
 Extracts *customizationboneparamdesc* files from live PAZ (via pad00000.meta + ice_decipher),
 raises Min/Default/Max for body bones, writes into files_to_patch for Meta Injector.
 
-Vanilla defaults (Resorepless): Min=0.90 Default=1.00 Max=1.25
-Recommended max around 2.5 (same note as old tool). Breast size may not affect Tamer.
+Three rules, all derived from the live game data (see PART_NOTES below):
+
+1. Never write Default. Vanilla Default is per-class and anisotropic
+   (e.g. Calf "1.10 0.88 1.00"); overwriting it with one uniform number
+   rewrites the class's authored proportions and stretches bodies.
+2. Never touch a bone's HeightAxis component. The game declares it per tag
+   (HeightAxis="X" on Thigh/Calf/Pelvis/Spine/arms; Hip and Breast have none).
+   That axis is bone length -- raising it makes limbs and torsos longer.
+3. Only ever widen. A component is raised toward the requested max and never
+   lowered below what the game already allowed.
 """
 from __future__ import annotations
 
@@ -16,29 +24,45 @@ import math
 import pathlib
 import re
 import sys
-# Bone groups matching Resorepless size_patcher
+
+# Only girth-meaningful groups are supported. Length/height groups (legs, spine,
+# arms) were dropped in 2.1.0: their sliders scale bone length, which produced
+# absurd proportions, and they are children of Pelvis so they already inherit
+# its scale.
+#
+# butt == hip + pelvis on purpose. Measured on the live client (75 body files):
+# 33 of them lock Bip01 L/R Hip Max to <= 1.00 -- the butt slider physically
+# cannot move on those classes -- and in all 33 the Pelvis still has headroom.
+# Patching Hip alone therefore does nothing for ~44% of classes, which matches
+# the long-standing community reports that the butt slider is dead on newer
+# classes. Pelvis is the bone that actually carries the shape.
 BONE_GROUPS = {
     "breasts": ["Bip01 L Breast", "Bip01 R Breast"],
-    "butt": ["Bip01 L Hip", "Bip01 R Hip"],
     "thighs": ["Bip01 L Thigh", "Bip01 R Thigh"],
-    "legs": ["Bip01 L Calf", "Bip01 R Calf"],
-    "pelvis": ["Bip01 Pelvis"],
-    "spine": ["Bip01 Spine"],
-    "arms": [
-        "Bip01 L UpperArm",
-        "Bip01 R UpperArm",
-        "Bip01 L Forearm",
-        "Bip01 R Forearm",
-    ],
+    "butt": ["Bip01 L Hip", "Bip01 R Hip", "Bip01 Pelvis"],
 }
 
-DEFAULTS = {"min": 0.90, "default": 1.00, "max": 1.25}
+# Old config values that used to be separate groups.
+PART_ALIASES = {
+    "pelvis": "butt",
+    "ass": "butt",
+    "hips": "butt",
+    "hip": "butt",
+    "breast": "breasts",
+    "thigh": "thighs",
+}
 
+# Removed in 2.1.0 -- accepted from old configs, reported, then ignored.
+RETIRED_PARTS = ("legs", "spine", "arms")
+
+# Per-part max. Breasts tolerate the most because the breast bone has no
+# HeightAxis at all (pure girth). Butt is conservative because Pelvis is the
+# parent of the whole lower body.
 PRESETS = {
-    "vanilla": {"min": 0.90, "default": 1.00, "max": 1.25},
-    "mild": {"min": 0.85, "default": 1.00, "max": 1.75},
-    "high": {"min": 0.80, "default": 1.05, "max": 2.50},
-    "extreme": {"min": 0.70, "default": 1.10, "max": 3.00},
+    "vanilla": {"breasts": 1.25, "thighs": 1.25, "butt": 1.25},
+    "mild": {"breasts": 1.75, "thighs": 1.35, "butt": 1.20},
+    "recommended": {"breasts": 2.00, "thighs": 1.50, "butt": 1.40},
+    "extreme": {"breasts": 3.00, "thighs": 2.00, "butt": 1.60},
 }
 
 
@@ -287,10 +311,27 @@ def extract_block(paz_folder: pathlib.Path, block: FileBlock, ice: IceDecipher |
 
 _TAG_WITH_BONE = re.compile(rb"<[^<>]*\bBoneName\s*=\s*\"[^\"]+\"[^<>]*>", re.IGNORECASE)
 _BONE_ATTR = re.compile(rb"\bBoneName\s*=\s*\"([^\"]+)\"", re.IGNORECASE)
+_HEIGHT_AXIS_ATTR = re.compile(rb"\bHeightAxis\s*=\s*\"([^\"]*)\"", re.IGNORECASE)
 _VECTOR_NUMBER = rb"[+-]?(?:\d+(?:\.\d*)?|\.\d+)"
 _VECTOR_VALUE = re.compile(
     rb"\s*" + _VECTOR_NUMBER + rb"\s+" + _VECTOR_NUMBER + rb"\s+" + _VECTOR_NUMBER + rb"\s*"
 )
+
+_AXIS_INDEX = {"X": 0, "Y": 1, "Z": 2}
+
+
+def height_axis_index(tag: bytes) -> int | None:
+    """Component index the game marks as bone length, or None if the bone has no length axis.
+
+    The game states this per ParamDesc: HeightAxis="X" on Thigh/Calf/Pelvis/Spine/
+    UpperArm/Forearm, and an absent-or-empty HeightAxis on Hip and Breast.
+    Never guess it -- a wrong axis is what stretches a character instead of
+    thickening it.
+    """
+    match = _HEIGHT_AXIS_ATTR.search(tag)
+    if match is None:
+        return None
+    return _AXIS_INDEX.get(match.group(1).strip().upper().decode("ascii", "replace"))
 
 
 def fmt_vector_component(v: float) -> str:
@@ -315,9 +356,9 @@ def fmt_vector(v: float) -> bytes:
     return f"{component} {component} {component}".encode("ascii")
 
 
-def fmt_vector_for_field(v: float, old_value: bytes) -> bytes:
-    """Fit a valid vector to the source field, preserving its exact byte width."""
-    vector = fmt_vector(v)
+def fit_field(new_text: str, old_value: bytes) -> bytes:
+    """Fit a rebuilt vector into the source field, preserving its exact byte width."""
+    vector = new_text.encode("ascii")
     leading = len(old_value) - len(old_value.lstrip())
     if leading + len(vector) > len(old_value):
         raise ValueError(
@@ -326,8 +367,46 @@ def fmt_vector_for_field(v: float, old_value: bytes) -> bytes:
     return (b" " * leading) + vector + (b" " * (len(old_value) - leading - len(vector)))
 
 
+def fmt_vector_for_field(v: float, old_value: bytes) -> bytes:
+    """Fit a uniform vector to the source field, preserving its exact byte width."""
+    return fit_field(fmt_vector(v).decode("ascii"), old_value)
+
+
+def widen_vector(old_value: bytes, limit: float, skip_index: int | None, raise_it: bool) -> bytes | None:
+    """Widen the girth components of one Min/Max vector; return None if nothing changed.
+
+    skip_index is the game-declared HeightAxis component, which is left exactly as
+    the game shipped it. Components already past the limit are left alone too, so
+    the patch can only ever widen a class's existing range.
+    """
+    components = old_value.split()
+    if len(components) != 3:
+        raise ValueError(f"expected a three-component vector, got {old_value!r}")
+
+    out: list[str] = []
+    changed = False
+    for index, raw_component in enumerate(components):
+        text = raw_component.decode("ascii")
+        if index == skip_index:
+            out.append(text)
+            continue
+        current = float(text)
+        if (limit > current) if raise_it else (limit < current):
+            out.append(fmt_vector_component(limit))
+            changed = True
+        else:
+            out.append(text)
+
+    if not changed:
+        return None
+    return fit_field(" ".join(out), old_value)
+
+
 def patch_xml_bytes(raw: bytes, bone_values: dict[str, dict[str, float]]) -> tuple[bytes, int, int]:
-    """Patch only complete ParamDesc tags while preserving every other byte and file size."""
+    """Patch only complete ParamDesc tags while preserving every other byte and file size.
+
+    Default is deliberately never written -- see the module docstring.
+    """
     changes = 0
     matched_tags = 0
 
@@ -345,8 +424,12 @@ def patch_xml_bytes(raw: bytes, bone_values: dict[str, dict[str, float]]) -> tup
         if values is None:
             return tag
         matched_tags += 1
+        skip_index = height_axis_index(tag)
         patched = tag
-        for attr, key in ((b"Min", "min"), (b"Default", "default"), (b"Max", "max")):
+        for attr, key, raise_it in ((b"Min", "min", False), (b"Max", "max", True)):
+            limit = values.get(key)
+            if limit is None:
+                continue
             attr_pattern = re.compile(rb"(\b" + attr + rb"\s*=\s*\")([^\"]*)(\")", re.IGNORECASE)
             matches = list(attr_pattern.finditer(patched))
             if not matches:
@@ -357,7 +440,9 @@ def patch_xml_bytes(raw: bytes, bone_values: dict[str, dict[str, float]]) -> tup
                     raise ValueError(
                         f'{bone}: {attr.decode("ascii")} is not a three-component numeric vector: {old_value!r}'
                     )
-                new_value = fmt_vector_for_field(values[key], old_value)
+                new_value = widen_vector(old_value, limit, skip_index, raise_it)
+                if new_value is None:
+                    continue
                 patched = patched[: attr_match.start(2)] + new_value + patched[attr_match.end(2) :]
                 changes += 1
         return patched
@@ -366,6 +451,13 @@ def patch_xml_bytes(raw: bytes, bone_values: dict[str, dict[str, float]]) -> tup
     if len(patched) != len(raw):
         raise ValueError(f"refusing output size change ({len(raw)} -> {len(patched)} bytes)")
     return patched, changes, matched_tags
+
+
+def resolve_part(name: str) -> str | None:
+    """Map a user/config part name onto a supported group, or None if unsupported."""
+    name = name.strip().lower()
+    name = PART_ALIASES.get(name, name)
+    return name if name in BONE_GROUPS else None
 
 
 def build_bone_values(parts: dict[str, dict[str, float]]) -> dict[str, dict[str, float]]:
@@ -388,16 +480,23 @@ def main() -> int:
     )
     ap.add_argument(
         "--preset",
-        choices=list(PRESETS.keys()) + ["custom"],
-        default="high",
-        help="Preset base values; 'custom' requires --min/--default/--max",
+        choices=list(PRESETS.keys()),
+        default="recommended",
+        help="Per-part max values; override any part with --parts name:max",
     )
-    ap.add_argument("--parts", default="breasts,butt,thighs,legs,pelvis,spine,arms", help="Comma list of body parts")
-    ap.add_argument("--min", type=float, default=None)
-    ap.add_argument("--default", type=float, default=None)
-    ap.add_argument("--max", type=float, default=None)
+    ap.add_argument(
+        "--parts",
+        default="breasts,thighs,butt",
+        help="Comma list of breasts,thighs,butt -- each optionally as name:max (e.g. breasts:2.0)",
+    )
+    ap.add_argument("--min", type=float, default=None, help="Optional lower bound to widen down to (default: leave vanilla Min alone)")
+    ap.add_argument("--max", type=float, default=None, help="Max for every selected part that has no name:max override")
+    ap.add_argument("--default", type=float, default=None, help=argparse.SUPPRESS)
     ap.add_argument("--list-only", action="store_true", help="Only list matching meta files")
     args = ap.parse_args()
+
+    if args.default is not None:
+        log("[WARN] --default is ignored since 2.1.0: the game's per-class Default is left untouched.")
 
     paz = pathlib.Path(args.paz)
     tool_dir = pathlib.Path(__file__).resolve().parent
@@ -432,33 +531,55 @@ def main() -> int:
         log("[FATAL] No customizationboneparamdesc files found. Game format may have changed.")
         return 3
 
-    if args.preset == "custom":
-        if args.min is None or args.default is None or args.max is None:
-            log("[FATAL] --preset custom requires --min, --default, and --max")
-            return 4
-        base = {"min": args.min, "default": args.default, "max": args.max}
-    else:
-        base = PRESETS[args.preset].copy()
+    preset_max = PRESETS[args.preset]
+    parts: dict[str, dict[str, float]] = {}
+    retired: list[str] = []
+    unknown: list[str] = []
+
+    for token in args.parts.split(","):
+        token = token.strip()
+        if not token:
+            continue
+        name, _, override = token.partition(":")
+        part = resolve_part(name)
+        if part is None:
+            (retired if name.strip().lower() in RETIRED_PARTS else unknown).append(name.strip())
+            continue
+        if override.strip():
+            try:
+                limit = float(override)
+            except ValueError:
+                log(f"[FATAL] {name}: '{override}' is not a number")
+                return 4
+        else:
+            limit = args.max if args.max is not None else preset_max[part]
+        # Merge rather than overwrite: 'butt' and the old 'pelvis' can both appear.
+        current = parts.setdefault(part, {"max": limit})
+        current["max"] = max(current["max"], limit)
         if args.min is not None:
-            base["min"] = args.min
-        if args.default is not None:
-            base["default"] = args.default
-        if args.max is not None:
-            base["max"] = args.max
+            current["min"] = args.min
 
-    if not (base["min"] < base["default"] < base["max"]):
-        log("[FATAL] Require min < default < max")
-        return 4
-
-    part_names = [p.strip().lower() for p in args.parts.split(",") if p.strip()]
-    parts = {p: base.copy() for p in part_names if p in BONE_GROUPS}
+    if retired:
+        log(f"[NOTE] Dropped in 2.1.0 (scaled bone length, not girth): {', '.join(sorted(set(retired)))}")
+    if unknown:
+        log(f"[WARN] Unknown parts ignored: {', '.join(sorted(set(unknown)))}")
     if not parts:
-        log("[FATAL] No valid body parts selected")
+        log(f"[FATAL] No supported body parts selected. Supported: {', '.join(BONE_GROUPS)}")
         return 5
 
+    for part, vals in parts.items():
+        if not (1.0 <= vals["max"] <= 99.0):
+            log(f"[FATAL] {part}: max {vals['max']} must be between 1.0 and 99.0")
+            return 4
+        if args.min is not None and not (0.01 <= args.min <= 1.0):
+            log(f"[FATAL] min {args.min} must be between 0.01 and 1.0")
+            return 4
+
     bone_values = build_bone_values(parts)
-    log(f"Applying values min={base['min']} default={base['default']} max={base['max']}")
-    log(f"Parts: {', '.join(parts.keys())}")
+    log("Applying (Default untouched, HeightAxis untouched, widen-only):")
+    for part, vals in parts.items():
+        bound = f" min={vals['min']}" if "min" in vals else ""
+        log(f"  {part:8s} max={vals['max']}{bound}  bones: {', '.join(BONE_GROUPS[part])}")
 
     out_root = pathlib.Path(args.out) if args.out else (paz / "files_to_patch" / "_body_size_limits")
     total_changes = 0
@@ -479,12 +600,12 @@ def main() -> int:
         except ValueError as e:
             log(f"  [FATAL] unsafe source {block.fileName}: {e}")
             return 6
-        if n == 0 or tag_count == 0:
+        if tag_count == 0:
             log(f"  [SKIP] no selected body bones in {block.fileName}")
             continue
-        if n < tag_count * 3:
-            log(f"  [FATAL] validation mismatch in {block.fileName}: tags={tag_count} edits={n}")
-            return 6
+        if n == 0:
+            log(f"  [SKIP] {block.fileName}: {tag_count} bone tags already allow the requested range")
+            continue
         total_changes += n
 
         rel = pathlib.Path(block.folderName) / block.fileName

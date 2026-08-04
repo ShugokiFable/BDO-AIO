@@ -1,5 +1,142 @@
 # Changelog
 
+## v2.1.0 - 2026-08-04 - body slider repair + per-class pubic hair
+
+### Work record
+- AI application: Claude Code
+- Model: Opus 5
+- Parent: v2.0.9
+- Task: sliders applied to bones the user never selected; bodies stretching (Deadeye)
+- Runtime status: **tool-validated** against the live client — not yet in-game confirmed
+- Scope: body sliders only. Pubic-hair per-class leakage and 3D vagina are deferred.
+
+### Root causes found in the live game data (75 `customizationboneparamdesc` files)
+- **The patcher overwrote `Default`.** Vanilla `Default` is per-class and
+  anisotropic (Calf ships `1.10 0.88 1.00`, Thigh `0.97 0.90 0.90`, and 296 calf
+  / 243 upper-arm / 112 thigh tags are non-uniform). Writing one uniform number
+  over it re-proportioned bodies with no slider moved. This is the stretching.
+- **All three axes were written with the same value.** The game declares which
+  axis is bone length per tag: `HeightAxis="X"` on Thigh, Calf, Pelvis, Spine,
+  UpperArm and Forearm; Hip and Breast declare none and are pure girth. Raising
+  the length axis lengthens limbs and torso instead of thickening them.
+- **`legs` / `spine` / `arms` were selectable at all.** They are length-dominant,
+  and they are children of Pelvis, so they already inherit its scale — selecting
+  pelvis visibly moved them regardless of the parts list.
+
+### Fixes
+- `Default` is never written. The game's per-class baseline is preserved exactly.
+- The declared `HeightAxis` component is never written. Thigh girth widens; leg
+  length stays vanilla, so characters cannot be made taller.
+- Widen-only: a component is raised toward the requested max and never lowered
+  below what the game already allowed.
+- Groups reduced to `breasts`, `thighs`, `butt`. `legs`/`spine`/`arms` retired.
+- **`butt` now patches hip *and* pelvis together.** Measured on the live client:
+  33 of 75 body files lock `Bip01 L/R Hip` Max at ≤1.00 — the butt slider cannot
+  move at all on those classes — and in all 33 the Pelvis still has headroom.
+  Patching hip alone was a no-op for ~44% of classes, matching the long-standing
+  community reports that the butt slider does nothing on newer classes.
+- Each part carries its own max. Recommended preset: breasts 2.0, thighs 1.5,
+  butt 1.4. Custom mode asks per part and writes only the parts chosen.
+- A named preset re-derives its numbers on upgrade, so tuning a preset reaches
+  users who picked it; only `custom` keeps a literal spec.
+- Launcher config collapsed to one literal `bodySizeParts` spec
+  (`breasts:2.0,thighs:1.5,butt:1.4`); `bodySizeMin`/`Default`/`Max` removed.
+  Legacy configs migrate once with a visible message. An empty or retired-only
+  selection resolves to *nothing*, never to "all".
+
+### Per-class pubic hair (step 2) — root cause was never the filter
+Measured from the Midnight nude PACs, which store their texture name once each:
+
+- **13 of 19 female bodies render from ONE texture, `phw_01_nude_0001`**:
+  Sorceress, Kunoichi, Mystic, Lahn, Nova, Maehwa, Drakania, Maegu, Woosa,
+  Scholar, Valkyrie, Deadeye, Seraph. Only Tamer, Guardian, Dark Knight,
+  Corsair, Ranger and Witch own their texture. Styling that one DDS styles all
+  13 no matter what the class filter says — the filter was working; the target
+  was shared. This also matches the community reports about shared body art.
+- `NEW_FEMALE_PUBIC_BASE` guessed a donor atlas per class and was **wrong for 7
+  of 9 entries** (Guardian was sent to Sorceress's atlas although it owns
+  `pgw_01_nude_0001`; Nova/Drakania/Maegu/Woosa/Scholar/Deadeye were all sent to
+  the wrong atlas). Donor guessing is gone: the atlas is read from the PAC.
+- The launcher also wrote a **second** pubic package ("new females EXPERIMENTAL")
+  with its own class list in the same run, and named packages per style/mode so a
+  previous run's package stayed in `files_to_patch` and kept being injected.
+
+Fixes (final iteration):
+- New `tools/bdo_meta/body_atlas.py` resolves each class's nude body PAC and the
+  atlas it actually references, with explicit source precedence (TheGreatSage
+  primary, Suzu for Tamer/Deadeye) instead of glob order.
+- The earlier material-alias approach (renaming the PAC's embedded texture stem
+  to a private name) was tried and **reverted**: that string is a MATERIAL name
+  resolved through the engine's material registry, not a texture path a new DDS
+  can satisfy, so aliased bodies turned invisible in game.
+- Final approach is **texture-only, zero PAC writes**. Classes that own their
+  atlas are styled in place (PRIVATE-ATLAS). Classes sharing an atlas are styled
+  once for the whole group when every sharer is selected with the SAME style
+  (WHOLE-SHARED-GROUP); partial or conflicting selections are SKIPPED with a
+  clear notice listing the sharers - never guessed, never widened silently.
+- Styles are **per class** (`--styles pnw=full_bush,pcw=trimmed`); the atlas a
+  class renders from is read from its PAC, so donor guessing is gone.
+- One package (`_pubic_hair_perclass`); stale `_pubic_hair_*` packages are removed
+  before every run. The second generator pass is deleted.
+- Empty selection is a hard error, never "all".
+- Disk cost is surfaced in the menu before generating (~111 MB per distinct style
+  chosen among shared-atlas classes).
+
+### Immersive pubic preset
+One-key preset giving each class a different look, from the user's breakdown:
+full bush (Guardian, Deadeye), medium bush (Witch, Ranger), small bush
+(Drakania, Sorceress), trimmed (Corsair, Mystic), thin landing strip (Seraph,
+Woosa), shaved innie (Valkyrie, Maehwa). Dark Knight, Kunoichi, Lahn, Maegu,
+Nova, Scholar and Tamer are **omitted on purpose** — the nude body is already
+bare, so leaving them unselected is both the correct look and free.
+
+Known asset limit: **Corsair cannot receive pubic hair.** Its texture is
+22,369,776 bytes and no shipped hair bin matches that size. It is skipped with a
+clear message, and the menu warns before generating.
+
+### Restore to vanilla (new)
+Meta Injector does not edit the original PAZ archives — it appends new ones
+(21 files, 1.83 GB on the test machine) and rewrites `pad00000.meta`. Restoring
+the meta alone therefore leaves multi-GB orphans behind, and any later inject
+re-applies from whatever is still in `files_to_patch`, which is why a restore
+could look like it did nothing.
+
+- New `tools/bdo_meta/vanilla_restore.py` with `scan`, `backup`, `restore`.
+- `restore` puts back the **oldest** backup (a newer one can be a backup of an
+  already-injected meta), deletes the injected PAZ, removes the inject stage, and
+  verifies the result references exactly the backup's PAZ set. Dry run by default;
+  the current meta is saved as `pad00000.pre-restore.meta` before writing.
+- A PAZ is deleted only when it is **both** unreferenced by the restored meta
+  **and** numbered above the highest number that meta references — vanilla ships
+  unreferenced low-numbered archives and those are never touched.
+- `backup` snapshots a pristine meta to `pad00000.BDOAIO-VANILLA.meta` with a
+  sha256 sidecar, and **runs automatically before every inject**. It refuses to
+  snapshot an already-injected meta as "vanilla".
+- Launcher menu `[R]` gains `[V]` restore, `[S]` scan, `[B]` backup.
+- AIO settings in `config.json` are never touched by a restore.
+
+### Validation
+- Python suite: PASS, 80 tests (body size, body atlas, vanilla restore, pubic).
+- PowerShell: `test_body_size_config.ps1`, `test_pubic_config.ps1`,
+  `test_meta_inject_launcher.ps1` all PASS; `bdo_aio.ps1` parses clean under
+  Windows PowerShell 5.1.
+- Live-asset body-size runs (read-only inputs, output to scratch), diffed
+  byte-for-byte against the originals across all 75 files:
+  - recommended preset (breasts 2.0 / thighs 1.5 / butt 1.4) — all changes on
+    the 7 selected bones only;
+  - `breasts:2.0` only — breast bones only, 0 elsewhere;
+  - 0 files resized, 0 `Default` changed, 0 HeightAxis components changed,
+    0 ranges narrowed, 0 bytes changed outside the selected tags.
+- Live-asset pubic runs (read-only inputs, output to scratch):
+  - shared-atlas partial selection (e.g. `pnw=full_bush` alone) — SKIPPED with
+    the full sharer list, 0 files written;
+  - whole shared group with one style (13 classes, `full_bush`) — exactly one
+    styled DDS generated, 0 PACs written, 0 other atlases touched.
+- Note: Guardian has no exact hair bin, so it uses a same-size donor bin (logged
+  as `same-size donor`). Placement comes from `offsets.bin` and is unaffected.
+- Not verified: in-game appearance of styled textures. Requires Meta Injector +
+  beauty salon; pubic-hair per-class results not yet in-game confirmed.
+
 ## v2.0.9 - 2026-08-01
 
 ### Work record

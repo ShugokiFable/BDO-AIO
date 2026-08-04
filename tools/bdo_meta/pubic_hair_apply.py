@@ -16,13 +16,8 @@ import shutil
 import struct
 import sys
 
-from class_coverage import (
-    FEMALE_CLASSES,
-    NEW_FEMALE_PREFIXES,
-    NEW_FEMALE_PUBIC_BASE,
-    preferred_female_pubic_base,
-    prefix_from_filename,
-)
+from body_atlas import atlas_owners, resolve_class_bodies
+from class_coverage import FEMALE_CLASSES
 from inject_stage_builder import load_known_meta, route_missing_generated_files
 
 STYLES = [
@@ -40,15 +35,6 @@ STYLES = [
     "trimmed",
     "wider_trimmed",
 ]
-
-BIN_STEMS = [
-    "pbw_00_nude_0001",
-    "pdw_00_nude_0001",
-    "pew_01_nude_0001",
-    "phw_01_nude_0001",
-    "pww_01_nude_0001",
-]
-
 
 def log(msg: str) -> None:
     print(msg, flush=True)
@@ -257,97 +243,71 @@ def find_base_by_stem(bases: list[pathlib.Path], stem: str) -> pathlib.Path | No
     return None
 
 
-def pick_bin_for_base(
-    base: pathlib.Path,
-    bins: dict[str, pathlib.Path],
-    bin_sizes: dict[str, int],
-) -> pathlib.Path | None:
-    stem = base.stem.lower()
-    if stem in bins:
-        return bins[stem]
-    sz = base.stat().st_size
-    for bstem, bsz in bin_sizes.items():
-        if bsz == sz and bstem in bins:
-            return bins[bstem]
-    return None
+def parse_style_map(raw_styles: str, raw_classes: str, single_style: str | None) -> dict[str, str]:
+    """Build {class_prefix: style}.
+
+    `--styles pnw=full_bush,pcw=trimmed` is the real interface. `--style X
+    --classes a,b` is the older shape and expands to the same map. An empty
+    selection stays empty -- it is never silently widened to every class.
+    """
+    out: dict[str, str] = {}
+    for token in raw_styles.replace(";", ",").split(","):
+        token = token.strip()
+        if not token:
+            continue
+        prefix, _, style = token.partition("=")
+        prefix = prefix.strip().lower()
+        style = style.strip().lower()
+        if not prefix or not style:
+            raise ValueError(f"bad --styles entry {token!r}; expected prefix=style")
+        if style not in STYLES:
+            raise ValueError(f"unknown style {style!r} for {prefix}")
+        out[prefix] = style
+    if out:
+        return out
+    if single_style:
+        for token in raw_classes.replace(";", ",").split(","):
+            token = token.strip().lower()
+            if token:
+                out[token] = single_style
+    return out
 
 
-def parse_class_filter(raw: str) -> set[str] | None:
-    """None = no filter (all). Empty after parse treated as None."""
-    if not raw or not raw.strip():
-        return None
-    parts = {p.strip().lower() for p in raw.replace(";", ",").split(",") if p.strip()}
-    return parts or None
-
-
-def class_allowed(prefix: str | None, filt: set[str] | None) -> bool:
-    if filt is None:
-        return True
-    if not prefix:
-        return False
-    return prefix in filt
-
-
-def synthesize_new_female(
-    prefix: str,
-    bases: list[pathlib.Path],
-    bins: dict[str, pathlib.Path],
-    bin_sizes: dict[str, int],
+def style_dds_for_atlas(
+    atlas_base: pathlib.Path,
+    style_dir: pathlib.Path,
+    hair_root: pathlib.Path,
     offsets: list[tuple[int, int]],
-    out_tex: pathlib.Path,
-) -> list[str]:
-    notes: list[str] = []
-    donor_stem = preferred_female_pubic_base(prefix)
-    if not donor_stem:
-        log(f"  [SKIP new-F no-map] {prefix}")
-        return notes
+    dest: pathlib.Path,
+) -> tuple[bool, str]:
+    """Apply a style's hair bin onto one atlas texture. Returns (ok, note)."""
+    bins = {b.stem.lower(): b for b in style_dir.glob("*.bin")}
+    if not bins:
+        return False, f"no .bin in {style_dir.name}"
 
-    base = find_base_by_stem(bases, donor_stem)
-    if not base:
-        log(f"  [SKIP new-F no-base] {prefix} needs {donor_stem}.dds in Midnight nude pack")
-        return notes
+    stem = atlas_base.stem.lower()
+    ordered: list[pathlib.Path] = []
+    if stem in bins:  # exact atlas match -- correct UVs by construction
+        ordered.append(bins[stem])
+    size = atlas_base.stat().st_size
+    for bstem, bpath in sorted(bins.items()):
+        if bpath in ordered:
+            continue
+        sibling = atlas_base.parent / (bstem + ".dds")
+        if sibling.is_file() and sibling.stat().st_size == size:
+            ordered.append(bpath)
 
-    bpath = pick_bin_for_base(base, bins, bin_sizes)
-    tried: list[pathlib.Path] = []
-    if bpath:
-        tried.append(bpath)
-    for bp in bins.values():
-        if bp not in tried:
-            tried.append(bp)
-
-    out_names = [
-        f"{prefix}_00_nude_0001.dds",
-        f"{prefix}_01_nude_0001.dds",
-    ]
-    if "_01_" in donor_stem:
-        out_names = [
-            f"{prefix}_01_nude_0001.dds",
-            f"{prefix}_00_nude_0001.dds",
-        ]
-
-    applied_any = False
-    for bpath in tried:
-        dest0 = out_tex / out_names[0]
-        neutral = bpath.parent.parent / "shaved" / bpath.name
-        if apply_bin_to_dds(base, bpath, offsets, dest0, neutral):
-            notes.append(
-                f"EXPERIMENTAL-REUSE new-female {out_names[0]} <- {base.name} + {bpath.name} ({prefix})"
-            )
-            log(f"  [EXPERIMENTAL-REUSE new-F] {out_names[0]} <- {base.name} + {bpath.name}")
-            for extra in out_names[1:]:
-                shutil.copy2(dest0, out_tex / extra)
-                log(f"  [EXPERIMENTAL-REUSE new-F] {extra} (clone)")
-                notes.append(f"EXPERIMENTAL-REUSE new-female {extra} (clone of {out_names[0]})")
-            applied_any = True
-            break
-    if not applied_any:
-        log(f"  [SKIP new-F size/UV] {prefix} base={base.name} ({base.stat().st_size} bytes)")
-    return notes
+    for bpath in ordered:
+        neutral = hair_root / "shaved" / bpath.name
+        if apply_bin_to_dds(atlas_base, bpath, offsets, dest, neutral):
+            kind = "exact" if bpath.stem.lower() == stem else "same-size donor"
+            return True, f"{atlas_base.name} + {bpath.name} ({kind})"
+    return False, f"no compatible hair bin for {atlas_base.name} ({size} bytes)"
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--style", required=True, choices=STYLES)
+    ap.add_argument("--style", default=None, choices=STYLES)
     ap.add_argument("--hair-root", required=True)
     ap.add_argument("--base-roots", required=True, help="Semicolon-separated Midnight nude roots")
     ap.add_argument("--out", required=True)
@@ -358,43 +318,42 @@ def main() -> int:
         help="Comma class prefixes to apply (e.g. phw,pdkl,pww). Empty = all females",
     )
     ap.add_argument(
-        "--all-classes",
-        action="store_true",
-        default=False,
-        help="EXPERIMENTAL: same-size donor bin on other nudes + new-female synthesize",
+        "--styles",
+        default="",
+        help="Per-class styles: prefix=style,prefix=style (e.g. pnw=full_bush,pcw=trimmed)",
     )
-    ap.add_argument(
-        "--new-females",
-        action="store_true",
-        default=False,
-        help="EXPERIMENTAL: synthesize pubic DDS for new females (filtered by --classes)",
-    )
-    ap.add_argument(
-        "--native-only",
-        action="store_true",
-        default=False,
-        help="RESTORED only — exact class bins only (default when reuse flags omitted)",
-    )
+    # Accepted and ignored; the atlas is now read from each PAC instead of guessed.
+    for dead in ("--all-classes", "--new-females", "--native-only"):
+        ap.add_argument(dead, action="store_true", default=False, help=argparse.SUPPRESS)
     args = ap.parse_args()
-    new_females = bool(args.new_females)
-    allow_reuse = (bool(args.all_classes) or new_females) and not bool(args.native_only)
-    class_filt = parse_class_filter(args.classes)
-    if class_filt:
-        log(f"Class filter: {', '.join(sorted(class_filt))}")
-        # warn unknown
-        for p in sorted(class_filt):
-            if p not in FEMALE_CLASSES and p != "plw":
-                log(f"  [WARN] unknown female prefix in filter: {p}")
+
+    try:
+        style_map = parse_style_map(args.styles, args.classes, args.style)
+    except ValueError as exc:
+        log(f"[FATAL] {exc}")
+        return 2
+
+    if not style_map:
+        log("[FATAL] No classes selected. Pass --styles prefix=style[,prefix=style].")
+        log("        An empty selection is never treated as ALL.")
+        return 6
+
+    for prefix in [p for p in sorted(style_map) if p not in FEMALE_CLASSES]:
+        log(f"  [WARN] unknown female prefix ignored: {prefix}")
+        style_map.pop(prefix)
+    if not style_map:
+        log("[FATAL] No known female classes left after validation.")
+        return 6
 
     hair_root = pathlib.Path(args.hair_root)
-    style_dir = hair_root / args.style
     offsets_path = hair_root / "offsets.bin"
-    if not style_dir.is_dir():
-        log(f"[FATAL] missing style folder: {style_dir}")
-        return 2
     if not offsets_path.is_file():
         log(f"[FATAL] missing {offsets_path}")
         return 3
+    for style in sorted(set(style_map.values())):
+        if not (hair_root / style).is_dir():
+            log(f"[FATAL] missing style folder: {hair_root / style}")
+            return 2
 
     offsets = load_offsets(offsets_path)
     if not offsets:
@@ -403,21 +362,22 @@ def main() -> int:
     log(f"Loaded {len(offsets)} patch ranges")
 
     base_roots = [pathlib.Path(p) for p in args.base_roots.split(";") if p.strip()]
-    bases = collect_base_dds(base_roots)
-    log(f"Found {len(bases)} candidate nude DDS bases")
-
-    bins = {b.stem.lower(): b for b in style_dir.glob("*.bin")}
-    if not bins:
-        log(f"[FATAL] no .bin in {style_dir}")
+    bodies, problems = resolve_class_bodies(base_roots)
+    for problem in problems:
+        log(f"  [WARN] unreadable body PAC {problem}")
+    if not bodies:
+        log("[FATAL] no female nude body PACs found under the given base roots")
         return 5
+    owners = atlas_owners(bodies)
+    log(f"Resolved {len(bodies)} female body PACs across {len(owners)} texture atlases")
 
-    bin_sizes: dict[str, int] = {}
-    for stem, bpath in bins.items():
-        dds_name = stem + ".dds"
-        for base in bases:
-            if base.name.lower() == dds_name:
-                bin_sizes[stem] = base.stat().st_size
-                break
+    bases = collect_base_dds(base_roots)
+    texture_files = list(bases)
+    for root in base_roots:
+        tex_dir = root / "character" / "texture"
+        if tex_dir.is_dir():
+            texture_files.extend(tex_dir.glob("*.dds"))
+    texture_files = list({p.resolve(): p for p in texture_files}.values())
 
     out_dir = pathlib.Path(args.out)
     if out_dir.exists():
@@ -425,122 +385,94 @@ def main() -> int:
     out_tex = out_dir / "character" / "texture"
     out_tex.mkdir(parents=True, exist_ok=True)
 
+    known_meta = load_known_meta(pathlib.Path(args.paz))
+
+    # Group selected classes by (atlas, style): classes that share an atlas AND
+    # want the same style share one generated texture instead of duplicating it.
+    groups: dict[tuple[str, str], list[str]] = {}
+    for prefix in sorted(style_map):
+        body = bodies.get(prefix)
+        if body is None:
+            log(f"  [SKIP no-body] {prefix}: no nude body PAC in the pack")
+            continue
+        groups.setdefault((body.atlas_key, style_map[prefix]), []).append(prefix)
+
     ok = 0
     skip = 0
     report: list[str] = []
 
-    # 1) NATIVE exact name matches (skip when --new-females only)
-    if not new_females:
-        for stem, bpath in bins.items():
-            pref = prefix_from_filename(stem + ".dds")
-            if not class_allowed(pref, class_filt):
-                log(f"  [SKIP filter] NATIVE {stem} ({pref})")
-                skip += 1
-                continue
-            dds_name = stem + ".dds"
-            base = next((b for b in bases if b.name.lower() == dds_name), None)
-            if not base:
-                continue
-            dest = out_tex / base.name
-            neutral = hair_root / "shaved" / bpath.name
-            if apply_bin_to_dds(base, bpath, offsets, dest, neutral):
-                log(f"  [NATIVE] {base.name}")
-                report.append(f"NATIVE {base.name} <- {bpath.name}")
-                ok += 1
-                bin_sizes[stem] = base.stat().st_size
-            else:
-                log(f"  [FAIL native] {base.name}")
-                skip += 1
+    for (atlas_key, style), members in sorted(groups.items()):
+        atlas_base = find_base_by_stem(bases, atlas_key)
+        sharers = owners.get(atlas_key, [])
+        outsiders = [p for p in sharers if p not in style_map]
+        names = ", ".join(members)
+        if atlas_base is None:
+            log(f"  [SKIP no-texture] {names}: {atlas_key}.dds not in the nude pack")
+            skip += len(members)
+            continue
 
-    # 2) EXPERIMENTAL-REUSE: other nude DDS same size (all-classes, not new-females-only)
-    if allow_reuse and not new_females:
-        size_to_bin: dict[int, pathlib.Path] = {}
-        for stem, sz in bin_sizes.items():
-            if stem in bins:
-                size_to_bin[sz] = bins[stem]
-        for base in bases:
-            dest = out_tex / base.name
-            if dest.is_file():
-                continue
-            if base.name.lower().startswith("plw_"):
-                log(f"  [SKIP Shai] {base.name}")
-                skip += 1
-                continue
-            pref = prefix_from_filename(base.name)
-            if not class_allowed(pref, class_filt):
-                continue
-            sz = base.stat().st_size
-            donor = size_to_bin.get(sz)
-            tried = [donor] if donor else list(bins.values())
-            applied = False
-            for bpath in tried:
-                if bpath is None:
-                    continue
-                neutral = hair_root / "shaved" / bpath.name
-                if apply_bin_to_dds(base, bpath, offsets, dest, neutral):
-                    log(f"  [EXPERIMENTAL-REUSE] {base.name} <- {bpath.name}")
-                    report.append(f"EXPERIMENTAL-REUSE {base.name} <- {bpath.name}")
-                    ok += 1
-                    applied = True
-                    break
-            if not applied:
-                log(f"  [SKIP size/UV] {base.name} ({sz} bytes)")
-                skip += 1
-
-    # 3) NEW FEMALES: invent class-named textures from preferred donor bases
-    if new_females or (allow_reuse and args.all_classes):
-        targets = [p for p in NEW_FEMALE_PREFIXES if class_allowed(p, class_filt)]
-        log("=== NEW FEMALES pubic synthesize (EXPERIMENTAL-REUSE) ===")
-        log(f"  classes: {', '.join(targets) if targets else '(none after filter)'}")
-        for pref in targets:
-            already = any(
-                (out_tex / n).is_file()
-                for n in (f"{pref}_00_nude_0001.dds", f"{pref}_01_nude_0001.dds")
+        # A texture can only carry ONE look. If any class on this atlas was not
+        # selected, or selected classes asked for different styles, there is no
+        # safe way to give them different hair: the earlier attempt to rename the
+        # PAC's material to a private name made those bodies invisible in game,
+        # because the string is a MATERIAL name resolved through the engine's
+        # material registry, not a texture path a new DDS can satisfy.
+        styles_here = {s for (k, s) in groups if k == atlas_key}
+        if outsiders or len(styles_here) > 1:
+            log(f"  [SKIP shared-texture] {names}: renders from {atlas_key}, shared with "
+                f"{len(sharers)} class(es).")
+            if outsiders:
+                log(f"      not selected, would also change: {', '.join(outsiders)}")
+            if len(styles_here) > 1:
+                log(f"      conflicting styles requested on it: {', '.join(sorted(styles_here))}")
+            log(f"      To style this body, select ALL of: {', '.join(sharers)} with one style.")
+            report.append(
+                f"SKIPPED-SHARED {names} atlas={atlas_key} sharers={','.join(sharers)}"
             )
-            if already and not new_females:
-                log(f"  [SKIP new-F already] {pref}")
-                continue
-            notes = synthesize_new_female(pref, bases, bins, bin_sizes, offsets, out_tex)
-            if notes:
-                report.extend(notes)
-                ok += len(notes)
-            else:
-                skip += 1
+            skip += len(members)
+            continue
 
-    # only copy style preview dds if we applied something (or no filter)
-    for dds in style_dir.glob("*.dds"):
-        shutil.copy2(dds, out_tex / dds.name)
-        log(f"  [COPY] {dds.name}")
+        style_dir = hair_root / style
+        dest = out_tex / f"{atlas_key}.dds"
+        good, note = style_dds_for_atlas(atlas_base, style_dir, hair_root, offsets, dest)
+        if not good:
+            log(f"  [SKIP] {names}: {note}")
+            skip += len(members)
+            continue
+        kind = "PRIVATE-ATLAS" if len(sharers) == 1 else "WHOLE-SHARED-GROUP"
+        log(f"  [{kind}] {names} <- {note} [{style}]")
+        report.append(f"{kind} {atlas_key}.dds <- {note} [{style}] for {names}")
         ok += 1
 
-    if new_females:
-        mode = "NEW-FEMALES EXPERIMENTAL-REUSE"
-    elif allow_reuse:
-        mode = "NATIVE + EXPERIMENTAL-REUSE"
-    else:
-        mode = "NATIVE only (RESTORED)"
-    filt_s = ",".join(sorted(class_filt)) if class_filt else "ALL"
-
-    added = route_missing_generated_files(out_dir, load_known_meta(pathlib.Path(args.paz)))
+    added = route_missing_generated_files(out_dir, known_meta)
     for internal in added:
         log(f"  [ADD new meta entry] {internal}")
         report.append(f"ADD new meta entry {internal}")
 
+    shared_note = [
+        f"{key}: {', '.join(who)}" for key, who in sorted(owners.items()) if len(who) > 1
+    ]
+    picked = ", ".join(f"{p}={style_map[p]}" for p in sorted(style_map))
+
     (out_dir / ".README.txt").write_text(
-        f"Pubic hair style: {args.style}\n"
-        f"mode={mode}\n"
-        f"classes={filt_s}\n"
-        f"Applied: {ok}  Skipped: {skip}\n"
+        "Pubic hair (per-class)\n"
+        f"selection={picked}\n"
+        f"Applied groups: {ok}  Skipped: {skip}\n"
         f"New meta entries: {len(added)}\n"
-        "NATIVE = exact class bin (RESTORED)\n"
-        "EXPERIMENTAL-REUSE = same-size / new-female synthesized DDS (may look wrong if UVs differ)\n"
-        f"New female map: {NEW_FEMALE_PUBIC_BASE}\n"
-        "Shai skipped when detected (plw_).\n"
+        "\n"
+        "PRIVATE-ATLAS = class owns its texture; styled in place.\n"
+        "WHOLE-SHARED-GROUP = every class on a shared texture was selected with one\n"
+        "style, so the shared texture was styled once for all of them.\n"
+        "SKIPPED-SHARED = the class renders from a texture other classes also use,\n"
+        "and they were not all selected with the same style. No PAC is ever renamed:\n"
+        "doing that made those bodies invisible in game.\n"
+        "\n"
+        "Shared atlases in this pack:\n  " + "\n  ".join(shared_note) + "\n\n"
         + "\n".join(report)
         + "\n",
         encoding="utf-8",
     )
-    log(f"Done. mode={mode} classes={filt_s} ok={ok} skip={skip} out={out_dir}")
+    log(f"Done. groups={ok} skipped={skip} out={out_dir}")
     return 0 if ok > 0 else 1
 
 
