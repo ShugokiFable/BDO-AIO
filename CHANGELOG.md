@@ -1,5 +1,33 @@
 # Changelog
 
+## v2.1.2 - 2026-08-05 - crash fix after genital generation
+
+### Crash after a successful genital run
+`Apply-GenitalPacks` still referenced `$reuse` in its success message after the
+variable was removed in 2.1.1, so the launcher threw
+`The variable '$reuse' cannot be retrieved because it has not been set` and
+exited **after** the packs had already been written correctly. The generated
+output was fine; only the closing message crashed.
+
+### Static guard so this cannot recur
+New `tools/bdo_meta/test_launcher_static.ps1` walks the launcher's AST and fails
+when a variable is read but never assigned in its function, or when a called
+function does not exist. Verified against the real bug: reintroducing the
+`$reuse` reference makes it fail with the exact line number. This is the second
+stale-reference bug of this kind, so it is now covered by a test.
+
+### Wording
+Removed every remaining EXPERIMENTAL-REUSE label from the menus. Cross-class
+genital reuse no longer exists, so offering it in text was misleading -- one menu
+still read "EXPERIMENTAL-REUSE only if you opted in" on a run where nothing of
+the sort was possible.
+
+### Note on PartCutGen "matched 0 files"
+Three exclusion patterns in the bundled Midnight pack match nothing
+(`pwge_00_lb_0001_dm`, `pdw_00_ub_0002_mul*`, `pdw_00_ub_0002_mul_na*`). These
+are informational: PartCutGen finished with `Saving ... DONE` and wrote
+`partcutdesc.xml`. Nothing to fix on the AIO side.
+
 ## v2.1.1 - 2026-08-04 - genital packs restricted to authored meshes
 
 ### Work record

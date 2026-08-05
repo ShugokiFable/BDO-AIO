@@ -3,7 +3,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$Script:Version = '2.1.1'
+$Script:Version = '2.1.2'
 $Script:Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script:ConfigPath = Join-Path $Script:Root 'config.json'
 $Script:PackDir = Join-Path $Script:Root 'pack'
@@ -901,7 +901,6 @@ function Configure-ModChoices {
     Write-Host '  Labels:' -ForegroundColor White
     Write-Host '    MODERN      = current Midnight / 2026 pipeline (recommended)' -ForegroundColor Cyan
     Write-Host '    RESTORED            = classic feature with NATIVE assets only' -ForegroundColor Green
-    Write-Host '    EXPERIMENTAL-REUSE  = donor mesh/bin for classes that never had art' -ForegroundColor DarkYellow
     Write-Host '    EXPERIMENTAL        = from-scratch (DLSS inject) — not a classic restore' -ForegroundColor Red
     Write-Host ''
 
@@ -917,12 +916,9 @@ function Configure-ModChoices {
     Write-Host '   [6] Pubic hair style  [RESTORED = native bins only by default]' -ForegroundColor Green
     Write-Host '   [7] Apply pubic hair now' -ForegroundColor Green
     Write-Host '   [C] Censorship tier presets  [RESTORED / old outfit textures]' -ForegroundColor Green
-    Write-Host '   [V] Penis / 3D vagina  [RESTORED = native classes only by default]' -ForegroundColor Green
+    Write-Host '   [V] Penis / 3D vagina  [RESTORED = authored meshes only]' -ForegroundColor Green
     Write-Host ''
 
-    Write-Host '  --- EXPERIMENTAL-REUSE (not classic NATIVE art) ---' -ForegroundColor Red
-    Write-Host '       Donor mesh/bin only — replaces TGS nude PAC for those classes' -ForegroundColor DarkYellow
-    Write-Host '   Donor reuse for all missing classes also asked inside [6]/[V]' -ForegroundColor DarkYellow
     Write-Host '   [X] DLSS/OptiScaler inject hub  *** NOT SAFE / FROM-SCRATCH ***' -ForegroundColor Red
     Write-Host ''
 
@@ -1022,9 +1018,9 @@ function Configure-GenitalMenus {
     Write-Host '  PENIS / 3D VAGINA' -ForegroundColor Magenta
     Write-Host '  ================' -ForegroundColor DarkGray
     Write-Host ''
-    Write-Host '  [RESTORED / NATIVE]  Only classes that had real Resorepless meshes' -ForegroundColor Green
-    Write-Host '  [EXPERIMENTAL-REUSE] Donor mesh renamed for Seraph/Deadeye/etc. (optional)' -ForegroundColor Red
-    Write-Host '  For new females only, prefer Options hub [F] (targeted package).' -ForegroundColor DarkYellow
+    Write-Host '  Authored meshes only — the classes that shipped a real Resorepless mesh.' -ForegroundColor Green
+    Write-Host '  Newer classes are not offered: a genital PAC carries the donor body AND' -ForegroundColor DarkGray
+    Write-Host '  skin, so reusing one gave them the wrong body. Removed in 2.1.1.' -ForegroundColor DarkGray
     Write-Warn 'Penis skin tone often mismatches. Shai never included.'
     Write-Host ''
     Write-Host '  --- FEMALE 3D vagina ---' -ForegroundColor Green
@@ -1090,7 +1086,7 @@ function Configure-GenitalMenus {
 function Apply-GenitalPacks {
     Write-Banner
     Write-Host '  Apply genital packs' -ForegroundColor Magenta
-    Write-Host '  RESTORED/NATIVE always when enabled; EXPERIMENTAL-REUSE only if you opted in' -ForegroundColor DarkGray
+    Write-Host '  Authored meshes only; classes without one are skipped with a reason' -ForegroundColor DarkGray
     if (-not (Test-IsPazFolder $Script:Config.pazFolder)) { Write-Err 'Set PAZ first.'; Pause-Any; return }
     if (-not (Test-Path $Script:GenitalRoot)) { Write-Err "Missing $($Script:GenitalRoot)"; Pause-Any; return }
     if (-not (Ensure-Python)) { Pause-Any; return }
@@ -1138,7 +1134,6 @@ function Apply-GenitalPacks {
     & $Script:PythonExe @pyArgs
     if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { Write-Err "Exit $LASTEXITCODE" } else {
         Write-Ok 'Genital packs written. Deploy Midnight underwear hide too, then Meta Inject + PartCutGen.'
-        if ($reuse) { Write-Warn 'Output folder name marks EXPERIMENTAL-REUSE. Check README inside for NATIVE vs donor lines.' }
         Ensure-ToolsInPaz
     }
     Pause-Any
@@ -1250,8 +1245,8 @@ function Configure-PubicHair {
     Write-Banner
     Write-Host '  PUBIC HAIR' -ForegroundColor Magenta
     Write-Host '  ==========' -ForegroundColor DarkGray
-    Write-Host '  [RESTORED/NATIVE] Exact class bins (pbw/pdw/pew/phw/pww …)' -ForegroundColor Green
-    Write-Host '  [EXPERIMENTAL-REUSE] Same-size donor bin on other nudes (optional, default OFF)' -ForegroundColor Red
+    Write-Host '  Texture-only. A class is styled on its own when it owns its body texture;' -ForegroundColor Green
+    Write-Host '  the 13 classes sharing one texture can only share a single style.' -ForegroundColor DarkGray
     Write-Host ''
     if (-not (Test-Path -LiteralPath (Join-Path $Script:PubicHairRoot 'offsets.bin'))) {
         Write-Err ("Pubic hair pack missing: " + $Script:PubicHairRoot)
@@ -1810,11 +1805,11 @@ function Show-OptionsMatrix {
     Write-Host '  Genital / pubic / censorship packs: best on older classes/outfits'
     Write-Host '  Penis skin-tone mismatch (classic issue)'
     Write-Host ''
-    Write-Host '  EXPERIMENTAL-REUSE for new females (Options [F])' -ForegroundColor Red
-    Write-Host '  ------------------------------------------------' -ForegroundColor DarkGray
+    Write-Host '  Not supported on newer classes' -ForegroundColor Yellow
+    Write-Host '  ------------------------------' -ForegroundColor DarkGray
     Write-Host '  Seraph / Deadeye / Woosa / Maegu / Scholar / Nova / Corsair /'
-    Write-Host '  Drakania / Guardian — donor genital mesh + synthesized pubic DDS'
-    Write-Host '  Replaces TGS nude PAC; not original class art; may clip/mismatch'
+    Write-Host '  Drakania / Guardian have no authored genital mesh. Reusing another'
+    Write-Host '  class''s gave them that class''s body AND skin, so it was removed in 2.1.1.'
     Write-Host ''
     Write-Host '  NOT SUPPORTED' -ForegroundColor DarkGray
     Write-Host '  -------------' -ForegroundColor DarkGray
@@ -3282,7 +3277,7 @@ function Show-MainMenu {
         Write-Host ("  MENU  (BDO-AIO " + $Script:Version + ')') -ForegroundColor White
         Write-Host '  ------------------' -ForegroundColor DarkGray
         Write-Host '   [1] Set / find game PAZ folder' -ForegroundColor Cyan
-        Write-Host '   [2] Options hub  (MODERN + RESTORED + EXPERIMENTAL-REUSE)' -ForegroundColor Cyan
+        Write-Host '   [2] Options hub  (MODERN + RESTORED)' -ForegroundColor Cyan
         Write-Host '   [3] Deploy Midnight mods  ->  files_to_patch     [MODERN]' -ForegroundColor Cyan
         Write-Host '   [4] Run PartCutGen        (required)             [MODERN]' -ForegroundColor Cyan
         Write-Host '   [5] Run Meta Injector     (apply patch)          [MODERN]' -ForegroundColor Cyan

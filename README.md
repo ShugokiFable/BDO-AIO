@@ -211,6 +211,12 @@ Client mods can break after patches and may violate game ToS. Use at your own ri
 
 ## Changelog
 
+### v2.1.2 - 2026-08-05
+- **Fixed a crash after a successful genital run.** `Apply-GenitalPacks` still referenced a variable removed in 2.1.1, so the launcher errored out *after* correctly writing the packs. Output was never affected.
+- Added a static AST guard (`test_launcher_static.ps1`) that fails when a variable is read but never assigned, or a called function does not exist — verified to catch the exact bug it was written for.
+- Removed the last EXPERIMENTAL-REUSE labels from the menus; cross-class genital reuse no longer exists.
+- `PartCutGen` "matched 0 files" lines for three bundled Midnight exclusion patterns are informational — the tool still finishes with `Saving ... DONE`.
+
 ### v2.1.1 - 2026-08-04
 - **3D vagina / penis restricted to authored meshes.** A genital PAC is a whole body: it carries the mesh *and* that class's skin material. Copying one under another class's filename gave that class the donor's body and skin — measured against the shipped pack, **7 of the 9 old donor mappings bound a different texture than the class actually uses** (Deadeye→Ranger, Woosa/Scholar/Nova→Witch, Drakania→Dark Knight, Guardian/Corsair→Sorceress), which is the original "Deadeye looks stretched" report. Female cross-class reuse removed; males were already native-only. Supported: 10 female + 6 male classes, everything else skipped with a stated reason.
 - **Underwear PACs were going to a path the game never reads.** Both the nude and underwear PAC were written under `nude/`. Verified against the live game index: the real entry is `character/model/1_pc/<folder>/armor/38_underwear/<prefix>_00_uw_0001.pac`, and the `nude/` variant is not a meta entry at all. All 16 underwear PACs were landing nowhere and being routed to `_add` as bogus new entries. **16 → 0.**

@@ -1,10 +1,9 @@
-# BDO-AIO 2.1.1
+# BDO-AIO 2.1.2
 
-- Parent: `v2.1.0` (`271dfc8`)
+- Parent: `v2.1.1` (`c7430f8`)
 - Bump: patch
 - Status: tool-validated
-  - sliders: in-game confirmed (2.1.0)
-  - pubic hair: in-game confirmed for texture-only classes (2.1.0/2.1.1)
-  - genitals: authored-mesh-only, validated against the shipped pack and the live
-    game index; in-game confirmation pending
-- Also fixes the version banner, which still read `2.0.9` in 2.1.0.
+  - sliders: in-game confirmed
+  - pubic hair: in-game confirmed for texture-only classes
+  - genitals: authored-mesh-only; generation confirmed working by the user in
+    2.1.1, the crash was in the post-run message only
