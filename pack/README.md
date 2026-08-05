@@ -1,12 +1,19 @@
-# `pack\` — Midnight mod content (local / full release only)
+# `pack\` — Midnight mod content (full offline / release archive)
 
-This folder is **required** for menu options 3–6 (deploy + PartCutGen + Meta Injector).
+This folder is **required** for menu options that deploy Midnight, run PartCutGen, and launch Meta Injector.
 
-It is **not stored in this GitHub repo** (≈1.8 GB, tens of thousands of files, third-party content).
+## Is it on GitHub?
+
+| Location | Present? |
+|----------|----------|
+| Git **source tree** (`main`) | **No** — ignored on purpose (~1.8 GB, 40k+ files) |
+| GitHub **Releases** `BDO-AIO-v*-full.7z` | **Yes** (when that release uploaded a full archive) |
+| Your local machine | Should be yes if you installed the full offline package |
+| `Z:\Backup\BDO-mods-assets\` | Secondary backup of tools + older packs / full 7z |
+
+**Ignoring in git ≠ deleting.** It only stops multi-gigabyte binaries from living in every git commit/clone.
 
 ## What belongs here
-
-Copy a full Midnight XYZW PAZ pack so this folder contains at least:
 
 ```text
 pack\
@@ -14,8 +21,10 @@ pack\
   midnight_xyzw\
     midnight_xyzw.py
     _00_suzu_nude\
+    _00_thegreatsage_nude\
     _00_remove_underwear\
     _00_remove_all_armors\
+    _01_xyzw_collections\
     ...
   Meta Injector.exe
   PartCutGen.exe
@@ -23,12 +32,12 @@ pack\
 
 Typical source: Midnight / heisha PAZ release (e.g. 0.4.x with Seraph).
 
-## After clone
+## After a source-only clone
 
-1. Obtain the Midnight pack yourself (Undertow / author release / your backup).
+1. Download the newest **`BDO-AIO-v*-full.7z`** from Releases, **or** restore from `Z:\Backup\…`.
 2. Extract so files land **inside** `pack\` (not a nested random folder name).
-3. Run `START.bat` → menu **9** to verify.
+3. Run `START.bat` → menu **9** to verify (~1.5–2 GB, thousands of files).
 
-## Full offline zip
+## Credits
 
-If you redistribute a complete offline AIO (scripts + pack + experimental), zip the whole folder locally — do not force the multi‑GB payload through git.
+See root **[`CREDITS.md`](../CREDITS.md)** — Midnight, Suzu, TheGreatSage, Meta Injector, PartCutGen, collection authors.

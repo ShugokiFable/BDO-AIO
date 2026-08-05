@@ -13,11 +13,21 @@ Double-click **`START.bat`**.
 
 | Source | What you get |
 |--------|----------------|
-| **This git repo** | Scripts, docs, GameOption profiles, `.nip`, NPI tool |
-| **`pack\`** | **Not in git** (~1.8 GB Midnight content) — add locally; see [`pack/README.md`](pack/README.md) |
-| **`experimental/dlss` binaries** | **Not in git** — add OptiScaler/Streamline yourself if you use menu **X** |
+| **Git `main` branch** | Scripts, docs, GameOption profiles, `.nip`, NPI tool, restored asset tools under `tools/` |
+| **`pack\` (Midnight ~1.8 GB)** | **Not in the git tree** (too large / tens of thousands of files) — lives in **full release `.7z` assets** |
+| **`experimental/dlss` binaries** | **Not in the git tree** — included in **full release `.7z`** when present locally |
 
-If you already have a full offline `BDO-AIO` folder (with `pack\` filled), just use that. Git is for the tool + small assets.
+### Why is `pack/midnight_xyzw` ignored by git?
+
+It is **deliberately** listed in `.gitignore` so everyday commits stay small and cloneable. That does **not** mean the files are disposable:
+
+1. Your **local** `C:\Users\karlo\Documents\Apps\BDO-AIO\pack\` is the working copy (~1.8 GB).
+2. **Full offline backups** are `BDO-AIO-vX.Y.Z-full.7z` on [GitHub Releases](https://github.com/ShugokiFable/BDO-AIO/releases) (includes `pack\`, injectors, and experimental DLLs when present).
+3. Keep a second copy under `Z:\Backup\BDO-mods-assets\` (and the matching full `.7z`).
+
+**Source-only tags** (e.g. many post-2.0.9 tags without a `-full.7z` asset) do **not** restore Midnight. Prefer the release that has **`BDO-AIO-v…-full.7z`**.
+
+If you already have a full offline `BDO-AIO` folder (with `pack\` filled), just use that.
 
 ## Feature labels (important)
 
@@ -236,6 +246,22 @@ Restored pubic styles now work on Midnight's uncompressed 4K Ranger, Sorceress, 
 ### v2.0.8
 The canonical stage builder now prints its report without contaminating the stage-path return value. Meta Injector receives one explicit `-files` argument string on Windows PowerShell, fixing the `System.Object[]` to `System.String` launch failure. PartCutGen `matched 0 files` notices are informational when the tool finishes with `Saving ... DONE`.
 
-## Credits
+## Credits (please read)
 
-See **CREDITS.md**. Content authors: Midnight Xyzw, Suzu, TheGreatSage, Meta Injector / PartCutGen authors.
+**Full attribution lives in [`CREDITS.md`](CREDITS.md)** — keep that file in every zip.
+
+This AIO is a **wrapper**. Mesh / texture / nude / hide / inject content belongs to the original authors:
+
+| Area | Who to credit |
+|------|----------------|
+| Midnight deploy pack, armor/underwear hide, collections packaging | **Midnight Xyzw** / **heisha** |
+| Nude body bases | **Suzu** |
+| High-poly mesh fixes | **TheGreatSage** |
+| Meta Injector / PartCutGen | Undertow / BDO toolkit authors |
+| Resorepless-era restored features & asset lineage | Original **Resorepless** ecosystem authors |
+| XYZW outfit collections | Individual Discord / community authors (see folder names + `_source.txt`; **aizen53** for Kaine) |
+| NVIDIA Profile Inspector | **Orbmu2k** |
+| OptiScaler / Streamline (experimental) | OptiScaler project / **NVIDIA** |
+| AIO menu, GameOption patches, body/pubic/genital apply tooling | **ShugokiFable** (this repo) |
+
+**Black Desert Online** © **Pearl Abyss**. Client mods may violate game ToS — use at your own risk.

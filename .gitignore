@@ -2,13 +2,17 @@
 config.json
 config.local.json
 
-# Huge third-party mod payload (~1.8GB) — not for git
-# Ship separately or keep local for full offline AIO
+# Huge third-party mod payload (~1.8GB, 40k+ files) — NOT for the git tree.
+# This is intentional so clones stay small. The pack is NOT discarded:
+#   - local working copy: pack\
+#   - cloud backup: GitHub Releases BDO-AIO-v*-full.7z
+#   - disk backup: Z:\Backup\BDO-mods-assets\
+# See BACKUP.md and pack/README.md.
 pack/**
 !pack/README.md
 
-# Experimental OptiScaler / Streamline binaries
-# Keep warnings/docs only in git
+# Experimental OptiScaler / Streamline binaries (large) — same backup model
+# Keep warnings/docs only in git; full binaries ride in *-full.7z releases
 experimental/dlss/OptiScaler/**
 experimental/dlss/Streamline/**
 experimental/dlss/optional/**
