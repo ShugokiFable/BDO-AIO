@@ -1,5 +1,55 @@
 # Changelog
 
+## v2.1.1 - 2026-08-04 - genital packs restricted to authored meshes
+
+### Work record
+- Task: audit 3D vagina / penis for the failure that made new-class bodies vanish
+- Runtime status: **tool-validated** against the shipped pack and the live game
+  index — not yet in-game confirmed
+
+### Genitals do NOT have the invisible-body bug
+Checked every generated PAC against the textures the pack ships: **0 missing
+materials**. Nothing is renamed to an invented material name, so no body can lose
+its material the way the pubic alias attempt did. Males were already safe — they
+never had donor reuse, and the 6 classes without an authored mesh are skipped.
+
+### But female donor reuse was wrong in a different way
+A genital PAC is a whole body: it carries the mesh **and** the class's skin
+material. Copying one under another class's filename hands that class the donor's
+body and the donor's skin. Measured against the shipped pack:
+
+- All 10 authored female meshes bind exactly the atlas their vanilla body already
+  uses — proof they were authored per class.
+- **7 of the 9 donor mappings bound a different atlas**: Deadeye→Ranger,
+  Woosa/Scholar/Nova→Witch, Drakania→Dark Knight, Guardian/Corsair→Sorceress.
+  Only Maegu and Seraph happened to match. That is the original "Deadeye body
+  looks stretched" report.
+
+Female cross-class reuse is removed. Supported: the 10 female classes with an
+authored mesh (Sorceress, Ranger, Tamer, Valkyrie, Witch, Kunoichi, Dark Knight,
+Mystic, Lahn, Maehwa) and the 6 male classes with one (Warrior, Berserker, Musa,
+Wizard, Ninja, Striker). Every other class is skipped with a stated reason.
+`--all-classes` / `--new-females` are still accepted but print a note and do
+nothing, so an older launcher cannot crash.
+
+### Underwear was being written to a path the game never reads
+`copy_female_class` / `copy_male_class` put both the nude and the underwear PAC
+under `nude/`. Verified against the live game index: the real entry is
+`character/model/1_pc/<folder>/armor/38_underwear/<prefix>_00_uw_0001.pac`, while
+the same name under `nude/` is **not** a meta entry. All 16 underwear PACs were
+therefore landing where nothing looks and being routed to `_add` as bogus new
+entries. Added `female_underwear_folder()` / `male_underwear_folder()` and routed
+them correctly.
+
+### Validation
+- Python suite: PASS, 83 tests.
+- PowerShell suites and the 5.1 parser: PASS.
+- Full real-pack run (10 females + 6 males): exit 0, 32 PACs, 17 textures,
+  **0 underwear PACs under nude/, 0 files routed to `_add` (was 16), 0 paths
+  absent from the game meta, 0 PACs with a missing texture.**
+- Requesting the 9 unsupported classes produces 9 explicit skips and no output.
+- Not verified: in-game appearance. Requires Meta Injector.
+
 ## v2.1.0 - 2026-08-04 - body slider repair + per-class pubic hair
 
 ### Work record

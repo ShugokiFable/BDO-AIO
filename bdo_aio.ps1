@@ -3,7 +3,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$Script:Version = '2.0.9'
+$Script:Version = '2.1.1'
 $Script:Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script:ConfigPath = Join-Path $Script:Root 'config.json'
 $Script:PackDir = Join-Path $Script:Root 'pack'
@@ -53,6 +53,15 @@ $Script:PubicHairStyles = [ordered]@{
 # Only these classes own their body texture, so only these can be given their own
 # style. Corsair owns one too but no shipped hair bin matches its size.
 $Script:PubicPrivateAtlasPrefixes = @('pbw', 'pdw', 'pew', 'pgw', 'pww')
+
+# The 10 female classes with an authored 3D-vagina mesh in the Resorepless pack.
+# A genital PAC is a whole body: it carries the mesh AND that class's skin
+# material. Reusing one for another class gave the wrong body and skin (measured:
+# 7 of 9 old donor mappings bound a different texture than the class really uses),
+# so the newer classes are simply unsupported rather than faked.
+$Script:GenitalFemalePrefixes = @(
+    'pbw', 'pcw', 'pdw', 'pew', 'phw', 'pkww', 'pnw', 'psw', 'pvw', 'pww'
+)
 
 # Curated look, limited by what the assets actually allow. The other 13 classes
 # all render from ONE texture, so they can only ever share a single style -- see
@@ -912,7 +921,6 @@ function Configure-ModChoices {
     Write-Host ''
 
     Write-Host '  --- EXPERIMENTAL-REUSE (not classic NATIVE art) ---' -ForegroundColor Red
-    Write-Host '   [F] NEW FEMALES genitals + pubic  (Seraph/Deadeye/Woosa/…)' -ForegroundColor Red
     Write-Host '       Donor mesh/bin only — replaces TGS nude PAC for those classes' -ForegroundColor DarkYellow
     Write-Host '   Donor reuse for all missing classes also asked inside [6]/[V]' -ForegroundColor DarkYellow
     Write-Host '   [X] DLSS/OptiScaler inject hub  *** NOT SAFE / FROM-SCRATCH ***' -ForegroundColor Red
@@ -933,7 +941,6 @@ function Configure-ModChoices {
         '7' { Apply-PubicHair }
         'C' { Configure-CensorshipTier }
         'V' { Configure-GenitalMenus }
-        'F' { Configure-NewFemalesBody }
         'X' { Show-ExperimentalDlssMenu }
         '8' { Show-OptionsMatrix }
         default { return }
@@ -1005,141 +1012,10 @@ function Read-PenisStyle([string]$label, [string]$current) {
     return $(switch ($c) { '0' { 'none' } '1' { 'normal' } '2' { 'hard' } })
 }
 
-function Configure-NewFemalesBody {
-    Write-Banner
-    Write-Host '  NEW FEMALES — genitals + pubic  [EXPERIMENTAL-REUSE]' -ForegroundColor Red
-    Write-Host '  ====================================================' -ForegroundColor DarkGray
-    Write-Host ''
-    Write-Warn 'This is NOT original class art.'
-    Write-Warn '3D vagina: replaces Midnight/TheGreatSage nude PAC with a donor genital body.'
-    Write-Warn 'Pubic: invents class-named nude DDS from a preferred classic base + hair bin.'
-    Write-Warn 'Can clip, stretch, or mismatch UVs/skin. Shai never included.'
-    Write-Host ''
-
-    if (-not (Test-Path -LiteralPath (Join-Path $Script:PubicHairRoot 'offsets.bin'))) {
-        Write-Err ("Pubic hair pack missing: " + $Script:PubicHairRoot)
-        Pause-Any
-        return
-    }
-
-    # Default selection = new females only; user can narrow further
-    $curNew = ($Script:NewFemalePrefixes -join ',')
-    if ([string]$Script:Config.genitalFemaleClasses -and ([string]$Script:Config.genitalFemaleClasses -notmatch 'phw|pew|pbw')) {
-        $curNew = [string]$Script:Config.genitalFemaleClasses
-    }
-    $picked = Select-FemaleClasses -Title 'NEW FEMALES package — which classes?' -CurrentCsv $curNew
-    if ([string]::IsNullOrWhiteSpace($picked)) {
-        $picked = ($Script:NewFemalePrefixes -join ',')
-        Write-Info 'ALL selected — limiting package to new-female prefixes only for this menu.'
-    } else {
-        # keep only new-female prefixes if user mixed in natives
-        $onlyNew = @()
-        foreach ($p in ($picked -split ',')) {
-            $t = $p.Trim()
-            if ($t -in $Script:NewFemalePrefixes) { $onlyNew += $t }
-        }
-        if ($onlyNew.Count -eq 0) {
-            Write-Warn 'No new-female prefixes in selection. Using full new-female list.'
-            $picked = ($Script:NewFemalePrefixes -join ',')
-        } else {
-            $picked = ($onlyNew -join ',')
-        }
-    }
-    $Script:Config.genitalFemaleClasses = $picked
-    $Script:Config.pubicHairClasses = $picked
-
-    Write-Host '  --- Pubic style ---' -ForegroundColor Red
-    $keys = @($Script:PubicHairStyles.Keys)
-    for ($i = 0; $i -lt $keys.Count; $i++) {
-        $k = $keys[$i]
-        $col = if ($i -eq 0) { 'DarkGray' } else { 'Cyan' }
-        Write-Host ("    [{0}] {1}" -f ($i + 1), $Script:PubicHairStyles[$k]) -ForegroundColor $col
-    }
-    $pick = (Read-Host '  Select style number (or 1=skip pubic)').Trim()
-    $style = 'none'
-    if ($pick -match '^\d+$') {
-        $idx = [int]$pick - 1
-        if ($idx -ge 0 -and $idx -lt $keys.Count) { $style = $keys[$idx] }
-    }
-    $Script:Config.pubicHairStyle = $style
-    $Script:Config.pubicHairReuse = $true
-    $Script:Config.female3dVagina = $true
-    $Script:Config.genitalReuse = $true
-    Save-Config
-
-    Write-Ok 'New-females package options saved (EXPERIMENTAL-REUSE).'
-    Write-Host ("  classes = " + $picked) -ForegroundColor Gray
-    Write-Host ("  pubic style = " + $Script:PubicHairStyles[$style]) -ForegroundColor Gray
-    if (Read-YesNo 'Apply NEW FEMALES genitals + pubic now?' $true) {
-        Apply-NewFemalesBody
-    } else {
-        Pause-Any
-    }
-}
-
-function Apply-NewFemalesBody {
-    Write-Banner
-    Write-Host '  Apply NEW FEMALES genitals + pubic  [EXPERIMENTAL-REUSE]' -ForegroundColor Red
-    Write-Host '  --------------------------------------------------------' -ForegroundColor DarkGray
-    if (-not (Test-IsPazFolder $Script:Config.pazFolder)) { Write-Err 'Set PAZ first.'; Pause-Any; return }
-    if (-not (Ensure-Python)) { Pause-Any; return }
-    if (-not (Test-Path $Script:GenitalRoot)) { Write-Err "Missing $($Script:GenitalRoot)"; Pause-Any; return }
-
-    $paz = [string]$Script:Config.pazFolder
-    $genOut = Join-Path $paz 'files_to_patch\_genital_EXPERIMENTAL_new_females'
-    $style = [string]$Script:Config.pubicHairStyle
-    $baseRoots = @(
-        (Join-Path $Script:Root 'pack\midnight_xyzw\_00_suzu_nude'),
-        (Join-Path $Script:Root 'pack\midnight_xyzw\_00_thegreatsage_nude')
-    ) -join ';'
-
-    Write-Info "genital out = $genOut"
-    Write-Warn 'Replaces TGS/Suzu nude PAC for new females with donor genital meshes.'
-    if (-not (Read-YesNo 'Continue with genital pack for new females?' $true)) {
-        Pause-Any
-        return
-    }
-
-    $fClasses = [string]$Script:Config.genitalFemaleClasses
-    if (-not $fClasses) { $fClasses = ($Script:NewFemalePrefixes -join ',') }
-    Write-Info ("classes = " + $fClasses)
-    $pyGen = @(
-        $Script:GenitalTool,
-        '--pack-root', $Script:GenitalRoot,
-        '--out', $genOut,
-        '--paz', [string]$Script:Config.pazFolder,
-        '--new-females',
-        '--female-classes', $fClasses
-    )
-    try {
-        & $Script:PythonExe @pyGen
-        if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
-            Write-Err ("Genital exit " + $LASTEXITCODE)
-        } else {
-            Write-Ok 'New-female genital packs written (see README in out folder).'
-        }
-    } catch {
-        Write-Err $_.Exception.Message
-    }
-
-    # Pubic hair is no longer split into a separate "new females" pass; every class
-    # is handled by the one per-class generator so the two runs cannot disagree.
-    $stylesArg = Get-PubicStylesArg
-    if ($stylesArg) {
-        Write-Info ("pubic selection = " + $stylesArg)
-        if (Read-YesNo 'Apply the saved per-class pubic selection now?' $true) {
-            Apply-PubicHair
-        }
-    } else {
-        Write-Info 'Pubic skipped (no per-class selection saved).'
-    }
-
-    Write-Host ''
-    Write-Warn 'Next: Midnight deploy (underwear hide + nude) if not done, then PartCutGen + Meta Injector.'
-    Write-Warn 'Load order tip: inject Midnight body first, then new-female genital override last if both present.'
-    Ensure-ToolsInPaz
-    Pause-Any
-}
+# The [F] NEW FEMALES hub was removed in 2.1.1. Every class it targeted now has
+# no supported genital path: a genital PAC carries the donor's body and skin, so
+# reusing one gave those classes the wrong body. Pubic hair for them is handled
+# by the normal per-class menu (shared-texture group, one style).
 
 function Configure-GenitalMenus {
     Write-Banner
@@ -1154,11 +1030,19 @@ function Configure-GenitalMenus {
     Write-Host '  --- FEMALE 3D vagina ---' -ForegroundColor Green
     $Script:Config.female3dVagina = Read-YesNo 'Enable female 3D vagina packs?' ([bool]$Script:Config.female3dVagina)
     if ([bool]$Script:Config.female3dVagina) {
-        $Script:Config.genitalFemaleClasses = Select-FemaleClasses -Title '3D vagina — which females?' -CurrentCsv ([string]$Script:Config.genitalFemaleClasses) -DefaultAll
         Write-Host ''
-        Write-Host '  --- EXPERIMENTAL-REUSE for selected females without native mesh ---' -ForegroundColor Red
-        Write-Host '  Donor mesh renamed (Seraph etc.). NOT original art.' -ForegroundColor DarkYellow
-        $Script:Config.genitalReuse = Read-YesNo 'Enable EXPERIMENTAL donor reuse for missing selected females?' $true
+        Write-Host '  Only these 10 classes have an authored 3D-vagina mesh:' -ForegroundColor Gray
+        Write-Host ('    ' + (($Script:GenitalFemalePrefixes | ForEach-Object { $Script:FemaleClasses[$_] }) -join ', ')) -ForegroundColor DarkGray
+        Write-Host '  Newer classes are not offered: a genital PAC carries the donor body' -ForegroundColor DarkGray
+        Write-Host '  AND skin, so reusing one gave them the wrong body. Removed in 2.1.1.' -ForegroundColor DarkGray
+        $Script:Config.genitalFemaleClasses = Select-FemaleClasses -Title '3D vagina — which females?' -CurrentCsv ([string]$Script:Config.genitalFemaleClasses) -DefaultAll
+        $asked = @(([string]$Script:Config.genitalFemaleClasses) -split '[,;]+' | Where-Object { $_ })
+        $unsupported = @($asked | Where-Object { $_ -notin $Script:GenitalFemalePrefixes })
+        if ($unsupported.Count -gt 0) {
+            Write-Warn ('No authored mesh, skipped: ' + (($unsupported | ForEach-Object { $Script:FemaleClasses[$_] }) -join ', '))
+            $Script:Config.genitalFemaleClasses = (@($asked | Where-Object { $_ -in $Script:GenitalFemalePrefixes }) -join ',')
+        }
+        $Script:Config.genitalReuse = $false
     } else {
         $Script:Config.genitalFemaleClasses = ''
         $Script:Config.genitalReuse = $false
@@ -1196,7 +1080,6 @@ function Configure-GenitalMenus {
     Write-Host ("  female3dVagina         = " + $Script:Config.female3dVagina) -ForegroundColor Gray
     Write-Host ("  female classes        = " + (Format-ClassList $Script:Config.genitalFemaleClasses)) -ForegroundColor Gray
     Write-Host ("  malePenisMode         = " + $Script:Config.malePenisMode) -ForegroundColor Gray
-    Write-Host ("  female genital reuse   = " + $Script:Config.genitalReuse) -ForegroundColor Gray
     if (Read-YesNo 'Apply genital packs to files_to_patch now?' $true) {
         Apply-GenitalPacks
     } else {
@@ -1234,14 +1117,9 @@ function Apply-GenitalPacks {
         return
     }
 
-    $reuse = [bool]$Script:Config.genitalReuse
-    $out = if ($reuse) {
-        Join-Path $Script:Config.pazFolder 'files_to_patch\_genital_EXPERIMENTAL_reuse'
-    } else {
-        Join-Path $Script:Config.pazFolder 'files_to_patch\_genital_RESTORED_native'
-    }
+    $out = Join-Path $Script:Config.pazFolder 'files_to_patch\_genital_RESTORED_native'
     Write-Info ("female_3d=$f3d male=$maleArg")
-    Write-Info ("mode=" + $(if ($reuse) { 'NATIVE + FEMALE EXPERIMENTAL-REUSE' } else { 'NATIVE only (RESTORED)' }))
+    Write-Info 'mode=NATIVE only (authored meshes; classes without one are skipped)'
     Write-Info ("out=$out")
     if (-not (Read-YesNo 'Copy genital packs?' $true)) { Pause-Any; return }
 
@@ -1255,7 +1133,6 @@ function Apply-GenitalPacks {
         '--male-penis', $maleArg
     )
     if ($fClasses) { $pyArgs += @('--female-classes', $fClasses) }
-    if ($reuse) { $pyArgs += '--all-classes' } else { $pyArgs += '--native-only' }
 
     Write-Info ("female classes = " + (Format-ClassList $fClasses))
     & $Script:PythonExe @pyArgs
@@ -2217,7 +2094,6 @@ function Apply-AllRestoredChoices {
     Write-Host '  ==========================' -ForegroundColor DarkGray
     Write-Info 'Runs enabled RESTORED options from config in order:'
     Write-Host '    body size -> slot hide -> pubic -> censorship -> genitals' -ForegroundColor Gray
-    Write-Host '    (+ new-females EXPERIMENTAL if genitalReuse/pubicHairReuse on)' -ForegroundColor DarkYellow
     Write-Host ''
     if (-not (Test-IsPazFolder $Script:Config.pazFolder)) {
         Write-Err 'Set PAZ first (menu 1).'
@@ -2232,7 +2108,7 @@ function Apply-AllRestoredChoices {
     Write-Host ("    slot classes   = " + $(if ($Script:Config.slotHideClasses) { $Script:Config.slotHideClasses } else { 'ALL' })) -ForegroundColor Gray
     Write-Host ("    pubic          = " + $(if (Get-PubicStylesArg) { Get-PubicStylesArg } else { 'none' })) -ForegroundColor Gray
     Write-Host ("    censorship     = " + $Script:Config.censorshipTier) -ForegroundColor Gray
-    Write-Host ("    female3d       = " + $Script:Config.female3dVagina + " genitalReuse=" + $Script:Config.genitalReuse) -ForegroundColor Gray
+    Write-Host ("    female3d       = " + $Script:Config.female3dVagina) -ForegroundColor Gray
     Write-Host ("    malePenisMode  = " + $Script:Config.malePenisMode) -ForegroundColor Gray
     Write-Host ''
     if (-not $NoPrompt -and -not (Read-YesNo 'Apply all enabled RESTORED packs now (no further prompts)?' $true)) {
@@ -2297,7 +2173,6 @@ function Apply-AllRestoredChoices {
     # 5) Genitals (native / all-class reuse)
     $f3d = [bool]$Script:Config.female3dVagina
     $maleMode = [string]$Script:Config.malePenisMode
-    $reuseG = [bool]$Script:Config.genitalReuse
     if (($f3d -or ($maleMode -and $maleMode -ne 'none')) -and (Test-Path -LiteralPath $Script:GenitalRoot)) {
         Write-Info '--- Genitals ---'
         $maleArg = 'none'
@@ -2313,11 +2188,7 @@ function Apply-AllRestoredChoices {
         } elseif ($maleMode -in @('normal', 'hard')) {
             $maleArg = $maleMode
         }
-        $out = if ($reuseG) {
-            Join-Path $ftp '_genital_EXPERIMENTAL_reuse'
-        } else {
-            Join-Path $ftp '_genital_RESTORED_native'
-        }
+        $out = Join-Path $ftp '_genital_RESTORED_native'
         $fClasses = [string]$Script:Config.genitalFemaleClasses
         $pyArgs = @(
             $Script:GenitalTool, '--pack-root', $Script:GenitalRoot, '--out', $out,
@@ -2326,22 +2197,15 @@ function Apply-AllRestoredChoices {
             '--male-penis', $maleArg
         )
         if ($fClasses) { $pyArgs += @('--female-classes', $fClasses) }
-        if ($reuseG) { $pyArgs += '--all-classes' } else { $pyArgs += '--native-only' }
         if (-not (Invoke-BdoPythonChecked -Arguments $pyArgs -Label 'Genital patcher')) { $allOk = $false }
     } elseif ($f3d -or ($maleMode -and $maleMode -ne 'none')) {
         Write-Warn "Genital pack missing: $Script:GenitalRoot"
     }
 
-    # 6) New females dedicated folders when EXPERIMENTAL reuse is enabled
-    $fClasses = [string]$Script:Config.genitalFemaleClasses
-    if (-not $fClasses) { $fClasses = [string]$Script:Config.pubicHairClasses }
-    if ($reuseG -and (Test-Path -LiteralPath $Script:GenitalRoot)) {
-        Write-Info '--- New females EXPERIMENTAL genitals ---'
-        $genOut = Join-Path $ftp '_genital_EXPERIMENTAL_new_females'
-        $pyArgs = @($Script:GenitalTool, '--pack-root', $Script:GenitalRoot, '--out', $genOut, '--paz', $paz, '--new-females')
-        if ($fClasses) { $pyArgs += @('--female-classes', $fClasses) }
-        if (-not (Invoke-BdoPythonChecked -Arguments $pyArgs -Label 'New-female genital patcher')) { $allOk = $false }
-    }
+    # The old "new females EXPERIMENTAL genitals" pass is gone: it copied a donor
+    # class's whole body PAC under a new class's name, giving that class the
+    # donor's mesh and skin. Only authored meshes are generated now.
+
     # The old "new females EXPERIMENTAL pubic" pass wrote a SECOND pubic package
     # with its own class list in the same run, which re-applied hair to classes the
     # main pass had deliberately skipped. Every class now goes through step 3.

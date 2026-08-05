@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """
-Genital packs with NATIVE RESTORED and optional female EXPERIMENTAL-REUSE.
+Genital packs, authored meshes only.
 
-NATIVE RESTORED: Resorepless 3D vagina / penis PACs for classes that have them.
-EXPERIMENTAL-REUSE: for missing females (esp. Seraph, Deadeye, …),
-  copy a preferred donor mesh renamed to that class's nude/uw filenames.
-  This replaces the high-quality Midnight/TGS body PAC for that class — labeled.
+A genital PAC is a whole body: it carries the mesh AND the material binding for
+that class's skin. So it can only be used for the class it was authored for.
+Copying one under another class's filename gives that class the donor's body and
+the donor's skin texture -- measured on the shipped pack, 7 of the 9 old donor
+mappings bound a different atlas than the class's real body (Deadeye -> Ranger,
+Woosa/Scholar/Nova -> Witch, Drakania -> Dark Knight, Guardian/Corsair ->
+Sorceress). That is what made Deadeye look stretched, so reuse was removed in
+2.1.1 for females; males were already native-only.
 
---new-females: only Seraph/Deadeye/Woosa/… (no native PAC). Implies donor reuse.
---all-classes: every female class; reuse where native missing. Males remain native-only.
-Default / --native-only: classic NATIVE only.
+Supported: the 10 female classes with an authored 3D-vagina mesh and the 6 male
+classes with an authored penis mesh. Every other class is skipped with a reason.
 
 Shai is skipped (same policy as Midnight).
 """
@@ -24,12 +27,11 @@ import sys
 
 from class_coverage import (
     FEMALE_CLASSES,
-    FEMALE_DONOR_ORDER,
     MALE_CLASSES,
-    NEW_FEMALE_PREFIXES,
     female_folder,
+    female_underwear_folder,
     male_folder,
-    preferred_female_genital_donor,
+    male_underwear_folder,
 )
 from inject_stage_builder import load_known_meta, route_missing_generated_files
 
@@ -47,37 +49,27 @@ def find_pac(pack: pathlib.Path, name: str) -> pathlib.Path | None:
 
 
 def pick_female_donor(
-    pack: pathlib.Path, want_prefix: str, allow_reuse: bool
+    pack: pathlib.Path, want_prefix: str
 ) -> tuple[pathlib.Path, str, bool]:
-    """Return (src_pac, donor_prefix, is_native). Donor path only if allow_reuse."""
+    """Return (src_pac, donor_prefix, is_native). Native PACs only.
+
+    Cross-class donor reuse was removed in 2.1.1. A genital PAC carries the donor's
+    MESH and its material binding, so copying one under another class's filename
+    gives that class the donor's body and the donor's skin texture. Measured
+    against the shipped pack: all 10 native PACs bind the same atlas their vanilla
+    body already uses, while 7 of the 9 donor mappings bound a DIFFERENT atlas
+    (Deadeye -> Ranger, Woosa/Scholar/Nova -> Witch, Drakania -> Dark Knight,
+    Guardian/Corsair -> Sorceress). That is what made Deadeye's body look stretched.
+    """
     native = FEMALE_CLASSES[want_prefix][2]
     if native:
         p = find_pac(pack, native)
         if p:
             return p, want_prefix, True
-    if not allow_reuse:
-        raise FileNotFoundError(f"no NATIVE female PAC for {want_prefix} (reuse off)")
-
-    # Preferred donor for new females first
-    preferred = preferred_female_genital_donor(want_prefix)
-    order: list[str] = []
-    if preferred:
-        order.append(preferred)
-    for d in FEMALE_DONOR_ORDER:
-        if d not in order:
-            order.append(d)
-
-    for d in order:
-        n = FEMALE_CLASSES.get(d, (None, None, None))[2]
-        if not n:
-            continue
-        p = find_pac(pack, n)
-        if p:
-            return p, d, False
-    any_p = list((pack / "female").glob("*.pac"))
-    if any_p:
-        return any_p[0], "unknown", False
-    raise FileNotFoundError("no female donor PAC")
+        raise FileNotFoundError(f"native female PAC missing from the pack for {want_prefix}")
+    raise FileNotFoundError(
+        f"{want_prefix} has no authored 3D-vagina mesh; cross-class reuse is disabled"
+    )
 
 
 def pick_male_native(
@@ -136,23 +128,21 @@ def copy_material_textures(
 
 
 def copy_female_class(
-    pack: pathlib.Path, out: pathlib.Path, prefix: str, allow_reuse: bool
+    pack: pathlib.Path, out: pathlib.Path, prefix: str
 ) -> list[str]:
     notes = []
-    folder = female_folder(prefix)
-    dest_dir = out / folder
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    src, donor, native = pick_female_donor(pack, prefix, allow_reuse)
-    # Midnight / injector common names
-    targets = [
-        f"{prefix}_00_nude_0001.pac",
-        f"{prefix}_00_uw_0001.pac",
-    ]
-    # Do not copy the donor's original filename into the target-class folder.
-    # The game references the target names; adding the donor name creates an
-    # unreferenced meta entry and previously inflated every reuse package.
-    for t in targets:
-        shutil.copy2(src, dest_dir / t)
+    src, donor, native = pick_female_donor(pack, prefix)
+    # nude/ and armor/38_underwear/ are separate slots in the game index. Writing
+    # the underwear PAC under nude/ puts it at a path the game never reads.
+    # Do not copy the source's original filename in: the game references the
+    # target names, and an extra name only creates an unreferenced meta entry.
+    for folder, name in (
+        (female_folder(prefix), f"{prefix}_00_nude_0001.pac"),
+        (female_underwear_folder(prefix), f"{prefix}_00_uw_0001.pac"),
+    ):
+        dest_dir = out / folder
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest_dir / name)
     tag = "NATIVE" if native else f"EXPERIMENTAL-REUSE from {donor}"
     notes.append(f"[F {tag}] {prefix} ({FEMALE_CLASSES[prefix][1]}) <- {src.name}")
     log(notes[-1])
@@ -166,12 +156,14 @@ def copy_male_class(
     notes = []
     if prefix not in MALE_CLASSES:
         return notes
-    folder = male_folder(prefix)
-    dest_dir = out / folder
-    dest_dir.mkdir(parents=True, exist_ok=True)
     src, donor, native = pick_male_native(pack, prefix, style)
-    for t in (f"{prefix}_00_nude_0001.pac", f"{prefix}_00_uw_0001.pac"):
-        shutil.copy2(src, dest_dir / t)
+    for folder, name in (
+        (male_folder(prefix), f"{prefix}_00_nude_0001.pac"),
+        (male_underwear_folder(prefix), f"{prefix}_00_uw_0001.pac"),
+    ):
+        dest_dir = out / folder
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest_dir / name)
     tag = "NATIVE" if native else f"EXPERIMENTAL-REUSE from {donor}"
     notes.append(f"[M {style} {tag}] {prefix} ({MALE_CLASSES[prefix][1]}) <- {src.name}")
     log(notes[-1])
@@ -220,12 +212,12 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    new_females = bool(args.new_females)
-    allow_female_reuse = (bool(args.all_classes) or new_females) and not bool(args.native_only)
-    if new_females:
-        female_on = True
-    else:
-        female_on = args.female_3d_vagina == "on"
+    # 2.1.1: female cross-class reuse is gone. These flags are still accepted so
+    # an older launcher does not crash, but they no longer enable donor meshes.
+    if args.all_classes or args.new_females:
+        log("[NOTE] female donor reuse was removed in 2.1.1; only classes with an")
+        log("       authored 3D-vagina mesh are generated.")
+    female_on = args.female_3d_vagina == "on" or bool(args.new_females)
 
     female_filt = {
         p.strip().lower()
@@ -246,12 +238,7 @@ def main() -> int:
 
     report: list[str] = []
     failures: list[str] = []
-    if new_females:
-        mode = "NEW-FEMALES EXPERIMENTAL-REUSE only"
-    elif allow_female_reuse:
-        mode = "NATIVE + FEMALE EXPERIMENTAL-REUSE"
-    else:
-        mode = "NATIVE only (RESTORED)"
+    mode = "NATIVE only (authored meshes)"
     if female_filt:
         log(f"Female class filter: {', '.join(sorted(female_filt))}")
     if male_filt:
@@ -259,20 +246,18 @@ def main() -> int:
 
     if female_on:
         log(f"=== Female 3D vagina ({mode}) ===")
-        if new_females:
-            targets = list(NEW_FEMALE_PREFIXES)
-        else:
-            targets = list(FEMALE_CLASSES.keys())
+        targets = [p for p in FEMALE_CLASSES if FEMALE_CLASSES[p][2]]
+        unsupported = [p for p in FEMALE_CLASSES if not FEMALE_CLASSES[p][2]]
         if female_filt is not None:
+            asked_unsupported = sorted(female_filt & set(unsupported))
+            for pref in asked_unsupported:
+                log(f"  [SKIP no-mesh] {pref} ({FEMALE_CLASSES[pref][1]}): no authored 3D-vagina"
+                    f" mesh exists; cross-class reuse gave it the donor's body and skin.")
             targets = [p for p in targets if p in female_filt]
         log(f"  targets: {', '.join(targets) if targets else '(none)'}")
         for pref in targets:
-            if not new_females and not allow_female_reuse and not FEMALE_CLASSES[pref][2]:
-                continue
-            if new_females and pref not in NEW_FEMALE_PREFIXES:
-                continue
             try:
-                notes = copy_female_class(pack, out, pref, allow_reuse=True if new_females else allow_female_reuse)
+                notes = copy_female_class(pack, out, pref)
                 report.extend(notes)
             except Exception as e:
                 log(f"  [FAIL F] {pref}: {e}")
@@ -280,7 +265,7 @@ def main() -> int:
 
     # male map (skipped in --new-females mode)
     penis_map: dict[str, str] = {}
-    if not new_females:
+    if True:
         raw = args.male_penis.strip().lower()
         if raw in ("none",):
             pass
@@ -343,14 +328,14 @@ def main() -> int:
         "Genital pack apply\n"
         "==================\n"
         f"mode={mode}\n"
-        "NATIVE = original Resorepless mesh for that class (RESTORED)\n"
-        "EXPERIMENTAL-REUSE = donor mesh renamed for missing class (may clip/mismatch)\n"
-        "NEW FEMALES: replaces Midnight/TGS nude PAC for that class with a donor genital body.\n"
+        "NATIVE = original Resorepless mesh authored for that exact class.\n"
+        "Cross-class donor reuse was removed in 2.1.1: a genital PAC carries the\n"
+        "donor's mesh AND its material binding, so a reused one gave the class the\n"
+        "donor's body and skin. Classes without an authored mesh are skipped.\n"
         "Shai is not included.\n\n"
-        f"new_females={new_females}\n"
         f"female_3d_vagina={args.female_3d_vagina}\n"
         f"male_penis={args.male_penis}\n"
-        f"allow_female_reuse={allow_female_reuse}\n"
+        "female_reuse=False\n"
         "male_reuse=False\n"
         f"entries={len(report)}\n\n"
         f"failures={len(failures)}\n"

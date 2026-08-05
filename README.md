@@ -45,13 +45,14 @@ Full table: [`docs/FEATURE-LABELS.md`](docs/FEATURE-LABELS.md)
 | **Slot hide** | Gloves / boots / helmets / weapons / stockings |
 | **Pubic hair** | Per-class styles (`prefix=style`) — private-atlas classes styled in place, shared-atlas groups styled only when all sharers pick one style; texture-only, zero PAC writes |
 | **Censorship tiers** | minimal / medium / high texture packs |
-| **3D vagina / penis** | Female donor reuse is optional; male penis meshes are native-only (six supported classes); PAC-authored material/UV texture names are preserved |
+| **3D vagina / penis** | Authored meshes only — 10 female classes and 6 male classes. A genital PAC carries the donor's body *and* skin, so cross-class reuse is not offered; unsupported classes are skipped with a reason. Underwear goes to `armor/38_underwear/`, never `nude/` |
 
-### EXPERIMENTAL-REUSE (opt-in, not native art)
-| Area | Options |
-|------|---------|
-| **New females genitals** | Options hub **[F]** — donor mesh/bin reuse for missing females |
-| Donor mesh/bin for missing females | Also asked inside Options **[6]** / **[V]**; default **OFF**; never applied to Dosa/Wukong males |
+### Not supported (and why)
+| Area | Reason |
+|------|--------|
+| Genitals on classes newer than the original mod | No authored mesh exists. Reusing another class's PAC hands over that class's body *and* skin — 7 of the 9 old donor mappings bound the wrong texture, which is what made Deadeye look stretched. |
+| Per-class pubic hair on the 13 shared-texture classes | They all render from one texture, so they can only share a single style (or stay bare). Renaming a PAC's material to fake isolation made those bodies invisible. |
+| Pubic hair on Corsair | No shipped hair bin matches its texture size. |
 
 ### EXPERIMENTAL (from-scratch only)
 | Area | Options |
@@ -209,6 +210,12 @@ Other official regions: Deploy -> PartCutGen -> canonical stage -> Meta Injector
 Client mods can break after patches and may violate game ToS. Use at your own risk.
 
 ## Changelog
+
+### v2.1.1 - 2026-08-04
+- **3D vagina / penis restricted to authored meshes.** A genital PAC is a whole body: it carries the mesh *and* that class's skin material. Copying one under another class's filename gave that class the donor's body and skin — measured against the shipped pack, **7 of the 9 old donor mappings bound a different texture than the class actually uses** (Deadeye→Ranger, Woosa/Scholar/Nova→Witch, Drakania→Dark Knight, Guardian/Corsair→Sorceress), which is the original "Deadeye looks stretched" report. Female cross-class reuse removed; males were already native-only. Supported: 10 female + 6 male classes, everything else skipped with a stated reason.
+- **Underwear PACs were going to a path the game never reads.** Both the nude and underwear PAC were written under `nude/`. Verified against the live game index: the real entry is `character/model/1_pc/<folder>/armor/38_underwear/<prefix>_00_uw_0001.pac`, and the `nude/` variant is not a meta entry at all. All 16 underwear PACs were landing nowhere and being routed to `_add` as bogus new entries. **16 → 0.**
+- Genitals were checked for the invisible-body failure that hit pubic hair: **0 missing materials**, nothing renamed. That class of bug does not exist here.
+- Fixed the version banner, which still reported `2.0.9` in 2.1.0.
 
 ### v2.1.0 - 2026-08-04
 - **Body size sliders rebuilt.** Per-part maxes (breasts / thighs / butt) via presets or a single `name:max` spec — recommended `breasts:2.0,thighs:1.5,butt:1.4`. The patcher never writes `Default` (the game's per-class anisotropic baseline stays), never touches a bone's declared `HeightAxis` (bone length — characters cannot be made taller), and only ever widens. `legs`/`spine`/`arms` retired; `butt` = hips + pelvis (pelvis carries the shape on classes where the game locks Hip Max at ≤ 1.00).

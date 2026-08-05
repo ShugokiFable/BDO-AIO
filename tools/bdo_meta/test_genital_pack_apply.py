@@ -17,14 +17,66 @@ def write_dds(path: pathlib.Path) -> None:
 
 
 class GenitalDonorScopeTests(unittest.TestCase):
-    def test_female_reuse_still_uses_a_real_female_donor(self) -> None:
+    def test_a_class_without_an_authored_mesh_is_refused(self) -> None:
+        """Reuse gave Seraph another class's body AND skin; it is no longer allowed."""
         with tempfile.TemporaryDirectory() as temp:
             pack = pathlib.Path(temp)
             female = pack / "female"
             female.mkdir()
             (female / "pww_00_nude_0001.pac").write_bytes(b"female")
-            source, donor, native = pick_female_donor(pack, "pdkl", allow_reuse=True)
-            self.assertEqual((source.name, donor, native), ("pww_00_nude_0001.pac", "pww", False))
+            with self.assertRaisesRegex(FileNotFoundError, "no authored 3D-vagina mesh"):
+                pick_female_donor(pack, "pdkl")
+
+    def test_a_class_with_an_authored_mesh_uses_its_own(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            pack = pathlib.Path(temp)
+            female = pack / "female"
+            female.mkdir()
+            (female / "pww_00_nude_0001.pac").write_bytes(b"female")
+            source, donor, native = pick_female_donor(pack, "pww")
+            self.assertEqual((source.name, donor, native), ("pww_00_nude_0001.pac", "pww", True))
+
+    def test_no_female_class_can_borrow_another_classes_mesh(self) -> None:
+        from class_coverage import FEMALE_CLASSES
+
+        with tempfile.TemporaryDirectory() as temp:
+            pack = pathlib.Path(temp)
+            female = pack / "female"
+            female.mkdir()
+            # Every authored mesh is present, so a fallback would be easy to hit.
+            for native in {v[2] for v in FEMALE_CLASSES.values() if v[2]}:
+                (female / native).write_bytes(b"x")
+            for prefix, meta in FEMALE_CLASSES.items():
+                if meta[2]:
+                    _, donor, native = pick_female_donor(pack, prefix)
+                    self.assertEqual(donor, prefix, prefix)
+                    self.assertTrue(native, prefix)
+                else:
+                    with self.assertRaises(FileNotFoundError, msg=prefix):
+                        pick_female_donor(pack, prefix)
+
+
+class UnderwearPathTests(unittest.TestCase):
+    """Underwear lives in armor/38_underwear/, never under nude/.
+
+    Verified against the live game index: the nude/ variant is not a real meta
+    entry, so anything written there is ignored by the game.
+    """
+
+    def test_folders_are_separate(self) -> None:
+        from class_coverage import (
+            female_folder,
+            female_underwear_folder,
+            male_folder,
+            male_underwear_folder,
+        )
+
+        self.assertTrue(female_folder("pww").endswith("/nude"))
+        self.assertTrue(female_underwear_folder("pww").endswith("/armor/38_underwear"))
+        self.assertTrue(male_folder("phm").endswith("/nude"))
+        self.assertTrue(male_underwear_folder("phm").endswith("/armor/38_underwear"))
+        self.assertNotIn("/nude", female_underwear_folder("pww"))
+        self.assertNotIn("/nude", male_underwear_folder("phm"))
 
     def test_wukong_never_falls_back_to_a_male_donor(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

@@ -97,6 +97,18 @@ def male_folder(prefix: str) -> str:
     return f"character/model/1_pc/{MALE_CLASSES[prefix][0]}/nude"
 
 
+# Underwear lives in its own slot folder, NOT under nude/. Verified against the
+# live game index: character/model/1_pc/<folder>/armor/38_underwear/<x>_00_uw_0001.pac
+# is a real meta entry, while the same file under nude/ is not, so anything
+# written there is ignored by the game.
+def female_underwear_folder(prefix: str) -> str:
+    return f"character/model/1_pc/{FEMALE_CLASSES[prefix][0]}/armor/38_underwear"
+
+
+def male_underwear_folder(prefix: str) -> str:
+    return f"character/model/1_pc/{MALE_CLASSES[prefix][0]}/armor/38_underwear"
+
+
 def is_new_female(prefix: str) -> bool:
     return prefix in NEW_FEMALE_PREFIXES
 
