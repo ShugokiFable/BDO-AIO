@@ -212,6 +212,7 @@ Client mods can break after patches and may violate game ToS. Use at your own ri
 ## Changelog
 
 ### v2.1.2 - 2026-08-05
+- **In-game confirmed**: body sliders, pubic hair on the texture-only classes, and 3D vagina with the authored meshes.
 - **Fixed a crash after a successful genital run.** `Apply-GenitalPacks` still referenced a variable removed in 2.1.1, so the launcher errored out *after* correctly writing the packs. Output was never affected.
 - Added a static AST guard (`test_launcher_static.ps1`) that fails when a variable is read but never assigned, or a called function does not exist — verified to catch the exact bug it was written for.
 - Removed the last EXPERIMENTAL-REUSE labels from the menus; cross-class genital reuse no longer exists.

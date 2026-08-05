@@ -22,6 +22,12 @@ genital reuse no longer exists, so offering it in text was misleading -- one men
 still read "EXPERIMENTAL-REUSE only if you opted in" on a run where nothing of
 the sort was possible.
 
+### Runtime status
+User-confirmed in game on 2.1.2: body sliders, pubic hair on the texture-only
+classes, and 3D vagina with the authored meshes all behave as intended. The
+2.1.1 crash was in the post-run message only -- the packs it had already written
+were correct.
+
 ### Note on PartCutGen "matched 0 files"
 Three exclusion patterns in the bundled Midnight pack match nothing
 (`pwge_00_lb_0001_dm`, `pdw_00_ub_0002_mul*`, `pdw_00_ub_0002_mul_na*`). These
@@ -76,7 +82,7 @@ them correctly.
   **0 underwear PACs under nude/, 0 files routed to `_add` (was 16), 0 paths
   absent from the game meta, 0 PACs with a missing texture.**
 - Requesting the 9 unsupported classes produces 9 explicit skips and no output.
-- Not verified: in-game appearance. Requires Meta Injector.
+- In-game: confirmed by the user on 2.1.2.
 
 ## v2.1.0 - 2026-08-04 - body slider repair + per-class pubic hair
 
