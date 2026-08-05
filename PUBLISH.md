@@ -66,4 +66,5 @@ Credits: see CREDITS.md
 
 - You are packaging third-party mods + tools. Keep credits.
 - Hosting rules (Undertow, Discord, etc.) still apply to the mesh content.
-- Do not strip CREDITS.md.
+- Do not strip CREDITS.md (or the Credits section in README.md).
+- See BACKUP.md for why `pack\` stays out of git and how full `.7z` release assets are the cloud backup.
