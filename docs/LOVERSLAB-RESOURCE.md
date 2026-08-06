@@ -20,6 +20,8 @@ Path:
 C:\Users\karlo\Documents\Apps\BDO-AIO-v2.2.0-full.7z
 ```
 
+SHA256: `92ec485695bbc3a2707b83816d7aa90f3784faa2f444b18785ba8dd6e7874e40`
+
 Do **not** upload git source zip (missing `pack\`).
 
 ---

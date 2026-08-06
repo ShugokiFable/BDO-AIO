@@ -14,7 +14,7 @@ Category: **Mods → MMOs → Other**
 | **Attach this file** | `C:\Users\karlo\Documents\Apps\BDO-AIO-v2.2.0-full.7z` |
 | Backup copy | `Z:\Backup\BDO-mods-assets\BDO-AIO-v2.2.0-full.7z` |
 | Version string | `2.2.0` |
-| SHA256 | *(fill after build — see `BDO-AIO-v2.2.0-full.7z.sha256`)* |
+| SHA256 | `92ec485695bbc3a2707b83816d7aa90f3784faa2f444b18785ba8dd6e7874e40` |
 
 Optional: also attach the `.sha256` text file.
 
