@@ -5,7 +5,14 @@ import struct
 import tempfile
 import unittest
 
-from genital_pack_apply import copy_material_textures, pac_material_stem, pick_female_donor, pick_male_native
+from genital_pack_apply import (
+    copy_female_class,
+    copy_male_class,
+    copy_material_textures,
+    pac_material_stem,
+    pick_female_donor,
+    pick_male_native,
+)
 
 
 def write_dds(path: pathlib.Path) -> None:
@@ -57,10 +64,11 @@ class GenitalDonorScopeTests(unittest.TestCase):
 
 
 class UnderwearPathTests(unittest.TestCase):
-    """Underwear lives in armor/38_underwear/, never under nude/.
+    """Underwear hide path vs nude body path.
 
-    Verified against the live game index: the nude/ variant is not a real meta
-    entry, so anything written there is ignored by the game.
+    Verified against the live game index: armor/38_underwear/ is the real
+    underwear slot. Genital packs must NOT write *_uw_0001.pac there — that
+    overwrites Midnight's dummy hide and holes the body under skirts.
     """
 
     def test_folders_are_separate(self) -> None:
@@ -77,6 +85,43 @@ class UnderwearPathTests(unittest.TestCase):
         self.assertTrue(male_underwear_folder("phm").endswith("/armor/38_underwear"))
         self.assertNotIn("/nude", female_underwear_folder("pww"))
         self.assertNotIn("/nude", male_underwear_folder("phm"))
+
+    def test_female_genital_writes_nude_only_never_underwear(self) -> None:
+        """Genital PAC on uw_0001 beat Midnight's 1 KB dummy (pri 600 > 100)."""
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            pack, out = root / "pack", root / "out"
+            female = pack / "female"
+            female.mkdir(parents=True)
+            (pack / "texture").mkdir(parents=True)
+            # Witch native mesh + matching material texture
+            (female / "pww_00_nude_0001.pac").write_bytes(b"mesh PWW_01_Nude_0001 body")
+            write_dds(pack / "texture" / "pww_01_nude_0001.dds")
+
+            copy_female_class(pack, out, "pww")
+
+            nude = list(out.rglob("pww_00_nude_0001.pac"))
+            uw = list(out.rglob("*uw_0001.pac"))
+            self.assertEqual(len(nude), 1, nude)
+            self.assertTrue(any("/nude/" in str(p).replace("\\", "/") or p.parent.name == "nude" for p in nude))
+            self.assertEqual(uw, [], "genital must not emit underwear PAC (breaks Midnight hide)")
+
+    def test_male_genital_writes_nude_only_never_underwear(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            pack, out = root / "pack", root / "out"
+            male = pack / "male" / "normal"
+            male.mkdir(parents=True)
+            (pack / "texture").mkdir(parents=True)
+            (male / "phm_00_nude_0001.pac").write_bytes(b"mesh PHM_00_Nude_0001 body")
+            write_dds(pack / "texture" / "phm_00_nude_0001.dds")
+
+            copy_male_class(pack, out, "phm", "normal")
+
+            nude = list(out.rglob("phm_00_nude_0001.pac"))
+            uw = list(out.rglob("*uw_0001.pac"))
+            self.assertEqual(len(nude), 1, nude)
+            self.assertEqual(uw, [], "male genital must not emit underwear PAC")
 
     def test_wukong_never_falls_back_to_a_male_donor(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

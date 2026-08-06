@@ -3,7 +3,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$Script:Version = '2.1.4'
+$Script:Version = '2.2.0'
 $Script:Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script:ConfigPath = Join-Path $Script:Root 'config.json'
 $Script:PackDir = Join-Path $Script:Root 'pack'
@@ -229,43 +229,63 @@ function Select-FemaleClasses {
     param(
         [string]$Title = 'Select female classes',
         [string]$CurrentCsv = '',
-        [switch]$DefaultAll
+        [switch]$DefaultAll,
+        # When set, only these prefixes can be picked. Used by 3D vagina, where a
+        # class without an authored mesh is not a worse option -- it is no option.
+        [string[]]$Supported = @()
     )
+    $limited = ($Supported.Count -gt 0)
     Write-Host ''
     Write-Host ("  " + $Title) -ForegroundColor White
     Write-Host '  -----------------------' -ForegroundColor DarkGray
     Write-Host ("  Current: " + (Format-ClassList $CurrentCsv)) -ForegroundColor DarkCyan
     Write-Host ''
-    Write-Host '    [A] ALL females' -ForegroundColor Green
-    Write-Host '    [N] NATIVE pubic bins only (Tamer/DK/Ranger/Sorceress/Witch)' -ForegroundColor Cyan
-    Write-Host '    [E] NEW females only (Seraph/Deadeye/Woosa/… EXPERIMENTAL)' -ForegroundColor Yellow
+    if ($limited) {
+        Write-Host ('    [A] ALL ' + $Supported.Count + ' supported classes') -ForegroundColor Green
+        Write-Host '        (classes with no authored mesh are not listed - there is' -ForegroundColor DarkGray
+        Write-Host '         nothing to give them; reuse would hand over another' -ForegroundColor DarkGray
+        Write-Host '         class body and skin, so it was removed in 2.1.1)' -ForegroundColor DarkGray
+    } else {
+        Write-Host '    [A] ALL females' -ForegroundColor Green
+        Write-Host '    [N] NATIVE pubic bins only (Tamer/DK/Ranger/Sorceress/Witch)' -ForegroundColor Cyan
+        Write-Host '    [E] NEW females only (Seraph/Deadeye/Woosa/… EXPERIMENTAL)' -ForegroundColor Yellow
+    }
     Write-Host '    [C] CUSTOM multi-select by number' -ForegroundColor Magenta
     Write-Host '    [T] Type prefixes (e.g. phw,pdkl,pww)' -ForegroundColor Cyan
     Write-Host '    [K] Keep current' -ForegroundColor DarkGray
     $pick = (Read-Host '  Class pick').Trim().ToUpperInvariant()
+    if ($limited -and $pick -in @('N', 'E')) {
+        Write-Warn 'Not available here - every listed class already has an authored mesh.'
+        $pick = 'C'
+    }
     switch ($pick) {
-        'A' { return '' }
+        'A' { if ($limited) { return ($Supported -join ',') } else { return '' } }
         'N' { return ($Script:NativePubicPrefixes -join ',') }
         'E' { return ($Script:NewFemalePrefixes -join ',') }
         'K' { return $CurrentCsv }
         'T' {
             $raw = (Read-Host '  Prefixes comma-separated').Trim().ToLowerInvariant()
             if ([string]::IsNullOrWhiteSpace($raw)) { return '' }
-            $legal = @($Script:FemaleClasses.Keys)
+            $legal = if ($limited) { @($Supported) } else { @($Script:FemaleClasses.Keys) }
             $parts = @($raw -split '[,;\s]+' | Where-Object { $_ })
             $bad = @($parts | Where-Object { $_ -notin $legal })
             if ($bad.Count -gt 0) {
-                Write-Warn ("Unknown prefixes ignored: " + ($bad -join ', '))
+                if ($limited) {
+                    Write-Warn ("No authored mesh, ignored: " + ($bad -join ', '))
+                } else {
+                    Write-Warn ("Unknown prefixes ignored: " + ($bad -join ', '))
+                }
             }
             $ok = @($parts | Where-Object { $_ -in $legal } | Select-Object -Unique)
             if ($ok.Count -eq 0) {
                 Write-Warn 'No valid prefixes — using ALL.'
+                if ($limited) { return ($Supported -join ',') }
                 return ''
             }
             return ($ok -join ',')
         }
         'C' {
-            $keys = @(Get-FemaleClassKeys)
+            $keys = if ($limited) { @($Supported) } else { @(Get-FemaleClassKeys) }
             $on = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
             if ([string]::IsNullOrWhiteSpace($CurrentCsv)) {
                 if ($DefaultAll) { foreach ($k in $keys) { [void]$on.Add($k) } }
@@ -281,22 +301,34 @@ function Select-FemaleClasses {
                 for ($i = 0; $i -lt $keys.Count; $i++) {
                     $k = $keys[$i]
                     $mark = if ($on.Contains($k)) { '*' } else { ' ' }
-                    $tag = if ($k -in $Script:NewFemalePrefixes) { ' EXPER' } elseif ($k -in $Script:NativePubicPrefixes) { ' native-bin' } else { '' }
+                    $tag = if ($limited) { ' authored mesh' } elseif ($k -in $Script:NewFemalePrefixes) { ' EXPER' } elseif ($k -in $Script:NativePubicPrefixes) { ' native-bin' } else { '' }
                     Write-Host ("    [{0,2}] {1} {2,-6} {3}{4}" -f ($i + 1), $mark, $k, $Script:FemaleClasses[$k], $tag) -ForegroundColor Cyan
                 }
-                Write-Host '    [A] all on   [Z] all off   [N] native bins only   [E] new females only' -ForegroundColor DarkGray
+                if ($limited) {
+                    Write-Host '    [A] all on   [Z] all off' -ForegroundColor DarkGray
+                } else {
+                    Write-Host '    [A] all on   [Z] all off   [N] native bins only   [E] new females only' -ForegroundColor DarkGray
+                }
                 Write-Host '    [D] done' -ForegroundColor Green
                 $cmd = (Read-Host '  Number(s) to toggle, or command').Trim().ToUpperInvariant()
                 if ($cmd -eq 'D' -or $cmd -eq '') {
                     if ($on.Count -eq 0) {
                         Write-Warn 'None selected — using ALL females.'
+                        if ($limited) { return ($Supported -join ',') }
                         return ''
                     }
-                    if ($on.Count -eq $keys.Count) { return '' }
+                    if ($on.Count -eq $keys.Count) {
+                        if ($limited) { return ($Supported -join ',') }
+                        return ''
+                    }
                     return (($on | Sort-Object) -join ',')
                 }
                 if ($cmd -eq 'A') { foreach ($k in $keys) { [void]$on.Add($k) }; continue }
                 if ($cmd -eq 'Z') { $on.Clear(); continue }
+                if ($limited -and $cmd -in @('N', 'E')) {
+                    Write-Warn 'Not available here - every listed class already has an authored mesh.'
+                    continue
+                }
                 if ($cmd -eq 'N') {
                     $on.Clear()
                     foreach ($k in $Script:NativePubicPrefixes) { [void]$on.Add($k) }
@@ -965,14 +997,19 @@ function Configure-CensorshipTier {
     Write-Host '  CENSORSHIP TIER PRESETS' -ForegroundColor Magenta
     Write-Host '  ----------------------' -ForegroundColor DarkGray
     Write-Info 'Legacy = classic Resorepless outfit textures. Expanded = live PAZ under-armor scan.'
-    Write-Warn 'Not perfect on every pearl outfit. Pair with Midnight Armor=All for best coverage.'
+    Write-Info 'Blanks are rebuilt from YOUR client, not from the 2018 pack, so size,'
+    Write-Info 'format and mips always match. Only alpha-carrying maps (DXT5/DXT3) are'
+    Write-Info 'blanked - zeroing those is transparent. DXT1 has no alpha to zero, so'
+    Write-Info 'blanking one would paint BLACK over the body; those are skipped.'
+    Write-Warn 'This removes painted-on underwear only. The nude body comes from Midnight'
+    Write-Warn '(Suzu / TheGreatSage) + the 3D genital packs - keep those on.'
     Write-Host ''
     Write-Host '    [0] Off' -ForegroundColor DarkGray
-    Write-Host '    [1] Minimal  — some Tamer/Ranger built-in panties  [RESTORED]' -ForegroundColor Cyan
-    Write-Host '    [2] Medium   — + upper undercovers / more decals  [RESTORED]' -ForegroundColor Green
-    Write-Host '    [3] High     — same texture set as medium  [RESTORED]' -ForegroundColor Cyan
-    Write-Host '    [4] Expanded — medium + blank new/all-class under-decals from live PAZ' -ForegroundColor Yellow
-    Write-Host '                  (scans *_dec* / under* / cull textures; best-effort)' -ForegroundColor DarkYellow
+    Write-Host '    [1] Minimal  — a few Tamer built-in panties' -ForegroundColor Cyan
+    Write-Host '    [2] Medium   — + upper undercovers / more decals  (~10 files)' -ForegroundColor Green
+    Write-Host '    [3] High     — same target list as medium' -ForegroundColor Cyan
+    Write-Host '    [4] Expanded — medium + every *_dec* / under* map in the live PAZ' -ForegroundColor Yellow
+    Write-Host '                  (~236 files, all classes; never clip masks)' -ForegroundColor DarkYellow
     $t = Read-Choice 'Tier' @('0', '1', '2', '3', '4')
     $Script:Config.censorshipTier = switch ($t) {
         '0' { 'off' }
@@ -1048,7 +1085,7 @@ function Configure-GenitalMenus {
         Write-Host ('    ' + (($Script:GenitalFemalePrefixes | ForEach-Object { $Script:FemaleClasses[$_] }) -join ', ')) -ForegroundColor DarkGray
         Write-Host '  Newer classes are not offered: a genital PAC carries the donor body' -ForegroundColor DarkGray
         Write-Host '  AND skin, so reusing one gave them the wrong body. Removed in 2.1.1.' -ForegroundColor DarkGray
-        $Script:Config.genitalFemaleClasses = Select-FemaleClasses -Title '3D vagina — which females?' -CurrentCsv ([string]$Script:Config.genitalFemaleClasses) -DefaultAll
+        $Script:Config.genitalFemaleClasses = Select-FemaleClasses -Title '3D vagina — which females?' -CurrentCsv ([string]$Script:Config.genitalFemaleClasses) -DefaultAll -Supported $Script:GenitalFemalePrefixes
         $asked = @(([string]$Script:Config.genitalFemaleClasses) -split '[,;]+' | Where-Object { $_ })
         $unsupported = @($asked | Where-Object { $_ -notin $Script:GenitalFemalePrefixes })
         if ($unsupported.Count -gt 0) {
@@ -1262,8 +1299,17 @@ function Configure-PubicHair {
     Write-Banner
     Write-Host '  PUBIC HAIR' -ForegroundColor Magenta
     Write-Host '  ==========' -ForegroundColor DarkGray
-    Write-Host '  Texture-only. A class is styled on its own when it owns its body texture;' -ForegroundColor Green
-    Write-Host '  the 13 classes sharing one texture can only share a single style.' -ForegroundColor DarkGray
+    Write-Host '  Texture-only, and what you can pick is decided by the game files:' -ForegroundColor Green
+    Write-Host ''
+    Write-Host '   STYLED ONE BY ONE - these 5 own their body texture:' -ForegroundColor Green
+    Write-Host ('     ' + (($Script:PubicPrivateAtlasPrefixes | ForEach-Object { $Script:FemaleClasses[$_] }) -join ', ')) -ForegroundColor Gray
+    Write-Host '   ONE STYLE FOR ALL 13 - these share a single texture (phw_01_nude_0001):' -ForegroundColor Yellow
+    Write-Host ('     ' + (($Script:SharedAtlasPrefixes | ForEach-Object { $Script:FemaleClasses[$_] }) -join ', ')) -ForegroundColor DarkGray
+    Write-Host '     Styling that one file styles every one of them, so they get the same' -ForegroundColor DarkGray
+    Write-Host '     look or stay bare. Giving them separate textures needs a material' -ForegroundColor DarkGray
+    Write-Host '     rename inside the body PAC, which is what made bodies invisible in 2.1.0.' -ForegroundColor DarkGray
+    Write-Host '   Corsair owns its texture but no shipped hair bin fits it; it is offered' -ForegroundColor DarkGray
+    Write-Host '   and will report "no compatible hair bin" if nothing matches.' -ForegroundColor DarkGray
     Write-Host ''
     if (-not (Test-Path -LiteralPath (Join-Path $Script:PubicHairRoot 'offsets.bin'))) {
         Write-Err ("Pubic hair pack missing: " + $Script:PubicHairRoot)
@@ -2109,7 +2155,7 @@ function Run-MetaInjector {
     [void](Invoke-VanillaRestoreTool @('backup'))
 
     Write-Host ''
-    Write-Host '  If the game breaks, menu [R] -> [V] restores vanilla without Steam.' -ForegroundColor Yellow
+    Write-Host '  If the game breaks, menu [R] -> [1] restores vanilla without Steam.' -ForegroundColor Yellow
     Write-Host '  The AIO passes a canonical short-path stage; no XYZW collection is deleted.' -ForegroundColor Green
     Write-Host ''
     $pazDrive = $null
@@ -2428,25 +2474,32 @@ function Restore-UneditedGameFiles {
     Show-PazInjectStatus -PazFolder $paz
     Write-Host ''
 
-    Write-Host '   [V] RESTORE GAME TO VANILLA  (meta backup + delete injected PAZ)' -ForegroundColor Green
-    Write-Host '       No Steam verify needed. Shows a dry run first.' -ForegroundColor DarkGray
-    Write-Host '   [S] Scan meta / backup state' -ForegroundColor Cyan
-    Write-Host '   [B] Make a vanilla meta backup now (do this while unmodded)' -ForegroundColor Cyan
+    Write-Host '   The game and the build folder are two separate things:' -ForegroundColor White
     Write-Host ''
-    Write-Host '   [1] Clear AIO-generated folders under files_to_patch only' -ForegroundColor Cyan
-    Write-Host '       (_body_size, _slot_hide_*, _pubic_*, _censorship_*, _genital_*)' -ForegroundColor DarkGray
-    Write-Host '   [2] Clear ENTIRE files_to_patch (includes Midnight deploy)' -ForegroundColor Yellow
-    Write-Host '   [3] Uninstall AIO-marked experimental OptiScaler files from game root' -ForegroundColor Cyan
-    Write-Host '   [4] Restore latest BDO-AIO-backup-dlss-* folder into game root' -ForegroundColor Cyan
-    Write-Host '   [5] Do 1 + 3 (recommended soft reset)' -ForegroundColor Green
-    Write-Host '   [6] Open Pearl Abyss launcher note (verify game files)' -ForegroundColor Magenta
-    Write-Host '   [0] Cancel' -ForegroundColor DarkGray
+    Write-Host '   [1] RESTORE GAME TO VANILLA' -ForegroundColor Green
+    Write-Host '       Undo every change inside the game. Dry run first, no Steam verify.' -ForegroundColor DarkGray
+    Write-Host '   [2] CLEAR STAGED MOD FILES' -ForegroundColor Yellow
+    Write-Host '       Empty files_to_patch, the folder AIO builds into before injecting.' -ForegroundColor DarkGray
+    Write-Host '       Does not touch the game -- run [1] for that.' -ForegroundColor DarkGray
+    Write-Host ''
+    Write-Host '   [3] Vanilla meta backup / scan' -ForegroundColor Cyan
+    Write-Host '   [4] Undo experimental graphics (OptiScaler / DLSS)' -ForegroundColor Cyan
+    Write-Host '   [0] Back' -ForegroundColor DarkGray
     $c = (Read-Host '  Select').Trim().ToUpperInvariant()
     if ($c -eq '0' -or [string]::IsNullOrWhiteSpace($c)) { return }
 
-    if ($c -eq 'S') { Invoke-VanillaRestoreTool @('scan'); Pause-Any; return }
-    if ($c -eq 'B') { Invoke-VanillaRestoreTool @('backup'); Pause-Any; return }
-    if ($c -eq 'V') {
+    if ($c -eq '3') {
+        Write-Host ''
+        Write-Host '    [S] Scan meta / backup state' -ForegroundColor Cyan
+        Write-Host '    [B] Make a vanilla meta backup now (best done while unmodded)' -ForegroundColor Cyan
+        $s = (Read-Host '  Select').Trim().ToUpperInvariant()
+        if ($s -eq 'S') { Invoke-VanillaRestoreTool @('scan') }
+        elseif ($s -eq 'B') { Invoke-VanillaRestoreTool @('backup') }
+        else { Write-Info 'Cancelled.' }
+        Pause-Any
+        return
+    }
+    if ($c -eq '1') {
         Write-Host ''
         Write-Info 'DRY RUN first — nothing is changed yet:'
         Write-Host ''
@@ -2470,54 +2523,71 @@ function Restore-UneditedGameFiles {
                 Write-Ok ("Cleared $n AIO folder(s).")
             }
             Write-Info 'Your pubic/slider choices are kept in config.json — just re-apply and inject.'
+        } else {
+            Write-Host ''
+            Write-Warn 'If the meta cannot be restored from a backup, verify the game files:'
+            Write-Host '    1. Close BDO + launcher helpers' -ForegroundColor Cyan
+            Write-Host '    2. Open Pearl Abyss / Steam / game launcher' -ForegroundColor Cyan
+            Write-Host '    3. Use Verify / Repair / Check integrity of game files' -ForegroundColor Cyan
+            Write-Info ("PAZ: " + $paz)
         }
         Pause-Any
         return
     }
 
-    if ($c -in @('1', '5')) {
-        if (Read-YesNo 'Clear AIO-generated files_to_patch folders?' $true) {
-            $n = Clear-AioGenerated
-            Write-Ok ("Cleared $n AIO folder(s). Re-run PartCutGen + Meta Injector if meta was patched.")
-        }
-    }
     if ($c -eq '2') {
-        if (Read-YesNo 'DELETE entire files_to_patch? This removes Midnight deploy too.' $false) {
-            if (Test-Path -LiteralPath $ftp) {
-                Remove-Item -LiteralPath $ftp -Recurse -Force
-                Write-Ok 'files_to_patch removed.'
+        Write-Host ''
+        Write-Host '    [A] AIO-generated folders only  (recommended)' -ForegroundColor Green
+        Write-Host '        _body_size, _slot_hide_*, _pubic_*, _censorship_*, _genital_*' -ForegroundColor DarkGray
+        Write-Host '        Keeps the Midnight deploy, so you only re-apply AIO options.' -ForegroundColor DarkGray
+        Write-Host '    [E] EVERYTHING, including the Midnight deploy' -ForegroundColor Yellow
+        Write-Host '        Full rebuild: you must re-deploy Midnight afterwards.' -ForegroundColor DarkGray
+        $s = (Read-Host '  Select').Trim().ToUpperInvariant()
+        if ($s -eq 'A') {
+            $n = Clear-AioGenerated
+            Write-Ok ("Cleared $n AIO folder(s).")
+            Write-Info 'Re-apply the options you want, then PartCutGen + Meta Injector.'
+        } elseif ($s -eq 'E') {
+            if (Read-YesNo 'DELETE the entire files_to_patch folder?' $false) {
+                if (Test-Path -LiteralPath $ftp) {
+                    Remove-Item -LiteralPath $ftp -Recurse -Force
+                    Write-Ok 'files_to_patch removed.'
+                } else {
+                    Write-Warn 'No files_to_patch to remove.'
+                }
+                Write-Info 'Next: deploy Midnight, re-apply options, PartCutGen, Meta Injector.'
+            } else {
+                Write-Info 'Cancelled.'
             }
-            Write-Warn 'Run Meta Injector after clearing, or Verify game files for full stock meta.'
+        } else {
+            Write-Info 'Cancelled.'
         }
+        Write-Warn 'This changed only the build folder. The game itself is still patched'
+        Write-Warn 'until you run [1] or inject again.'
     }
-    if ($c -in @('3', '5')) {
-        if ($gameRoot) {
-            Uninstall-ExperimentalDlss
-        }
-    }
+
     if ($c -eq '4') {
         if (-not $gameRoot) { Write-Err 'No game root.'; Pause-Any; return }
-        $backs = @(Get-ChildItem -LiteralPath $gameRoot -Directory -Filter 'BDO-AIO-backup-dlss-*' -ErrorAction SilentlyContinue | Sort-Object Name -Descending)
-        if ($backs.Count -eq 0) { Write-Warn 'No BDO-AIO-backup-dlss-* folders found.'; Pause-Any; return }
-        Write-Info ("Using latest: " + $backs[0].Name)
-        if (Read-YesNo 'Copy backup contents back into game root?' $true) {
-            Get-ChildItem -LiteralPath $backs[0].FullName -Force | ForEach-Object {
-                Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $gameRoot $_.Name) -Recurse -Force
-                Write-Host ("  restored: " + $_.Name) -ForegroundColor DarkGray
+        Write-Host ''
+        Write-Host '    [U] Uninstall AIO-marked OptiScaler files from the game root' -ForegroundColor Cyan
+        Write-Host '    [R] Restore the latest BDO-AIO-backup-dlss-* folder' -ForegroundColor Cyan
+        $s = (Read-Host '  Select').Trim().ToUpperInvariant()
+        if ($s -eq 'U') {
+            Uninstall-ExperimentalDlss
+        } elseif ($s -eq 'R') {
+            $backs = @(Get-ChildItem -LiteralPath $gameRoot -Directory -Filter 'BDO-AIO-backup-dlss-*' -ErrorAction SilentlyContinue | Sort-Object Name -Descending)
+            if ($backs.Count -eq 0) { Write-Warn 'No BDO-AIO-backup-dlss-* folders found.'; Pause-Any; return }
+            Write-Info ("Using latest: " + $backs[0].Name)
+            if (Read-YesNo 'Copy backup contents back into game root?' $true) {
+                Get-ChildItem -LiteralPath $backs[0].FullName -Force | ForEach-Object {
+                    Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $gameRoot $_.Name) -Recurse -Force
+                    Write-Host ("  restored: " + $_.Name) -ForegroundColor DarkGray
+                }
+                Write-Ok 'Backup restored into game root.'
             }
-            Write-Ok 'Backup restored into game root.'
+        } else {
+            Write-Info 'Cancelled.'
         }
-    }
-    if ($c -eq '6') {
-        Write-Host ''
-        Write-Host '  To fully restore unedited game PAZ/meta:' -ForegroundColor White
-        Write-Host '    1. Close BDO + launcher helpers' -ForegroundColor Cyan
-        Write-Host '    2. Open Pearl Abyss / Steam / game launcher' -ForegroundColor Cyan
-        Write-Host '    3. Use Verify / Repair / Check integrity of game files' -ForegroundColor Cyan
-        Write-Host '    4. Then re-run AIO wizard if you still want mods' -ForegroundColor Cyan
-        Write-Host ''
-        Write-Info ("PAZ: " + $paz)
-        if ($gameRoot) { Write-Info ("Game root: " + $gameRoot) }
     }
 
     Write-Host ''

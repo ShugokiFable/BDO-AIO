@@ -54,8 +54,8 @@ Full table: [`docs/FEATURE-LABELS.md`](docs/FEATURE-LABELS.md)
 | **Body size limits** | Raises **Max ceilings only** (not body size). Stock Max is **per part**: breasts≈1.25, thighs≈1.10–1.15, hips≈1.00–1.10. Presets: vanilla **1.25/1.15/1.10** · recommended no-clip **1.37/1.30/1.18** · high 1.65/1.40/1.19 · extreme 2.00/1.45/1.20. Above recommended: **breasts clip outfits**, **thighs collide**, **butt pyramid-spikes**. Never writes Default; never touches HeightAxis. |
 | **Slot hide** | Gloves / boots / helmets / weapons / stockings |
 | **Pubic hair** | Per-class styles (`prefix=style`) — private-atlas classes styled in place, shared-atlas groups styled only when all sharers pick one style; texture-only, zero PAC writes |
-| **Censorship tiers** | minimal / medium / high texture packs |
-| **3D vagina / penis** | Authored meshes only — 10 female classes and 6 male classes. A genital PAC carries the donor's body *and* skin, so cross-class reuse is not offered; unsupported classes are skipped with a reason. Underwear goes to `armor/38_underwear/`, never `nude/` |
+| **Censorship tiers** | minimal / medium / high / expanded — **live-client DXT5/DXT3 transparent blanks only** (2.2.0). Never DXT1, never `*_cull*`, never 2018 4×4 stubs. Default **off**. Built-in shorts that are mesh/DXT1 base need an XYZW remesh, not censorship. See `TEXTURE-BLANKING-RULES.md`. |
+| **3D vagina / penis** | Authored meshes only — 10 female classes and 6 male classes. Writes **nude body only** (`…/nude/*_00_nude_0001.pac`). Never overwrites Midnight underwear hide at `armor/38_underwear/` (fixed 2.1.5 / 2.2.0). |
 
 ### Not supported (and why)
 | Area | Reason |
@@ -221,9 +221,17 @@ Client mods can break after patches and may violate game ToS. Use at your own ri
 
 ## Changelog
 
+### v2.2.0 - 2026-08-06
+- **Release bundle** of 2.1.5–2.1.6 (+ body Max presets from 2.1.3) for GitHub / Undertow / LoversLab.
+- **Censorship rewrite:** blanks from **live client**; **DXT5/DXT3** transparent only; **never DXT1**; **never `*_cull*`**; reject 2018 4×4 stubs. See `TEXTURE-BLANKING-RULES.md`.
+- **Genitals:** nude body only — do not overwrite Midnight underwear hide.
+- **Body Max:** vanilla / recommended / high / extreme with per-part clip warnings.
+- **UI:** recovery menu simplified; genital picker = authored meshes only.
+- Upgrade: **restore vanilla meta** before re-applying a smaller censorship set.
+
 ### v2.1.4 - 2026-08-06
 - **Fix: censorship `expanded` no longer blanks `*_cull*.dds` geometry clip masks.** Zeroed DXT1 cull maps decode to solid black and discard the whole body under the garment (Ranger set `0274` lost legs; boots stayed). Cull maps now never enter the blank path; 56 files revert to vanilla, authored `pdw_00_sho_0002_cull.dds` kept. **Re-apply needs R→V restore first** — omit cannot overwrite already-injected blanks.
-- Note: empty crotch under skirts with **3D vagina / pubic** on is a separate hypothesis (genital PAC wins nude + `uw_0001`); test those off after a clean restore.
+- **2.1.5:** empty under-skirt with 3D vagina was genital `*_uw_0001.pac` beating Midnight's underwear dummy — genitals no longer write underwear.
 
 ### v2.1.3 - 2026-08-06
 - **Body size presets clarified as Max ceilings** (Min/Default/Max explained in menu). Vanilla stock from live PAZ: Default≈1.00, breasts Max≈1.25, thighs≈1.10–1.15, hips≈1.00–1.10.

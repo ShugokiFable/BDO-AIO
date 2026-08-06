@@ -13,11 +13,21 @@ Tiers:
 Expanded matches exact character/texture entries that look like built-in underwear
 paint (decals, under-layers). Geometry clip masks (*_cull*) are never blanked —
 zeroing them culls the whole body under the garment. Blanks keep the original file size.
+
+Every tier is gated by legacy_reject_reason(). The Resorepless pack is a ~2018
+artifact and most of its files no longer describe the live texture they would
+replace; copying one anyway does not remove censorship, it destroys the map the
+body renders through. On a 2026 client medium/high emit about 2 of 27 files.
+
+This tool never installs a nude body -- that is Midnight (Suzu / TheGreatSage) and
+the genital packs. Censorship removal only swaps textures, so a wrong map produces
+a hole, never bare skin.
 """
 from __future__ import annotations
 
 import argparse
 import pathlib
+import struct
 import shutil
 import sys
 
@@ -113,6 +123,48 @@ def blank_keep_size(original: bytes) -> bytes:
     raise ValueError("archive content is not a valid DDS payload")
 
 
+# DXT1 IS NEVER TOUCHED. Measured twice on the live client, both times meshes broke:
+#
+#   1. Zeroing a DXT1 block leaves color0 == color1 == 0 at index 0, which decodes to
+#      OPAQUE BLACK -- it paints over the body instead of revealing it.
+#   2. BC1 does have a transparent encoding (color0 <= color1 puts the block in
+#      3-colour mode where index 3 is transparent; `00 00 01 00 FF FF FF FF`, exactly
+#      what the 2018 Resorepless pack shipped in its stubs). Writing that at the live
+#      size still broke meshes -- first across all 157 DXT1 maps in the scan, then
+#      again with only the pack's 15 hand-picked names.
+#
+# So the block was right and the idea was still wrong: transparency only removes a
+# painted layer when the shader treats the map as an overlay. BDO uses DXT1 for base
+# diffuse maps, and an alpha-tested base map that is fully transparent discards the
+# whole mesh. Only alpha-carrying formats can be blanked safely.
+
+
+def transparent_payload(data: bytes) -> tuple[bytes | None, str]:
+    """Return (same-size DDS that decodes to fully transparent, note).
+
+    (None, reason) when the pixel format cannot be blanked safely.
+    """
+    if data[:4] != b"DDS ":
+        return None, "not a DDS payload"
+    header_len = 148 if len(data) >= 148 and data[84:88] == b"DX10" else 128
+    if len(data) < header_len:
+        return None, "truncated DDS header"
+    head, body = data[:header_len], data[header_len:]
+    pf_flags = struct.unpack_from("<I", data, 80)[0]
+    if pf_flags & 0x4:  # DDPF_FOURCC
+        fourcc = data[84:88]
+        if fourcc in (b"DXT3", b"DXT5"):
+            # 16-byte blocks. A zeroed alpha block gives alpha0 = alpha1 = 0 and every
+            # index 0, i.e. alpha 0 across the block.
+            return head + bytes(len(body)), "DXT5/DXT3 alpha zeroed"
+        if fourcc == b"DXT1":
+            return None, "DXT1 base map -- blanking it discards the mesh (measured twice)"
+        return None, f"{fourcc.decode('ascii', 'replace')} has no transparent encoding"
+    if pf_flags & 0x1:  # DDPF_ALPHAPIXELS, uncompressed
+        return head + bytes(len(body)), "uncompressed alpha zeroed"
+    return None, "uncompressed without an alpha channel"
+
+
 def decode_archive_dds(data: bytes, ice: IceDecipher) -> bytes:
     """Handle stored DDS entries that remain ICE-encrypted in the PAZ."""
     if data[:4] == b"DDS ":
@@ -150,15 +202,50 @@ def is_expand_candidate(folder: str, name: str) -> bool:
     return False
 
 
+def dds_dimensions(data: bytes) -> tuple[int, int]:
+    """(width, height) from a DDS header. (0, 0) when the buffer is not a DDS."""
+    if len(data) < 128 or data[:4] != b"DDS ":
+        return 0, 0
+    height, width = struct.unpack_from("<II", data, 12)
+    return width, height
+
+
+def legacy_reject_reason(data: bytes, name: str, live_size: int | None) -> str | None:
+    """Why this Resorepless-pack file must not overwrite the live texture, or None.
+
+    The pack is a ~2018 artifact. On a 2026 client most of its entries no longer
+    describe the texture they would replace, and copying one anyway does not remove
+    censorship -- it destroys the map the body renders through.
+    """
+    if data[:4] != b"DDS ":
+        return "not a DDS file"
+    if "_cull" in name.lower():
+        # Same rule the expanded scan already follows: a clip mask decides which body
+        # texels survive under the garment. Swapping in a different image culls the
+        # wrong region.
+        return "geometry clip mask"
+    width, height = dds_dimensions(data)
+    if width <= 4 or height <= 4 or len(data) < 256:
+        # 4x4 DXT stubs. They do erase the painted-on underwear, but the flat block is
+        # then smeared across the whole UV, so the body under the garment renders as a
+        # single dead colour instead of skin.
+        return f"{width}x{height} stub ({len(data)} B) would flatten the whole map"
+    if live_size is not None and live_size != len(data):
+        # Usually a missing mip chain (1024^2 DXT1 = 524416 B flat vs 699192 B mipped),
+        # sometimes different dimensions or a DXT1 file over a DXT5 slot.
+        return f"stale: pack {len(data)} B vs live {live_size} B"
+    return None
+
+
 def copy_legacy(
     pack: pathlib.Path,
     tex_out: pathlib.Path,
     names: list[str],
-    live_names: set[str] | None = None,
+    live: dict[str, int] | None = None,
 ) -> tuple[int, int]:
     ok = miss = 0
     for name in names:
-        if live_names is not None and name.lower() not in live_names:
+        if live is not None and name.lower() not in live:
             log(f"  [STALE legacy] {name} is absent from live character/texture")
             miss += 1
             continue
@@ -170,8 +257,10 @@ def copy_legacy(
                 miss += 1
                 continue
             src = hits[0]
-        if src.read_bytes()[:4] != b"DDS ":
-            log(f"  [BAD legacy] {name} is not a DDS file")
+        data = src.read_bytes()
+        reason = legacy_reject_reason(data, src.name, live.get(name.lower()) if live else None)
+        if reason is not None:
+            log(f"  [UNSAFE legacy] {src.name}: {reason}")
             miss += 1
             continue
         shutil.copy2(src, tex_out / src.name)
@@ -185,43 +274,75 @@ def expand_from_paz(
     tex_out: pathlib.Path,
     meta: MetaFile,
     ice: IceDecipher,
+    only_names: set[str] | None = None,
 ) -> tuple[int, int]:
-    log(f"Scanning live PAZ for under-armor / decal textures: {paz}")
+    """Build the censorship blank from the LIVE texture, never from the 2018 pack.
+
+    only_names=None  -> expanded tier: every entry is_expand_candidate() matches.
+    only_names={...} -> minimal/medium/high: just those names, generated from the
+                        current client so dimensions, format and mip chain are right.
+    """
+    if only_names is None:
+        log(f"Scanning live PAZ for under-armor / decal textures: {paz}")
+    else:
+        log(f"Rebuilding {len(only_names)} legacy target(s) from the live PAZ: {paz}")
     ok = skip = 0
     seen: set[str] = set()
     for block in meta.fileBlocks:
         folder = block.folderName or ""
         name = block.fileName or ""
-        if not is_expand_candidate(folder, name):
-            continue
+        if only_names is None:
+            if not is_expand_candidate(folder, name):
+                continue
+        else:
+            if folder.replace("\\", "/").strip("/").lower() != "character/texture":
+                continue
+            if name.lower() not in only_names:
+                continue
+            # the clip-mask and age rules are not optional just because a name was
+            # hand-listed by the 2018 pack
+            if any(t in name.lower() for t in EXPAND_NAME_NEVER):
+                log(f"  [SKIP clip-mask] {name}")
+                skip += 1
+                continue
+            if "plw_" in name.lower() or any(
+                t in name.lower() for t in AGE_AMBIGUOUS_NAME_TOKENS
+            ):
+                continue
         key = f"{folder.strip('/').lower()}/{name.lower()}"
         if key in seen:
             continue
         seen.add(key)
         dest = tex_out / name
-        # prefer exact-size blank over re-extract when legacy already wrote
-        if dest.is_file() and dest.stat().st_size == block.size:
+        # an authored pack image already written for this name wins over a blank
+        if dest.is_file():
             log(f"  [SKIP already] {name}")
             skip += 1
             continue
         try:
             data = decode_archive_dds(extract_block(paz, block, ice), ice)
             if not data:
-                # fall back: zero buffer of meta size
-                blank = bytes(block.size if block.size > 0 else 176)
-            else:
-                # pad/truncate to declared size
-                if block.size > 0:
-                    if len(data) < block.size:
-                        data = data + bytes(block.size - len(data))
-                    elif len(data) > block.size:
-                        data = data[: block.size]
-                blank = blank_keep_size(data)
-                if block.size > 0 and len(blank) != block.size:
-                    blank = blank[: block.size] if len(blank) > block.size else blank + bytes(block.size - len(blank))
+                log(f"  [SKIP empty] {name}: live block decoded to nothing")
+                skip += 1
+                continue
+            # pad/truncate to declared size before encoding, so the block count matches
+            if block.size > 0:
+                if len(data) < block.size:
+                    data = data + bytes(block.size - len(data))
+                elif len(data) > block.size:
+                    data = data[: block.size]
+            blank, note = transparent_payload(data)
+            if blank is None:
+                log(f"  [SKIP format] {name}: {note}")
+                skip += 1
+                continue
+            if block.size > 0 and len(blank) != block.size:
+                log(f"  [SKIP size] {name}: encoded {len(blank)} B != declared {block.size} B")
+                skip += 1
+                continue
             dest.write_bytes(blank)
             ok += 1
-            log(f"  [EXPAND] {name} ({len(blank)} bytes)")
+            log(f"  [EXPAND] {name} ({len(blank)} bytes, {note})")
         except Exception as e:
             log(f"  [FAIL expand] {name}: {e}")
             skip += 1
@@ -257,7 +378,7 @@ def main() -> int:
     paz: pathlib.Path | None = pathlib.Path(args.paz) if args.paz else None
     meta: MetaFile | None = None
     ice: IceDecipher | None = None
-    live_names: set[str] | None = None
+    live: dict[str, int] | None = None
     if paz is not None:
         dll = pathlib.Path(__file__).resolve().parent / "ice_decipher.dll"
         if not dll.is_file():
@@ -265,33 +386,40 @@ def main() -> int:
             return 3
         ice = IceDecipher(dll)
         meta = MetaFile(paz, ice)
-        live_names = {
-            (block.fileName or "").lower()
+        live = {
+            (block.fileName or "").lower(): block.size
             for block in meta.fileBlocks
             if (block.folderName or "").replace("\\", "/").strip("/").lower()
             == "character/texture"
             and block.fileName
         }
 
-    if args.tier == "minimal":
-        ok, miss = copy_legacy(pack, tex, MINIMAL_FILES, live_names)
-    elif args.tier in ("medium", "high"):
-        ok, miss = copy_legacy(pack, tex, MEDIUM_HIGH_FILES, live_names)
-    else:  # expanded
-        if paz is None or meta is None or ice is None:
-            log("[FATAL] --paz required for expanded tier")
-            return 2
-        ok, miss = copy_legacy(pack, tex, MEDIUM_HIGH_FILES, live_names)
-        expand_ok, expand_skip = expand_from_paz(paz, tex, meta, ice)
+    targets = MINIMAL_FILES if args.tier == "minimal" else MEDIUM_HIGH_FILES
+    # Authored pack images first: a hand-painted repaint beats a blank when the file
+    # still matches the live texture. Everything it refuses is then rebuilt from the
+    # live client, which is the only source that still has the right size and format.
+    ok, miss = copy_legacy(pack, tex, targets, live)
+    if paz is None or meta is None or ice is None:
+        log("[FATAL] --paz is required: blanks are generated from the live client")
+        return 2
+    expand_ok, expand_skip = expand_from_paz(
+        paz, tex, meta, ice, only_names={n.lower() for n in targets}
+    )
+    if args.tier == "expanded":
+        scan_ok, scan_skip = expand_from_paz(paz, tex, meta, ice)
+        expand_ok += scan_ok
+        expand_skip += scan_skip
 
     # A leading dot is an explicit Meta Injector 1.4.1 ignore marker.
     (out / ".README.txt").write_text(
         f"Censorship removal tier: {args.tier}\n"
         f"Legacy textures copied: {ok}  missing: {miss}\n"
         f"Expanded blanks: {expand_ok}  skip/fail: {expand_skip}\n"
-        "LEGACY = classic Resorepless outfit textures (old classes best).\n"
-        "EXPANDED = live PAZ scan for *_dec* / under* / cull under-armor maps (all classes).\n"
-        "Combine with Midnight armor/underwear hide. Not perfect on every pearl outfit.\n"
+        "LEGACY = authored Resorepless repaints, kept only when they still match live.\n"
+        "EXPAND = transparent blank rebuilt FROM the live client (right size/format/mips).\n"
+        "Only DXT5/DXT3 are blanked; zeroing a DXT1 would paint black, so it is skipped.\n"
+        "Clip masks (*_cull*) are never touched.\n"
+        "This removes painted-on underwear only -- the nude body comes from Midnight.\n"
         "Run Meta Injector after placing under files_to_patch.\n",
         encoding="utf-8",
     )

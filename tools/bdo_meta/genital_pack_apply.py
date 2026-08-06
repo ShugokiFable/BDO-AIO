@@ -29,9 +29,7 @@ from class_coverage import (
     FEMALE_CLASSES,
     MALE_CLASSES,
     female_folder,
-    female_underwear_folder,
     male_folder,
-    male_underwear_folder,
 )
 from inject_stage_builder import load_known_meta, route_missing_generated_files
 
@@ -132,17 +130,18 @@ def copy_female_class(
 ) -> list[str]:
     notes = []
     src, donor, native = pick_female_donor(pack, prefix)
-    # nude/ and armor/38_underwear/ are separate slots in the game index. Writing
-    # the underwear PAC under nude/ puts it at a path the game never reads.
-    # Do not copy the source's original filename in: the game references the
-    # target names, and an extra name only creates an unreferenced meta entry.
-    for folder, name in (
-        (female_folder(prefix), f"{prefix}_00_nude_0001.pac"),
-        (female_underwear_folder(prefix), f"{prefix}_00_uw_0001.pac"),
-    ):
-        dest_dir = out / folder
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dest_dir / name)
+    # Nude body only. Do NOT write armor/38_underwear/*_uw_0001.pac.
+    # Midnight's underwear hide is a ~1 KB dummy at that path (priority 100).
+    # Writing the full genital body there (same bytes as nude/, ~400 KB+) lets
+    # genital priority 600 beat the dummy, so under skirts/outfits the underwear
+    # slot becomes a second body mesh and the lower body holes out. Measured on
+    # Ranger: genital uw_0001 == nude PAC (433698 B) vs midnight dummy (1051 B).
+    # Underwear hide must keep winning; 3D vagina lives on the nude body only.
+    folder = female_folder(prefix)
+    name = f"{prefix}_00_nude_0001.pac"
+    dest_dir = out / folder
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dest_dir / name)
     tag = "NATIVE" if native else f"EXPERIMENTAL-REUSE from {donor}"
     notes.append(f"[F {tag}] {prefix} ({FEMALE_CLASSES[prefix][1]}) <- {src.name}")
     log(notes[-1])
@@ -157,13 +156,12 @@ def copy_male_class(
     if prefix not in MALE_CLASSES:
         return notes
     src, donor, native = pick_male_native(pack, prefix, style)
-    for folder, name in (
-        (male_folder(prefix), f"{prefix}_00_nude_0001.pac"),
-        (male_underwear_folder(prefix), f"{prefix}_00_uw_0001.pac"),
-    ):
-        dest_dir = out / folder
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dest_dir / name)
+    # Same rule as females: nude body only — never overwrite underwear hide.
+    folder = male_folder(prefix)
+    name = f"{prefix}_00_nude_0001.pac"
+    dest_dir = out / folder
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dest_dir / name)
     tag = "NATIVE" if native else f"EXPERIMENTAL-REUSE from {donor}"
     notes.append(f"[M {style} {tag}] {prefix} ({MALE_CLASSES[prefix][1]}) <- {src.name}")
     log(notes[-1])
@@ -341,7 +339,8 @@ def main() -> int:
         f"failures={len(failures)}\n"
         + "\n".join(report)
         + ("\n\nFAILURES\n" + "\n".join(failures) if failures else "")
-        + "\n\nUse with Midnight underwear hide. Meta Inject + PartCutGen.\n",
+        + "\n\nNude body PAC only — never writes armor/38_underwear (Midnight hide wins).\n"
+        + "Use with Midnight underwear hide. Meta Inject + PartCutGen.\n",
         encoding="utf-8",
     )
     log(f"Done. mode={mode} report_lines={len(report)} out={out}")

@@ -1,5 +1,225 @@
 # Changelog
 
+## v2.2.0 - 2026-08-06 - minor: safe censorship + genital underwear fix + body Max presets
+
+**Consolidates everything since the last public full archive (v2.1.4)** into one
+uploadable release for GitHub, Undertow, and LoversLab. Internal patches 2.1.5 and
+2.1.6 are included; body Max presets were finalized in 2.1.3 and remain as below.
+
+### User-facing summary
+| Area | Change |
+|------|--------|
+| **Censorship tiers** | Live-client transparent blanks (DXT5/DXT3 only). No DXT1, no `*_cull*`, no 2018 4×4 stubs. Default stays **off**. |
+| **3D vagina / penis** | Nude body PAC only — never overwrite Midnight underwear hide. |
+| **Body size** | Max ceilings: vanilla / recommended / high / extreme with per-part warnings. |
+| **UI** | Cleaner `[R]` recovery; honest genital class list; clearer pubic shared-atlas menu. |
+| **Docs** | `TEXTURE-BLANKING-RULES.md` — what texture blanking can and cannot do vs XYZW remeshes. |
+
+### Censorship rewrite (was 2.1.4 + 2.1.6)
+- **2.1.4:** expanded live scan no longer blanks `*_cull*` clip masks (floating torso / no legs).
+- **2.1.6:** medium/high no longer copy stale Resorepless files. 25/27 legacy names were
+  wrong size or 4×4 stubs (Ranger medium hits were both 152 B stubs → “shorts gone, no body”).
+  Blanks are rebuilt from live PAZ; only DXT5/DXT3 get transparent payloads; DXT1 refused
+  (measured: even correct BC1 transparent blocks kill base-diffuse meshes on 2026 client).
+- Built-in shorts that are **mesh** or **DXT1 base** need a **XYZW remesh**, not censorship.
+- After shrinking the emitted set: **restore vanilla meta before re-inject**.
+
+### Genital safety (was 2.1.5)
+- Stopped writing full genital body PAC to `armor/38_underwear/*_uw_0001.pac`
+  (priority 600 was beating Midnight’s 1 KB dummy hide → empty under skirts).
+
+### Body size Max ceilings (was 2.1.3)
+- Widen-only Max patch; never writes Default; never HeightAxis length.
+- Stock Max is **per part** (breasts ~1.25, thighs ~1.10–1.15, hips ~1.00–1.10) — not all 1.25.
+- Presets: **vanilla** 1.25/1.15/1.10 · **recommended** 1.37/1.30/1.18 · **high** 1.65/1.40/1.19 · **extreme** 2.00/1.45/1.20.
+- High/extreme warnings are **per-part** (outfit clip / thigh collide / butt pyramid), not generic “everything clips.”
+
+### UI / honesty (2.1.6)
+- Recovery menu 9 → 4 (restore game vs clear staged build).
+- 3D vagina picker: only 10 authored-mesh classes (no fake “new females” reuse).
+- Pubic menu lists private-atlas vs the 13 sharing `phw_01_nude_0001` before you pick.
+
+### Tests
+- `tools/bdo_meta`: unit suite green (censorship format guards, genital nude-only, body size, inject priorities, …).
+
+### Not in this release / known limits
+- Nexus full nude AIO: still **not** TOS-safe to host there.
+- Censorship cannot remesh Taritas-style built-in shorts; use XYZW collections or commission a mesh.
+- Shai / child content: still excluded.
+
+---
+
+## v2.1.6 - 2026-08-06 - fix: censorship tiers can no longer overwrite a live texture with a stale one
+
+### The bug
+Censorship tier **medium alone** still holed the lower body under a Ranger skirt
+(`[Honor] Taritas Armor`): the built-in shorts came off, but there was no ass, crotch
+or skin under them — just dead mesh. 2.1.4 only fixed the `expanded` **live scan**;
+`medium` / `high` never go through that path. They copy the legacy Resorepless list.
+
+### Cause
+`copy_legacy()` checked only that the target name still exists in the live PAZ. It
+never checked whether the ~2018 pack file still *matches* the texture it replaces.
+Measured against the vanilla meta, 25 of the 27 medium entries do not:
+
+| Problem | Count | Example |
+|---------|-------|---------|
+| 4×4 DXT stub, 152–176 B | 9 | `pew_00_lb_0033_dec.dds` 152 B vs live **1 398 256 B** |
+| mipless — flat 1024² over the client's mipped map | 13 | `pdw_02_lb_0005.dds` 524 416 B vs live **699 192 B** |
+| geometry clip mask | 1 | `pdw_00_sho_0002_cull.dds` |
+| absent from live | 1 | `pbw_00_ub_0054_dm.dds` |
+| genuinely current | **2** | `pbw_00_ub_0054.dds`, `pnw_00_ub_0001_dec.dds` |
+
+Ranger gets exactly two files from medium — `pew_00_lb_0033_dec.dds` and
+`pew_02_lb_0001.dds` — and **both are 152-byte 4×4 stubs**. A 4×4 block does erase
+the painted shorts, but it is then smeared across the entire lower-body UV, so the
+body renders as one dead colour. That is the "shorts gone, no ass or crotch, broken
+mesh" report exactly.
+
+### Fix — rebuild the blank from the live client, and only where blanking means transparent
+Two changes, and the second is what makes the feature actually work.
+
+**1. `legacy_reject_reason()`** refuses any 2018 pack file that is a ≤4×4 / <256 B
+stub, a `*_cull*` clip mask, or a different byte size than the live block. Only 2 of
+27 survive (`pbw_00_ub_0054.dds`, `pnw_00_ub_0001_dec.dds`) — genuine authored
+repaints, which beat a blank and are still copied.
+
+**2. Everything it refuses is regenerated from the live PAZ** instead of being dropped,
+so dimensions, format and mip chain are correct by construction. Whether that is safe
+is decided by the pixel format, via new `transparent_payload()`:
+
+| Live format | Encoding written | Decodes to |
+|---|---|---|
+| **DXT5 / DXT3** | payload zeroed → `alpha0=alpha1=0`, index 0 | fully transparent |
+| **DXT1** | `00 00 01 00 FF FF FF FF` per block | fully transparent |
+| uncompressed + alpha | alpha zeroed | fully transparent |
+| `*_cull*` | (clip mask) | never touched |
+
+**DXT1 is never touched.** Tried twice on the live client, meshes broke both times:
+
+1. Zeroing a DXT1 block leaves `color0 == color1 == 0` at index 0 — **opaque black**.
+   It paints over the body instead of revealing it.
+2. BC1 *does* have a transparent encoding (`color0 <= color1` selects 3-colour mode
+   where index 3 is transparent — `00 00 01 00 FF FF FF FF`, byte-for-byte what the
+   2018 pack shipped in its stubs). Writing that at the correct live size **still**
+   broke meshes: first across all 157 DXT1 maps in the scan, then again with only the
+   pack's 15 hand-picked names.
+
+The block was right and the idea was still wrong. Transparency removes a painted layer
+only when the shader treats the map as an **overlay**. BDO uses DXT1 for **base diffuse**
+maps, and an alpha-tested base map that is fully transparent discards the whole mesh.
+Only alpha-carrying formats (DXT5/DXT3) can be blanked safely — those are true overlay
+layers, and zeroing their alpha makes them stop drawing without touching geometry.
+
+**Consequence, stated plainly:** built-in shorts that live on a DXT1 base map cannot be
+removed by texture censorship at all. That includes the ones under Ranger's
+`[Honor] Taritas Armor`. Removing those needs a remeshed garment — which is what the
+Midnight XYZW collections are, and that outfit is not one of the four they cover.
+
+`pew_00_lb_0033_dec.dds` — the layer that paints the shorts under Ranger's
+`[Honor] Taritas Armor` — is live **DXT5 1024² / 1 398 256 B**. It is now emitted as a
+correctly-sized transparent DXT5, so the shorts come off *and* the body underneath
+renders.
+
+### Measured result on this client
+
+| Tier | before | after |
+|---|---|---|
+| minimal | 3 stale copies | 1 authored + live rebuilds |
+| medium / high | 27 attempted, 25 destructive | **10 emitted** |
+| expanded | 450 emitted, 432 **zeroed** incl. 57 clip masks | **236 emitted** — 235 DXT5 transparent + 1 authored repaint, **0 clip masks** |
+
+Every emitted file decodes to transparent rather than to black.
+
+**Shrinking the emitted set requires a vanilla restore first.** Meta Injector updates
+the meta for every file it writes, so a re-inject correctly replaces anything the new
+run still emits. But a file the new run *omits* keeps whatever the previous run
+injected. Going from 393 files down to 249 leaves 144 stale blanks live unless the
+meta is restored first.
+
+### Documented
+`docs/TEXTURE-BLANKING-RULES.md` — the format rules, the DXT1 trap, why `*_cull*` is
+geometry, why the 2018 pack is not a source of files, the restore-before-shrinking
+workflow rule, the diagnosis checklist, and the four disproven theories so nobody
+re-runs them. `todo.txt` (the isolation checklist) is deleted; it is superseded.
+
+### Correction to the earlier report
+The "censorship priority 500 overwrites a Midnight XYZW cull" theory is **wrong** —
+Midnight ships none of the legacy filenames (checked all 27; zero collisions). The
+priority table is real but never fires here. The cause is stale pack files, not a
+layer conflict.
+
+### Also: the 3D vagina class picker no longer offers classes it will silently drop
+`Select-FemaleClasses` is shared between pubic hair and 3D vagina, but its labels were
+hardcoded for **pubes**: it listed all 19 females, tagged 5 as `native-bin` (the pubes
+native set, unrelated to genital meshes) and 9 as `EXPER`, and offered
+`[N] native bins only` / `[E] new females only`. Picking `[E]` in the 3D-vagina menu
+selected nine classes that have **no** authored mesh — all of them dropped a moment
+later with a "skipped" warning. Nothing was broken, but it read as if experimental
+cross-class support still existed. It does not; it was removed in 2.1.1.
+
+The picker now takes a `-Supported` list. In the 3D-vagina menu it shows only the 10
+classes that have an authored mesh, tags them `authored mesh`, and refuses `[N]`/`[E]`
+with a reason. The pubic-hair menu is unchanged.
+
+### Also: the pubic hair menu states the split up front
+It said "the 13 classes sharing one texture can only share a single style" without
+naming them, so which classes were individually styleable only became clear after
+picking. It now lists both groups by name before you choose, explains that the 13 share
+`phw_01_nude_0001`, and notes that separating them would need a material rename inside
+the body PAC — the change that made bodies invisible in 2.1.0. The group option is
+kept: it is the only way Sorceress, Valkyrie, Lahn, Mystic, Maehwa and Kunoichi can
+have pubic hair at all.
+
+### Also: the `[R]` recovery menu, 9 options down to 4
+It had grown overlapping and off-topic entries: `[V]` already offered to do `[1]`,
+`[5]` was literally "do 1 + 3", `[3]`/`[4]` were OptiScaler/DLSS features rather than
+game recovery, and `[6]` only printed a paragraph. The two genuinely different actions
+— *undo the game* vs *empty the build folder* — were not visually distinguished, which
+is the thing that actually needed to be obvious.
+
+```
+   [1] RESTORE GAME TO VANILLA      undo every change inside the game
+   [2] CLEAR STAGED MOD FILES       empty files_to_patch (does NOT touch the game)
+   [3] Vanilla meta backup / scan   -> [S] scan  [B] backup
+   [4] Undo experimental graphics   -> [U] uninstall  [R] restore backup
+   [0] Back
+```
+
+Nothing was removed. `[2]` now asks AIO-only vs everything instead of being two
+entries, the verify-game-files steps print automatically when a vanilla restore
+cannot complete, and each destructive branch states what it did *not* change.
+
+### What censorship removal is, and is not
+It only swaps **textures**. It never installs a nude body — that is Midnight
+(Suzu / TheGreatSage) and the genital packs. "Shorts gone but nothing underneath" was
+a destroyed map, not a half-working reveal. Keep Midnight and the genital pack on;
+censorship removal is only there to take the painted-on underwear off the outfits that
+have it baked into a decal layer.
+
+`off` remains the default in `config.example.json`.
+
+## v2.1.5 - 2026-08-06 - fix: genital packs no longer overwrite underwear hide
+
+### Empty body / invisible thighs under skirts with 3D vagina (or penis)
+User isolation: body OK with pubes alone; hole returned with **medium + 3D vagina**
+staged. Measured on Ranger in `files_to_patch`:
+
+| Path | Midnight | Genital (broken) |
+|------|----------|------------------|
+| `…/38_underwear/pew_00_uw_0001.pac` | **1051 B** dummy hide | **433698 B** full body (= nude PAC) |
+| Layer priority | 100 | **600 wins** |
+
+`copy_female_class` / `copy_male_class` had been copying the genital body PAC to
+**both** `nude/` and `armor/38_underwear/`. Underwear is a separate equip slot;
+stuffing a body mesh there defeats Midnight hide and breaks lower-body under
+garments. Fix: write **nude body only**. Tests assert zero `*uw_0001.pac` from
+genital apply.
+
+### Not fixed in this patch
+- Censorship **expanded** can still punch body (user-confirmed; leave **off**).
+- Medium alone was not isolated; keep medium optional after re-test.
+
 ## v2.1.4 - 2026-08-06 - fix: censorship "expanded" no longer blanks geometry clip masks
 
 ### The bug
@@ -49,7 +269,7 @@ The blanked textures are already inside an injected `PAD*.PAZ`, and the correcte
 simply *omits* them — omission cannot overwrite an existing entry. So a plain re-patch
 is not enough:
 
-1. `R` menu -> `V` — restore the vanilla meta snapshot
+1. `R` menu -> `[1]` — restore the vanilla meta snapshot
 2. re-run deploy -> PartCutGen -> Meta Injector
 
 ## v2.1.3 - 2026-08-06 - body size Max ceilings + vanilla clarity

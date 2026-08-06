@@ -20,12 +20,10 @@ The same idea applies to bulky **OptiScaler / Streamline** binaries under `exper
 | `Z:\Backup\BDO-mods-assets\` | **Secondary offline backup** (tools, heisha tree, older packs, full 7z copies) |
 | Git `main` branch | Scripts + docs + many `tools/` assets — **not** a substitute for `pack\` |
 
-### Known release assets (as of 2.1.2 maintenance)
+### Known release assets
 
-- **v2.0.9** had `BDO-AIO-v2.0.9-full.7z` (~221 MB compressed).
-- Later tags **without** a `-full.7z` asset are **source-only** — you still need a full archive or a local `pack\`.
-
-Always prefer the release that includes **`BDO-AIO-v…-full.7z`**.
+- Prefer the latest **`BDO-AIO-v*-full.7z`** (e.g. **v2.2.0**). Tags **without** a `-full.7z` asset are **source-only**.
+- Always prefer the release that includes **`BDO-AIO-v…-full.7z`**.
 
 ## Build a full offline archive (maintainer)
 
