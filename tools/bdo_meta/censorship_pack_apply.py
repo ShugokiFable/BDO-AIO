@@ -11,7 +11,8 @@ Tiers:
              found in live PAZ for ALL classes (including new outfits). Requires --paz.
 
 Expanded matches exact character/texture entries that look like built-in underwear
-paint (decals, under-layers, cull masks). Blanks keep the original file size.
+paint (decals, under-layers). Geometry clip masks (*_cull*) are never blanked —
+zeroing them culls the whole body under the garment. Blanks keep the original file size.
 """
 from __future__ import annotations
 
@@ -66,7 +67,6 @@ EXPAND_NAME_ANY = (
     "_under_",
     "underwear",
     "_uw_",  # rare as texture under character/texture
-    "_cull",  # classic Resorepless cull under-layer maps
     # decals that look like under-armor paint (class + lb/ub + dec)
     "_lb_",
     "_ub_",
@@ -78,6 +78,16 @@ EXPAND_NAME_SKIP = (
     "_ao.dds",
     "_w.dds",
 )
+
+# Never blanked, whatever else the name matches.
+#
+# "*_cull*" is a geometry clip mask, not painted-on censorship. blank_keep_size
+# holds the declared size but a zeroed DXT1 payload decodes to solid black, and a
+# black clip mask culls the entire body region under the garment -- the body
+# renders with a hole while separately-materialled pieces (boots) stay put. This
+# is what broke Ranger set 0274 in 2.1.3. Cull maps that genuinely need changing
+# are hand-authored images shipped through MEDIUM_HIGH_FILES.
+EXPAND_NAME_NEVER = ("_cull",)
 
 # Adult-only safety boundary. These names are never emitted by this tool even if
 # a loose texture token happens to match them.
@@ -128,10 +138,11 @@ def is_expand_candidate(folder: str, name: str) -> bool:
     # skip pure maps
     if any(name_l.endswith(s) for s in EXPAND_NAME_SKIP):
         return False
+    # clip masks must never be blanked, even when another rule below matches
+    if any(t in name_l for t in EXPAND_NAME_NEVER):
+        return False
     # under-layer / underwear texture names
     if any(t in name_l for t in ("underup", "_under_", "underwear", "_uw_")):
-        return True
-    if "_cull" in name_l and ("_lb_" in name_l or "_ub_" in name_l or "_sho_" in name_l):
         return True
     # lower/upper body *dec* (classic panty/underpaint decals) — not cloak/logo-only random dec
     if "_dec" in name_l and ("_lb_" in name_l or "_ub_" in name_l or "under" in name_l):

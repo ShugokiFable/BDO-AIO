@@ -7,7 +7,7 @@ Easy Windows menu for Black Desert Online client modding:
 - NVIDIA Profile Inspector `.nip` import  
 - Optional **EXPERIMENTAL / NOT SAFE** OptiScaler (menu **X**)
 
-Double-click **`START.bat`**. "3D" and "male" options may not work and cause some outfits to break.
+Double-click **`START.bat`**.
 
 ## GitHub clone vs full offline folder
 
@@ -220,6 +220,10 @@ Other official regions: Deploy -> PartCutGen -> canonical stage -> Meta Injector
 Client mods can break after patches and may violate game ToS. Use at your own risk.
 
 ## Changelog
+
+### v2.1.4 - 2026-08-06
+- **Fix: censorship `expanded` no longer blanks `*_cull*.dds` geometry clip masks.** Zeroed DXT1 cull maps decode to solid black and discard the whole body under the garment (Ranger set `0274` lost legs; boots stayed). Cull maps now never enter the blank path; 56 files revert to vanilla, authored `pdw_00_sho_0002_cull.dds` kept. **Re-apply needs R→V restore first** — omit cannot overwrite already-injected blanks.
+- Note: empty crotch under skirts with **3D vagina / pubic** on is a separate hypothesis (genital PAC wins nude + `uw_0001`); test those off after a clean restore.
 
 ### v2.1.3 - 2026-08-06
 - **Body size presets clarified as Max ceilings** (Min/Default/Max explained in menu). Vanilla stock from live PAZ: Default≈1.00, breasts Max≈1.25, thighs≈1.10–1.15, hips≈1.00–1.10.

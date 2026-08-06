@@ -1,5 +1,57 @@
 # Changelog
 
+## v2.1.4 - 2026-08-06 - fix: censorship "expanded" no longer blanks geometry clip masks
+
+### The bug
+One Ranger outfit rendered with no legs — torso floating, boots left standing on the
+ground. Reported on **Ranger set `0274`**.
+
+### Cause
+`censorship_pack_apply.py` treated `*_cull*.dds` as painted-on censorship and ran it
+through `blank_keep_size()`, which keeps the declared byte size but zeroes the image
+payload. A `_cull` map is not a decal — it is the **geometry clip mask** that decides
+which body texels survive underneath a garment. All 57 of these files are DXT1, and a
+zeroed DXT1 payload decodes to **solid black**, i.e. "cull everything". The whole body
+region under the garment was discarded, while separately-materialled pieces (boots)
+kept rendering where they were.
+
+This is a texture-side failure. It is *not* partcutdesc: PartCutGen only ever adds a
+`Disable` section, and every deployed Ranger garment was already in it.
+
+### Fix
+`_cull` is now in a new `EXPAND_NAME_NEVER` list, checked **before** the positive
+match rules so no other token can reach it. Cull maps that genuinely need changing are
+still shipped as hand-authored images through `MEDIUM_HIGH_FILES`.
+
+Exactly **57 staged files** change behaviour: 56 revert to vanilla, and
+`pdw_00_sho_0002_cull.dds` keeps its authored pack image. Nothing else in the
+`expanded` tier moves (377 underwear/decal textures are emitted as before).
+
+### Other sets that were silently at risk
+Same root cause, all now reverted to vanilla. Most were invisible because the garment
+already covered the culled area:
+
+| Class | Sets |
+|-------|------|
+| Ranger (`pew`) | `00_ub_0274` ← the reported break |
+| Lahn (`psw`) | `00_ub_0125`, `00_ub_0219`, `02_ub_0002`, `02_ub_0003` |
+| Dosa (`prsa`) | `00_lb_0002`, `00_ub_0002` |
+| Dark Knight (`pdw`) | `00_lb_0002`, `00_ub_0002_01`, `00_sho_0002_dm` |
+| Seraph (`pdkl`) | `00_ub_0001`, `00_ub_0001_01` |
+| Witch (`pww`) | `00_ub_0203`, `00_sho_0268` |
+| Valkyrie (`pvw`) | `10_lb_0097_01`, `10_lb_0097_02` |
+| Scholar (`pnyw`) | `00_ub_0001` |
+| male classes | `pgms_00_sho_0001`, `phm_10_sho_0083`, `ppm_00_ub_0268`, `pwm_00_ub_0232` |
+| NPC / boss | `m0166_desertboss`, `m0456_illezra` |
+
+### Re-applying
+The blanked textures are already inside an injected `PAD*.PAZ`, and the corrected stage
+simply *omits* them — omission cannot overwrite an existing entry. So a plain re-patch
+is not enough:
+
+1. `R` menu -> `V` — restore the vanilla meta snapshot
+2. re-run deploy -> PartCutGen -> Meta Injector
+
 ## v2.1.3 - 2026-08-06 - body size Max ceilings + vanilla clarity
 
 ### What the numbers mean
