@@ -51,7 +51,7 @@ Full table: [`docs/FEATURE-LABELS.md`](docs/FEATURE-LABELS.md)
 ### RESTORED (classic)
 | Area | Options |
 |------|---------|
-| **Body size limits** | Per-part maxes (breasts / thighs / butt) — presets or a custom `name:max` spec; never writes Default, never touches a bone's declared HeightAxis (bone length) |
+| **Body size limits** | Per-part maxes (breasts / thighs / butt). **Recommended no-clip: 1.37 / 1.30 / 1.18**. Butt hard-cap **1.18** (above = pyramid cheek mesh). Breasts may go to ~2.0–2.2 client-side if you accept clothing clip. Never writes Default; never touches HeightAxis (bone length). |
 | **Slot hide** | Gloves / boots / helmets / weapons / stockings |
 | **Pubic hair** | Per-class styles (`prefix=style`) — private-atlas classes styled in place, shared-atlas groups styled only when all sharers pick one style; texture-only, zero PAC writes |
 | **Censorship tiers** | minimal / medium / high texture packs |
@@ -220,6 +220,12 @@ Other official regions: Deploy -> PartCutGen -> canonical stage -> Meta Injector
 Client mods can break after patches and may violate game ToS. Use at your own risk.
 
 ## Changelog
+
+### v2.1.3 - 2026-08-06
+- **Body size recommended preset retuned for no clipping:** breasts **1.37** / thighs **1.30** / butt **1.18**.
+- **Butt hard cap 1.18** on all non-vanilla presets (above that BDO pyramids the lower cheek mesh). Custom mode warns and offers clamp.
+- **Breast guidance:** 1.37 no-clip · 1.8 good · 2.0 OK · ~2.2 max (client-side slider max only; may clip outfits).
+- mild = `1.80/1.30/1.18`, extreme = `2.00/1.50/1.18` (no more extreme butt 1.6).
 
 ### v2.1.2 - 2026-08-05
 - **In-game confirmed**: body sliders, pubic hair on the texture-only classes, and 3D vagina with the authored meshes.

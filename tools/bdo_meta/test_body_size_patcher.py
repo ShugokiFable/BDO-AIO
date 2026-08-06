@@ -163,8 +163,20 @@ class BodyPartSelectionTests(unittest.TestCase):
 
     def test_recommended_preset_matches_the_documented_ratio(self) -> None:
         self.assertEqual(
-            PRESETS["recommended"], {"breasts": 2.00, "thighs": 1.50, "butt": 1.40}
+            PRESETS["recommended"], {"breasts": 1.37, "thighs": 1.30, "butt": 1.18}
         )
+
+    def test_all_presets_keep_butt_at_or_below_hard_cap(self) -> None:
+        """BDO lower-cheek mesh pyramids above 1.18; no shipped preset exceeds it."""
+        for name, parts in PRESETS.items():
+            self.assertLessEqual(
+                parts["butt"],
+                1.18 if name != "vanilla" else 1.25,
+                msg=f"{name} butt {parts['butt']} exceeds allowed cap",
+            )
+        self.assertEqual(PRESETS["vanilla"]["butt"], 1.25)
+        for name in ("mild", "recommended", "extreme"):
+            self.assertEqual(PRESETS[name]["butt"], 1.18)
 
     def test_selection_never_leaks_into_unselected_bones(self) -> None:
         bones = build_bone_values({"breasts": {"max": 2.0}})

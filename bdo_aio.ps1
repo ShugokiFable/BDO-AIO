@@ -3,7 +3,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$Script:Version = '2.1.2'
+$Script:Version = '2.1.3'
 $Script:Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script:ConfigPath = Join-Path $Script:Root 'config.json'
 $Script:PackDir = Join-Path $Script:Root 'pack'
@@ -115,11 +115,15 @@ $Script:Config = $null
 #   pelvis, so they already inherit its scale.
 $Script:BodySizeParts = @('breasts', 'thighs', 'butt')
 
+# Measured no-clip defaults (user-confirmed in-game, 2.1.3):
+#   breasts 1.37 — zero outfit clip; higher is client-side only and may clip clothes
+#   thighs  1.30 — no thigh-on-thigh overlap; a little higher is usually OK
+#   butt    1.18 — HARD CAP. Above this the lower cheek mesh spikes like a pyramid.
 $Script:BodySizePresets = [ordered]@{
     'vanilla'     = @{ Label = 'Vanilla limits (1.25 / 1.25 / 1.25)'; Spec = 'breasts:1.25,thighs:1.25,butt:1.25' }
-    'mild'        = @{ Label = 'Mild unlock (1.75 / 1.35 / 1.20)'; Spec = 'breasts:1.75,thighs:1.35,butt:1.20' }
-    'recommended' = @{ Label = 'RECOMMENDED (breasts 2.0 / thighs 1.5 / butt 1.4)'; Spec = 'breasts:2.0,thighs:1.5,butt:1.4' }
-    'extreme'     = @{ Label = 'Extreme (3.0 / 2.0 / 1.6) — may clip badly'; Spec = 'breasts:3.0,thighs:2.0,butt:1.6' }
+    'mild'        = @{ Label = 'Larger breasts, safe lower body (1.80 / 1.30 / 1.18)'; Spec = 'breasts:1.80,thighs:1.30,butt:1.18' }
+    'recommended' = @{ Label = 'RECOMMENDED no-clip (1.37 / 1.30 / 1.18)'; Spec = 'breasts:1.37,thighs:1.30,butt:1.18' }
+    'extreme'     = @{ Label = 'High breasts (2.00 / 1.50 / 1.18) — breasts may clip clothes'; Spec = 'breasts:2.00,thighs:1.50,butt:1.18' }
 }
 
 $Script:BodySizeDefaultSpec = $Script:BodySizePresets['recommended'].Spec
@@ -325,7 +329,7 @@ function Load-Config {
             xyzwCollections = $true
             npiPath         = ''
             bodySizePreset  = 'recommended'
-            bodySizeParts   = 'breasts:2.0,thighs:1.5,butt:1.4'
+            bodySizeParts   = 'breasts:1.37,thighs:1.30,butt:1.18'
             hideGloves      = $false
             hideBoots       = $false
             hideHelmets     = $false
@@ -1645,17 +1649,33 @@ function Configure-BodySizeLimits {
     Write-Host '  legs / spine / arms were removed in 2.1.0: they scale bone LENGTH, which' -ForegroundColor DarkGray
     Write-Host '  is what made characters stretch. Unpicked parts stay byte-identical.' -ForegroundColor DarkGray
     Write-Host ''
+    Write-Host '  HOW THE SLIDER MAX WORKS (client-side)' -ForegroundColor White
+    Write-Host '  The patch only raises how far YOUR character creation / beauty salon' -ForegroundColor Gray
+    Write-Host '  sliders can go. It does not force everyone else to that size. Loading a' -ForegroundColor Gray
+    Write-Host '  saved preset that asks for 2.0 breasts while the max is 1.37 will show' -ForegroundColor Gray
+    Write-Host '  1.37 — the cap is real, and it is local to your client.' -ForegroundColor Gray
+    Write-Host ''
+    Write-Host '  SAFE RANGES (measured for mesh quality, not just "what the game allows")' -ForegroundColor White
+    Write-Host '    BREASTS  1.37  = zero outfit clipping (RECOMMENDED baseline)' -ForegroundColor Green
+    Write-Host '             1.80  = good larger look; may clip some clothes' -ForegroundColor Cyan
+    Write-Host '             2.00  = OK if you accept clipping / outfit-pick carefully' -ForegroundColor Cyan
+    Write-Host '             2.20  = practical max; above this is rarely worth it' -ForegroundColor Yellow
+    Write-Host '    THIGHS   1.30  = no thigh-on-thigh overlap (RECOMMENDED)' -ForegroundColor Green
+    Write-Host '             a little higher is usually fine if you want more' -ForegroundColor DarkGray
+    Write-Host '    BUTT     1.18  = HARD CAP. Do not go higher.' -ForegroundColor Red
+    Write-Host '             BDO''s ass slider is trash above this: the lower cheek' -ForegroundColor Yellow
+    Write-Host '             polygons spike into a pyramid. Keep butt at 1.18 always.' -ForegroundColor Yellow
+    Write-Host ''
     Write-Host ("  Current: " + (Format-BodySizeSpec (Get-BodySizeSpec))) -ForegroundColor DarkCyan
     Write-Host ''
 
-    Write-Host '  SIZE VALUES' -ForegroundColor White
+    Write-Host '  SIZE VALUES  (breasts / thighs / butt)' -ForegroundColor White
     Write-Host '    [1] vanilla       1.25 / 1.25 / 1.25   stock game' -ForegroundColor Cyan
-    Write-Host '    [2] mild          1.75 / 1.35 / 1.20' -ForegroundColor Cyan
-    Write-Host '    [3] recommended   2.00 / 1.50 / 1.40   RECOMMENDED' -ForegroundColor Green
-    Write-Host '    [4] extreme       3.00 / 2.00 / 1.60   may clip hard' -ForegroundColor Yellow
+    Write-Host '    [2] mild          1.80 / 1.30 / 1.18   larger breasts; may clip clothes' -ForegroundColor Cyan
+    Write-Host '    [3] recommended   1.37 / 1.30 / 1.18   NO CLIP  << default' -ForegroundColor Green
+    Write-Host '    [4] extreme       2.00 / 1.50 / 1.18   high breasts (clip likely); butt still 1.18' -ForegroundColor Yellow
     Write-Host '    [5] CUSTOM        pick parts and type each max yourself' -ForegroundColor Magenta
     Write-Host '    [6] Keep current' -ForegroundColor DarkGray
-    Write-Host '                      (order above: breasts / thighs / butt)' -ForegroundColor DarkGray
     $p = Read-Choice 'Choice' @('1', '2', '3', '4', '5', '6')
 
     switch ($p) {
@@ -1669,21 +1689,30 @@ function Configure-BodySizeLimits {
             Write-Info 'Answer y/n per part, then give that part its max. Parts you skip are'
             Write-Info 'not written at all, so they keep exactly the values the game shipped.'
             Write-Host ''
+            Write-Warn 'Butt above 1.18 spikes lower-cheek polygons. Stay at 1.18 unless you know you want that.'
+            Write-Host ''
             $base = Get-BodySizeSpec
             $chosen = [ordered]@{}
             $labels = @{
-                breasts = 'Breasts  (no length axis — safest to push, 2.0 suggested)'
-                thighs  = 'Thighs   (girth only; leg length stays vanilla, 1.5 suggested)'
-                butt    = 'Butt     (hip + pelvis together, 1.4 suggested — pelvis parents'
+                breasts = 'Breasts  (1.37 no-clip | 1.8 good | 2.0 OK | ~2.2 max — higher clips clothes)'
+                thighs  = 'Thighs   (1.30 no overlap; a little higher is usually fine)'
+                butt    = 'Butt     (HARD CAP 1.18 — hip+pelvis; above this = pyramid spike mesh)'
             }
-            $suggest = @{ breasts = 2.0; thighs = 1.5; butt = 1.4 }
+            $suggest = @{ breasts = 1.37; thighs = 1.30; butt = 1.18 }
             foreach ($part in $Script:BodySizeParts) {
                 Write-Host ('    ' + $labels[$part]) -ForegroundColor DarkGray
-                if ($part -eq 'butt') { Write-Host '               the whole lower body, so keep it modest)' -ForegroundColor DarkGray }
                 if (Read-YesNo ("Patch " + $part + "?") $true) {
                     $default = $suggest[$part]
                     if ($base -and $base.Contains($part)) { $default = $base[$part] }
-                    $chosen[$part] = Read-FloatValue -Prompt ("  " + $part + " max") -Default $default -MinAllowed 1.0 -MaxAllowed 5.0
+                    $val = Read-FloatValue -Prompt ("  " + $part + " max") -Default $default -MinAllowed 1.0 -MaxAllowed 5.0
+                    if ($part -eq 'butt' -and $val -gt 1.18) {
+                        Write-Warn 'Butt > 1.18 will pyramid-spike the lower cheek mesh on BDO.'
+                        if (-not (Read-YesNo 'Keep this butt value anyway?' $false)) {
+                            $val = 1.18
+                            Write-Info 'Clamped butt to 1.18.'
+                        }
+                    }
+                    $chosen[$part] = $val
                 }
                 Write-Host ''
             }

@@ -1,10 +1,9 @@
-# BDO-AIO 2.1.2
+# BDO-AIO 2.1.3
 
-- Parent: `v2.1.1` (`c7430f8`)
+- Parent: `v2.1.2`
 - Bump: patch
-- Status: **user-confirmed-runtime**
-  - body sliders: in-game confirmed
-  - pubic hair: in-game confirmed for the texture-only classes
-  - 3D vagina / penis: in-game confirmed on 2.1.2 (authored meshes only)
-  - the 2.1.1 crash was in the post-run message; generated output was never
-    affected
+- Status: **user-confirmed-runtime** (body size no-clip ranges)
+  - recommended preset retuned to breasts **1.37** / thighs **1.30** / butt **1.18**
+  - butt hard cap guidance: never above **1.18** (pyramid lower-cheek mesh)
+  - breasts: 1.37 no-clip; 1.8 good; 2.0 OK; ~2.2 practical max (client-side cap)
+  - thighs: 1.30 no overlap; small raises allowed

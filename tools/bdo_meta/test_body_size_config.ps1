@@ -26,9 +26,9 @@ foreach ($name in @('Get-BodySizeSpec', 'Format-BodySizeSpec', 'Get-BodySizeArg'
 $Script:BodySizeParts = @('breasts', 'thighs', 'butt')
 $Script:BodySizePresets = [ordered]@{
     'vanilla'     = @{ Label = 'v'; Spec = 'breasts:1.25,thighs:1.25,butt:1.25' }
-    'mild'        = @{ Label = 'm'; Spec = 'breasts:1.75,thighs:1.35,butt:1.20' }
-    'recommended' = @{ Label = 'r'; Spec = 'breasts:2.0,thighs:1.5,butt:1.4' }
-    'extreme'     = @{ Label = 'e'; Spec = 'breasts:3.0,thighs:2.0,butt:1.6' }
+    'mild'        = @{ Label = 'm'; Spec = 'breasts:1.80,thighs:1.30,butt:1.18' }
+    'recommended' = @{ Label = 'r'; Spec = 'breasts:1.37,thighs:1.30,butt:1.18' }
+    'extreme'     = @{ Label = 'e'; Spec = 'breasts:2.00,thighs:1.50,butt:1.18' }
 }
 $Script:BodySizeDefaultSpec = $Script:BodySizePresets['recommended'].Spec
 
@@ -141,7 +141,7 @@ Check 'bodySizeMax is dropped' (-not ($Script:Config.PSObject.Properties.Name -c
 
 $Script:Config = [pscustomobject]@{ bodySizeParts = 'breasts:2.0,thighs:1.5,butt:1.25'; bodySizePreset = 'recommended' }
 Update-BodySizeConfig
-Check 'a named preset re-derives its spec on version change' ($Script:Config.bodySizeParts -eq 'breasts:2.0,thighs:1.5,butt:1.4') ("got: " + $Script:Config.bodySizeParts)
+Check 'a named preset re-derives its spec on version change' ($Script:Config.bodySizeParts -eq 'breasts:1.37,thighs:1.30,butt:1.18') ("got: " + $Script:Config.bodySizeParts)
 
 $Script:Config = [pscustomobject]@{ bodySizeParts = 'breasts:2.5'; bodySizePreset = 'custom' }
 Update-BodySizeConfig
