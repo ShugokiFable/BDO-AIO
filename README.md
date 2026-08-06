@@ -7,7 +7,7 @@ Easy Windows menu for Black Desert Online client modding:
 - NVIDIA Profile Inspector `.nip` import  
 - Optional **EXPERIMENTAL / NOT SAFE** OptiScaler (menu **X**)
 
-Double-click **`START.bat`**.
+Double-click **`START.bat`**. "3D" and "male" options may not work and cause some outfits to break.
 
 ## GitHub clone vs full offline folder
 
