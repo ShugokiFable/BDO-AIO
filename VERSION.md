@@ -2,8 +2,8 @@
 
 - Parent: `v2.1.2`
 - Bump: patch
-- Status: **user-confirmed-runtime** (body size no-clip ranges)
-  - recommended preset retuned to breasts **1.37** / thighs **1.30** / butt **1.18**
-  - butt hard cap guidance: never above **1.18** (pyramid lower-cheek mesh)
-  - breasts: 1.37 no-clip; 1.8 good; 2.0 OK; ~2.2 practical max (client-side cap)
-  - thighs: 1.30 no overlap; small raises allowed
+- Body size: Max-ceiling presets with vanilla Min/Default/Max documented
+  - vanilla 1.25/1.15/1.10 (stock Max per part — not all 1.25)
+  - recommended 1.37/1.30/1.18 (no-clip)
+  - high 1.65/1.40/1.19 (breasts clip outfits; thighs may collide)
+  - extreme 2.00/1.45/1.20 (breasts clip; thighs collide; butt pyramid risk)

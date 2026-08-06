@@ -25,10 +25,10 @@ foreach ($name in @('Get-BodySizeSpec', 'Format-BodySizeSpec', 'Get-BodySizeArg'
 # Script-scope constants the functions rely on.
 $Script:BodySizeParts = @('breasts', 'thighs', 'butt')
 $Script:BodySizePresets = [ordered]@{
-    'vanilla'     = @{ Label = 'v'; Spec = 'breasts:1.25,thighs:1.25,butt:1.25' }
-    'mild'        = @{ Label = 'm'; Spec = 'breasts:1.80,thighs:1.30,butt:1.18' }
+    'vanilla'     = @{ Label = 'v'; Spec = 'breasts:1.25,thighs:1.15,butt:1.10' }
     'recommended' = @{ Label = 'r'; Spec = 'breasts:1.37,thighs:1.30,butt:1.18' }
-    'extreme'     = @{ Label = 'e'; Spec = 'breasts:2.00,thighs:1.50,butt:1.18' }
+    'high'        = @{ Label = 'h'; Spec = 'breasts:1.65,thighs:1.40,butt:1.19' }
+    'extreme'     = @{ Label = 'e'; Spec = 'breasts:2.00,thighs:1.45,butt:1.20' }
 }
 $Script:BodySizeDefaultSpec = $Script:BodySizePresets['recommended'].Spec
 
@@ -127,7 +127,7 @@ Write-Host 'Update-BodySizeConfig (2.1.0 migration)' -ForegroundColor White
 
 $Script:Config = [pscustomobject]@{
     bodySizeParts   = 'breasts,butt,thighs,arms,legs,pelvis,spine'
-    bodySizePreset  = 'high'
+    bodySizePreset  = 'legacy'   # unknown name -> force default recommended
     bodySizeMin     = 0.80
     bodySizeDefault = 1.05
     bodySizeMax     = 2.50

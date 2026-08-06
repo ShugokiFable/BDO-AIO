@@ -166,17 +166,20 @@ class BodyPartSelectionTests(unittest.TestCase):
             PRESETS["recommended"], {"breasts": 1.37, "thighs": 1.30, "butt": 1.18}
         )
 
-    def test_all_presets_keep_butt_at_or_below_hard_cap(self) -> None:
-        """BDO lower-cheek mesh pyramids above 1.18; no shipped preset exceeds it."""
-        for name, parts in PRESETS.items():
-            self.assertLessEqual(
-                parts["butt"],
-                1.18 if name != "vanilla" else 1.25,
-                msg=f"{name} butt {parts['butt']} exceeds allowed cap",
-            )
-        self.assertEqual(PRESETS["vanilla"]["butt"], 1.25)
-        for name in ("mild", "recommended", "extreme"):
-            self.assertEqual(PRESETS[name]["butt"], 1.18)
+    def test_preset_table_is_ordered_by_size(self) -> None:
+        # vanilla is per-part stock ceilings — NOT 1.25 for every bone
+        self.assertEqual(
+            PRESETS["vanilla"], {"breasts": 1.25, "thighs": 1.15, "butt": 1.10}
+        )
+        self.assertEqual(PRESETS["high"], {"breasts": 1.65, "thighs": 1.40, "butt": 1.19})
+        self.assertEqual(
+            PRESETS["extreme"], {"breasts": 2.00, "thighs": 1.45, "butt": 1.20}
+        )
+        self.assertLess(PRESETS["vanilla"]["breasts"], PRESETS["recommended"]["breasts"])
+        self.assertLess(PRESETS["vanilla"]["thighs"], PRESETS["recommended"]["thighs"])
+        self.assertLess(PRESETS["vanilla"]["butt"], PRESETS["recommended"]["butt"])
+        self.assertLess(PRESETS["recommended"]["breasts"], PRESETS["high"]["breasts"])
+        self.assertLess(PRESETS["high"]["breasts"], PRESETS["extreme"]["breasts"])
 
     def test_selection_never_leaks_into_unselected_bones(self) -> None:
         bones = build_bone_values({"breasts": {"max": 2.0}})

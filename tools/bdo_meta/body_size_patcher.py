@@ -55,17 +55,17 @@ PART_ALIASES = {
 # Removed in 2.1.0 -- accepted from old configs, reported, then ignored.
 RETIRED_PARTS = ("legs", "spine", "arms")
 
-# Per-part max. Measured no-clip defaults (2.1.3, user-confirmed in-game):
-#   breasts 1.37 — zero outfit clip; higher is client-side only and may clip
-#   thighs  1.30 — no thigh overlap; a little higher is usually fine
-#   butt    1.18 — HARD CAP (lower cheek mesh pyramids above this)
-# Breasts tolerate more push because the breast bone has no HeightAxis.
-# Butt is never raised past 1.18 in any shipped preset.
+# Per-part MAX CEILINGS only (widen Max=; never write Default/Min).
+#
+# Live vanilla Max is NOT one number for every part (restored NA client scan):
+#   breasts ~1.25 | thighs peak ~1.10-1.15 | hips ~1.00 or 1.10 | pelvis ~1.20
+# "vanilla" preset ≈ those stock ceilings (1.25 / 1.15 / 1.10). Widen-only.
+# recommended = user no-clip unlock. high/extreme may clip outfits (client-only).
 PRESETS = {
-    "vanilla": {"breasts": 1.25, "thighs": 1.25, "butt": 1.25},
-    "mild": {"breasts": 1.80, "thighs": 1.30, "butt": 1.18},
+    "vanilla": {"breasts": 1.25, "thighs": 1.15, "butt": 1.10},
     "recommended": {"breasts": 1.37, "thighs": 1.30, "butt": 1.18},
-    "extreme": {"breasts": 2.00, "thighs": 1.50, "butt": 1.18},
+    "high": {"breasts": 1.65, "thighs": 1.40, "butt": 1.19},
+    "extreme": {"breasts": 2.00, "thighs": 1.45, "butt": 1.20},
 }
 
 

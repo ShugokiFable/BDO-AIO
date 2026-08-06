@@ -1,30 +1,45 @@
 # Changelog
 
-## v2.1.3 - 2026-08-06 - body size no-clip presets
+## v2.1.3 - 2026-08-06 - body size Max ceilings + vanilla clarity
 
-### Recommended body size retuned (user-measured, no clipping)
-Default **recommended** preset is now:
+### What the numbers mean
+Each bone has **Min / Default / Max** scale multipliers in `customizationboneparamdesc`:
+- **Min** ≈ slider floor (vanilla often ~0.70–0.90)
+- **Default** ≈ neutral body (vanilla almost always **1.00**)
+- **Max** ≈ slider ceiling — **this is what presets patch** (widen-only)
+
+Presets do **not** force body size; you still set size in beauty salon / character creation. Caps are client-side only.
+
+### Vanilla Max ceilings (restored live PAZ scan, all classes)
+| Part | Typical stock Max |
+|------|-------------------|
+| Breasts | **~1.25** (majority of tags) |
+| Thighs | peak **~1.10–1.15** (varies; some classes already ~1.35 girth) |
+| Hips | **~1.00 or 1.10** (many lock at 1.00) |
+| Pelvis | peak median **~1.20** (grouped with hips as **butt**) |
+
+So **recommended butt 1.18 is above stock hip Max**, not below.
+
+### Presets (breasts / thighs / butt = Max ceilings)
+Stock Max is **different per body part** — not “vanilla = 1.25 everywhere.”
 
 ```text
-breasts:1.37  thighs:1.30  butt:1.18
+vanilla:     1.25 / 1.15 / 1.10   ~stock Max (breasts / thighs / hips)
+recommended: 1.37 / 1.30 / 1.18   NO CLIP unlock (default, user-measured)
+high:        1.65 / 1.40 / 1.19   breasts may clip outfits; thighs may collide
+extreme:     2.00 / 1.45 / 1.20   breasts clip outfits; thighs collide; butt pyramid risk
 ```
 
-| Part | Guidance |
-|------|----------|
-| **Breasts** | **1.37** = zero outfit clipping. **1.8** = good larger look (may clip some clothes). **2.0** = OK if you accept clipping / pick outfits carefully. **~2.2** practical max. The cap is **client-side** (beauty salon / character creation max only). |
-| **Thighs** | **1.30** = no thigh-on-thigh overlap. A little higher is usually fine. |
-| **Butt** | **1.18 HARD CAP.** Do not raise. BDO's ass slider spikes the lower cheek mesh into a pyramid above 1.18. Every non-vanilla shipped preset keeps butt at **1.18**. |
+Above recommended, problems are **per part** (not “everything clips clothes”):
+- **Breasts** → outfit clipping (pick outfits that won’t clip)
+- **Thighs** → thighs collide / overlap each other
+- **Butt** → lower cheek pyramid polygon spike (mesh looks broken)
 
-### Other presets
-- **mild**: `1.80 / 1.30 / 1.18` (larger breasts; lower body still safe)
-- **extreme**: `2.00 / 1.50 / 1.18` (high breasts may clip; butt still 1.18 — never 1.6+)
-- **vanilla**: unchanged `1.25 / 1.25 / 1.25`
-
-### Menu / custom mode
-Body-size menu now prints the safe ranges and client-side max explanation. Custom mode defaults to the no-clip numbers and **warns + offers clamp** if butt is typed above 1.18.
+### Menu
+Prints Min/Default/Max explanation, vanilla ceilings, recommended no-clip values, and per-part red/yellow tradeoff warnings on high/extreme. Custom mode reminds vanilla vs recommended numbers.
 
 ### Migration
-Users who still have `bodySizePreset = recommended` re-derive the new numbers on next load (named presets always re-apply their current table). Custom specs are left alone.
+Named presets re-derive their table on load. Custom specs are left alone.
 
 ## v2.1.2 - 2026-08-05 - crash fix after genital generation
 
