@@ -44,3 +44,6 @@ backup/
 # Maintainer-only site paste sheets (local machine paths; not for public repo)
 docs/LOVERSLAB-RESOURCE.md
 docs/UNDERTOW-RESOURCE.md
+
+# Maintainer changelog paste (local)
+docs/CHANGELOG-v*-PASTE.txt

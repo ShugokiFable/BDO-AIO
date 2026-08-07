@@ -1,245 +1,50 @@
-## 2.2.8 — Vanilla restore safety (body size clamp + presets)
-
-### Problem
-Restoring the client to vanilla is **required** before many Pearl Abyss / Steam updates
-(modded `pad00000.meta` / injected PAZ can stall the launcher). Characters saved **above**
-stock Max are then clamped on load; the game re-saves the clamped body. Local Beauty Album
-/ Customization presets can be overwritten with the same clamped data. Re-raising Max
-ceilings does not restore the old shape. Beauty Salon re-edits cost pearls.
-
-### Fix (warnings + snapshot only — no server recovery possible)
-- Shared safety notice on body-size menu and **[R] → [1]** (game-update context, clamp,
-  preset overwrite, free safe order).
-- Explicit confirm before dry-run: re-inject body size before loading oversized characters.
-- On every restore dry-run/apply: short reminder + copy-only snapshot of
-  `Documents\Black Desert\Customization` → `backup\Customization-<timestamp>\`.
-- Post-restore **NEXT STEPS** (update → re-inject → only then log mains).
-- Meta scan/backup no longer spam clamp warnings or Customization copies.
-
-## 2.2.7 — Body UNCUT removed
-
-`[2] -> [B] Body UNCUT` is gone, along with `body_uncut_targets.py`, its tests and its four
-config keys. It could not do the job it advertised.
-
-BDO declares cut-group membership two ways: per-file (`<CutType><File>`) and per-folder
-(`<BasicCutType><Path>`). PartCutGen's exclusion file only moves per-file entries into
-`Disable`. Vanilla garments are cut by folder — all 348 Ranger tops come from one `<Path>`
-line — so exclusions could never touch them. Measured: 80 files staged into `Disable`
-produced zero in-game change; deleting the single `<Path>` changed all 348 at once.
-
-The feature did work on Midnight/XYZW outfits, which carry real per-file cuts, but that is
-Midnight's own job and it already ships those exclusions.
-
-`tools/bdo_meta/partcut_recut.py` keeps the technique that does work — drop the folder
-`<Path>`, re-add per-file cuts for everything except a keep-list — as a dev-only tool.
-Confirmed in game: one outfit uncut, nothing else clipping. It is not wired into the
-launcher because it needs a hand-built outfit list per class and nothing in the game files
-marks a top as open-chested.
-
-Full mechanism, the three traps that cost two sessions of testing, and the unfinished
-Ranger Look 7 hunt: `dev/PARTCUT-MECHANICS.md`.
-
 # Changelog
 
-## v2.2.6 - 2026-08-06 - body uncut: stop guessing, registry only
+## v2.2.8 - 2026-08-07 - vanilla restore safety (body size + game updates)
 
-### Problem
-Free-list **skin-paint auto** uncut closed free character-creator Looks (e.g. #6, #8)
-→ breast clip. Only the free look with a real boob window (#7) should uncut.
-Look numbers are **preview slots**, not PAC IDs. Pearl (#3) stays with Midnight.
+**Public update from v2.2.0.** Focus: stop silent body-shape loss when you restore
+vanilla for launcher patches. Internal experiments between 2.2.1 and 2.2.7 never
+shipped on LoversLab / Undertow / GitHub Releases as full packages.
 
-### Research (Firecrawl)
-Public sites (BDOCodex, Garmoth, etc.) publish **display names / screenshots**, never
-`phw_02_ub_00xx` PAC stems. No complete free/pearl boob-window PAC catalog exists
-online. Documented in `dev/BOOB-WINDOW-OUTFITS.md`.
+### User-facing summary
+| Area | Change |
+|------|--------|
+| **Game updates** | Many patches stall if meta/PAZ is still modded. Use menu **[R] -> [1]** to go vanilla, update, then re-mod. |
+| **Body size safety** | Characters saved **above stock Max** are **clamped** if you load them while the client is vanilla. The game re-saves that shape. |
+| **Beauty Album / presets** | Local Customization presets can be **overwritten** with the same clamped data. Loading the preset after clamp often does nothing useful. |
+| **Warnings** | Full notice on body-size menu and **[R] -> [1]**; confirm before dry-run; post-restore next-steps list. |
+| **Backup** | On restore, copy-only snapshot of `Documents\Black Desert\Customization` into `backup\Customization-<timestamp>\` under the AIO folder. |
+| **Still included** | Everything from **2.2.0**: safe censorship, genital nude-only, body Max ceilings, Midnight wizard. |
 
-### Fix
-- Green **[1]** = `registry` mode → only `dev/boob_window_registry.txt`
-- Registry starts **empty** (clears previous free mass list on restage)
-- Discover the #7 stem with **[4] EXACT**, then append to the registry
-- Pearl still not auto-uncut by this tool
+### Safe free order (avoids paid Beauty Salon rebuild)
+1. While still modded: save Beauty Album / Customization presets you care about.
+2. Menu **[R] -> [1]** restore vanilla (AIO also snapshots Customization\).
+3. Let Pearl Abyss / Steam update or verify.
+4. **Do not** log characters that were above stock Max while the client is vanilla.
+5. Re-apply body size (+ other packs) -> PartCutGen -> Meta Injector first.
+6. Only then log those characters.
 
-## v2.2.5 - 2026-08-06 - body uncut: free windows only + material fix
+### Important limits
+- Re-raising Max ceilings after a clamp does **not** restore the old shape or size.
+- AIO cannot recover server-side appearance once it was re-saved clamped.
+- `backup\Customization-*` only helps if it was taken **before** clamp, and applying a
+  preset still usually needs the Beauty Salon (pearls / coupons).
+- Salon "lower sliders first" works but costs currency; the free path is the order above.
 
-### Intent
-Green **[1] Free chest WINDOWS** only uncuts **free / non-pearl** open tops.
-Pearl shop stays out of this tool — Midnight XYZW collections already remesh/uncut
-those. (A brief pearl auto-scan was tried and dropped as the recommended default.)
+### Not in this release
+- No free open-chest / cleavage remesh for vanilla outfits (Midnight/XYZW still handle remeshed pieces).
+- Experimental "Body UNCUT" menu never shipped publicly and is not present.
 
-### Fixes
-1. `pac_material_stem` prefers the garment's own class prefix (`phw` over `phm`)
-   so free female tops do not score male textures and get skipped.
-2. Free-list skin threshold default **0.28**.
-3. CLI `--pearl` remains available for power users; menu **[1]** never passes it.
+### Upgrade
+1. Download **BDO-AIO-v2.2.8-full.7z**
+2. Extract; **START.bat** -> **9** verify pack
+3. If old censorship is still injected: **[R]** restore vanilla first (read body-size warnings)
+4. Full Wizard / re-apply options -> PartCutGen -> Meta Injector
 
-Re-run **[B] → [1]** → PartCutGen → Meta Injector after updating.
+SHA256 (full archive):
+`2cc24893083102f3f84667a9d40ac0d5663350dcce9e6a7497e6af2b62e620e4`
 
-## v2.2.4 - 2026-08-06 - body uncut: free cleavage windows only
-
-### Problem
-Open free/non-pearl tops cut the nude body at the areola (BasicCutType Upperbody).
-Uncutting *every* ub fixed windows but poked breasts through closed armor. File-only
-body cuts (Event_UB) missed free outfits.
-
-### Fix
-`body_uncut_targets.py --mode windows` (menu **[B] → [1]** default):
-
-1. Midnight **free_items** = non-pearl upperbodies  
-2. PAC material → diffuse; score **painted skin in chest UV**  
-3. Only window candidates + File body cuts (Event_UB, …)  
-4. Closed free tops stay cut  
-
-Steps: `[2]→[B]→[1]` → PartCutGen → Meta Injector.
-
-No public name→PAC list exists online; detection is measured from free_items + live textures.
-
-## v2.2.3 - 2026-08-06 - body uncut picks its own targets
-
-2.2.2 shipped broken: the menu edits silently no-op'd on CRLF line endings, so `[4]`
-and `[L]` never appeared, and pressing an unlisted key hit `default { @() }` which
-PowerShell assigns as `$null` -- crashing on `$slots.Count`. Both fixed; the switch is
-now wrapped in `@(...)`.
-
-### No more blanket wildcards
-`<prefix>_*_ub_*` disabled every cut on every upperbody garment. New
-`tools/bdo_meta/body_uncut_targets.py` reads the **vanilla** partcutdesc out of the
-archives and emits one exact pattern per garment that has a **body** cut.
-
-Two reasons it must read the archive copy, not `files_to_patch/_PartCutGen`: once an
-uncut stage exists, PartCutGen has already moved those garments into `Disable` and
-their original cut type is gone.
-
-Most cut types on ub/lb clip hair or gear, not body -- `PKW_UpperbodyHair`,
-`PSW_Cloak`, `PVW_Hel`. Disabling one of those cannot restore a breast; it only lets
-hair through a top. They are now skipped.
-
-Ranger, measured:
-
-| Mode | garments touched |
-|---|---|
-| 2.2.1 `[2]` blanket ub+lb | 13 |
-| 2.2.3 auto ub+lb | **6** |
-| 2.2.3 auto ub (chest only) | **1** — `pew_10_ub_0002_e`, cut type `Event_UB` |
-
-So chest-only is now a single outfit per class. No list, no picking.
-
-### Still manual
-Nothing in the data distinguishes a chest-window top from a closed one -- both carry a
-body cut, and uncutting a closed top is what makes the breast clip through it. If auto
-mode still clips something, `[4] EXACT outfits only` takes a typed list and `[L]`
-prints the candidates.
-
-### Not findable online
-Searched. Community sites publish item names and screenshots, never model filenames
-like `pew_10_ub_0002_e`; no public name-to-PAC mapping exists. The client's own
-thumbnails cover 97 of 348 Ranger `ub` garments and none of the `_10_` Pearl ones,
-which are exactly the ones carrying cuts. Both routes are dead ends.
-
-## v2.2.2 - 2026-08-06 - body uncut: exact outfits instead of all-or-nothing
-
-2.2.1's `[2]` fixed the cleavage seam and caused breast clipping on other outfits.
-Both are the same thing: the cut exists because the top is meant to compress the body.
-Removing it everywhere helps the outfits with a window and hurts the ones without.
-
-### `[4] EXACT outfits only`
-Enter the specific garments to uncut. Everything else keeps its vanilla cut, so
-nothing else can clip.
-
-```
-Patterns: pew_10_ub_0334*, pew_10_ub_0098_a1*
-```
-
-### `[L] List every outfit that HAS a cut`
-Reads the generated `partcutdesc.xml` and prints, per class, every ub/lb garment with
-a live cut and which cut type it uses. **Body Uncut can only ever change these** —
-anything absent already renders the whole body, so no exclusion will alter it.
-
-The list is short. Ranger has **4** upperbody garments with a cut in the entire game:
-
-| Garment | Cut type |
-|---|---|
-| `pew_10_ub_0002_e` | `Event_UB` |
-| `pew_10_ub_0098_a1` | `PKW_UpperbodyHair` |
-| `pew_10_ub_0098_b1` | `PKW_UpperbodyHair` |
-| `pew_10_ub_0334` | `PKW_LowerbodyHair_01` |
-
-So identifying the window outfit is a 4-item bisect, not a research problem.
-
-### Why there is no list of "outfits with breast windows"
-Searched. Community sites publish item names and screenshots, never model filenames
-like `pew_10_ub_0334`, and no name-to-PAC mapping exists publicly. The client's own
-`character/texture_thumbnail` covers only 97 of 348 Ranger `ub` garments and **none**
-of the `_10_` Pearl ones — which are exactly the ones that carry cuts. Both routes are
-dead ends; the `[L]` inventory plus in-game checking is the working method.
-
-## v2.2.1 - 2026-08-06 - body UNCUT: real cleavage and crotch under outfits
-
-### The problem
-An open-cleavage top showed a hard seam where the areola should be. Not censorship
-(reproduced with it off, on a vanilla inject) and not a broken mesh.
-
-BDO **deletes body geometry under whatever a garment covers**. The skin you see inside
-a cleavage window is the garment's own baked chest, and your real breast is cut away at
-the seam. Vanilla garments don't model an areola, so the cut edge lands exactly there.
-Same reason built-in shorts survive under a skirt.
-
-No texture edit can fix this — the geometry is gone, not hidden. `censorship` only ever
-swaps textures, which is why every attempt through that path failed.
-
-### The fix
-New **`[B] Body UNCUT`** in the options hub. It writes
-`files_to_patch/_body_uncut/.partcutdesc_exclusions.txt`, which PartCutGen reads and
-turns into `Disable` entries — so the cut never happens and the nude body renders
-through the opening.
-
-This is the same mechanism the XYZW collections use for their remeshed outfits, applied
-to every outfit instead of the ~36 that ship one.
-
-| Choice | Slots | Effect |
-|---|---|---|
-| `[1]` | `ub` | chest only — safest, fixes cleavage |
-| `[2]` | `ub` `lb` | recommended: chest + crotch |
-| `[3]` | `ub lb sho cloak` | everything |
-| `[X]` | — | off, stage removed |
-
-Per-class via the usual female picker. Patterns are `<prefix>_*_<slot>_*`, e.g.
-`pew_*_ub_*` — no path prefix, which PartCutGen allows.
-
-### What it actually covers (measured on the live client)
-Body cuts are rarer than expected. Across all 19 female classes only **483** garments
-carry a cut that deletes chest or crotch:
-
-| Class | ub+lb cut garments | | Class | |
-|---|---|---|---|---|
-| Sorceress | 65 | | Mystic | 23 |
-| Dark Knight | 29 | | **Ranger** | **22** |
-| Lahn / Nova | 27 | | Guardian / Drakania | 22 |
-| Tamer / Maegu | 26 | | Kunoichi | 21 |
-| Valkyrie / Maehwa | 25 | | Witch | 20 |
-| Corsair / Woosa / Scholar | 24 | | Deadeye / Seraph | 17 / 14 |
-
-`[2]` covers every one of them.
-
-**Every Ranger garment with a cut is a `_10_` Pearl Shop outfit** — `ub_0002_e`,
-`ub_0098_a1/b1`, `ub_0334*` (9 upper) and `lb_0088*`, `lb_0089_a1..a4`, `lb_0093`,
-`lb_0095_a2`, `lb_0100_a1`, `lb_0101*` (13 lower). **Zero `pew_00_*` non-Pearl armors
-have a cut at all.**
-
-So if a seam shows on a *non-Pearl* outfit, there is no cut to disable and this option
-cannot reach it — that is the garment's own baked chest geometry ending, and only a
-remesh fixes it. Other slots do carry cuts (hel 1300, cloak 808, sho 554, hand 164) but
-those clip hair, back and forearms rather than chest or crotch; `[3]` adds sho + cloak.
-
-**Trade-off, stated plainly:** an unclipped body can poke through anything tighter than
-it. That is exactly why the game cuts. Chest is usually clean; tight lowerbody armor is
-where clipping shows. Smaller body-size sliders mean less of it. Start at `[1]`.
-
-Not a workaround via armor hide — the outfit stays on.
-
-`tools/bdo_meta/test_body_uncut.ps1` covers the pattern shape, the dot prefix that keeps
-the file out of the inject, no-BOM (PartCutGen would not match the first line), and that
-a rerun replaces rather than appends.
-
+---
 ## v2.2.0 - 2026-08-06 - minor: safe censorship + genital underwear fix + body Max presets
 
 **Consolidates everything since the last public full archive (v2.1.4)** into one
@@ -249,16 +54,16 @@ uploadable release for GitHub, Undertow, and LoversLab. Internal patches 2.1.5 a
 ### User-facing summary
 | Area | Change |
 |------|--------|
-| **Censorship tiers** | Live-client transparent blanks (DXT5/DXT3 only). No DXT1, no `*_cull*`, no 2018 4×4 stubs. Default stays **off**. |
-| **3D vagina / penis** | Nude body PAC only — never overwrite Midnight underwear hide. |
+| **Censorship tiers** | Live-client transparent blanks (DXT5/DXT3 only). No DXT1, no `*_cull*`, no 2018 4?-4 stubs. Default stays **off**. |
+| **3D vagina / penis** | Nude body PAC only ??" never overwrite Midnight underwear hide. |
 | **Body size** | Max ceilings: vanilla / recommended / high / extreme with per-part warnings. |
 | **UI** | Cleaner `[R]` recovery; honest genital class list; clearer pubic shared-atlas menu. |
-| **Docs** | `dev/TEXTURE-BLANKING-RULES.md` — what texture blanking can and cannot do vs XYZW remeshes. |
+| **Docs** | `dev/TEXTURE-BLANKING-RULES.md` ??" what texture blanking can and cannot do vs XYZW remeshes. |
 
 ### Censorship rewrite (was 2.1.4 + 2.1.6)
 - **2.1.4:** expanded live scan no longer blanks `*_cull*` clip masks (floating torso / no legs).
 - **2.1.6:** medium/high no longer copy stale Resorepless files. 25/27 legacy names were
-  wrong size or 4×4 stubs (Ranger medium hits were both 152 B stubs → “shorts gone, no body”).
+  wrong size or 4?-4 stubs (Ranger medium hits were both 152 B stubs ??' ???shorts gone, no body???).
   Blanks are rebuilt from live PAZ; only DXT5/DXT3 get transparent payloads; DXT1 refused
   (measured: even correct BC1 transparent blocks kill base-diffuse meshes on 2026 client).
 - Built-in shorts that are **mesh** or **DXT1 base** need a **XYZW remesh**, not censorship.
@@ -266,21 +71,21 @@ uploadable release for GitHub, Undertow, and LoversLab. Internal patches 2.1.5 a
 
 ### Genital safety (was 2.1.5)
 - Stopped writing full genital body PAC to `armor/38_underwear/*_uw_0001.pac`
-  (priority 600 was beating Midnight’s 1 KB dummy hide → empty under skirts).
+  (priority 600 was beating Midnight???s 1 KB dummy hide ??' empty under skirts).
 
 ### Body size Max ceilings (was 2.1.3)
 - Widen-only Max patch; never writes Default; never HeightAxis length.
-- Stock Max is **per part** (breasts ~1.25, thighs ~1.10–1.15, hips ~1.00–1.10) — not all 1.25.
-- Presets: **vanilla** 1.25/1.15/1.10 · **recommended** 1.37/1.30/1.18 · **high** 1.65/1.40/1.19 · **extreme** 2.00/1.45/1.20.
-- High/extreme warnings are **per-part** (outfit clip / thigh collide / butt pyramid), not generic “everything clips.”
+- Stock Max is **per part** (breasts ~1.25, thighs ~1.10??"1.15, hips ~1.00??"1.10) ??" not all 1.25.
+- Presets: **vanilla** 1.25/1.15/1.10 ?? **recommended** 1.37/1.30/1.18 ?? **high** 1.65/1.40/1.19 ?? **extreme** 2.00/1.45/1.20.
+- High/extreme warnings are **per-part** (outfit clip / thigh collide / butt pyramid), not generic ???everything clips.???
 
 ### UI / honesty (2.1.6)
-- Recovery menu 9 → 4 (restore game vs clear staged build).
-- 3D vagina picker: only 10 authored-mesh classes (no fake “new females” reuse).
+- Recovery menu 9 ??' 4 (restore game vs clear staged build).
+- 3D vagina picker: only 10 authored-mesh classes (no fake ???new females??? reuse).
 - Pubic menu lists private-atlas vs the 13 sharing `phw_01_nude_0001` before you pick.
 
 ### Tests
-- `tools/bdo_meta`: unit suite green (censorship format guards, genital nude-only, body size, inject priorities, …).
+- `tools/bdo_meta`: unit suite green (censorship format guards, genital nude-only, body size, inject priorities, ???).
 
 ### Not in this release / known limits
 - Nexus full nude AIO: still **not** TOS-safe to host there.
@@ -294,7 +99,7 @@ uploadable release for GitHub, Undertow, and LoversLab. Internal patches 2.1.5 a
 ### The bug
 Censorship tier **medium alone** still holed the lower body under a Ranger skirt
 (`[Honor] Taritas Armor`): the built-in shorts came off, but there was no ass, crotch
-or skin under them — just dead mesh. 2.1.4 only fixed the `expanded` **live scan**;
+or skin under them ??" just dead mesh. 2.1.4 only fixed the `expanded` **live scan**;
 `medium` / `high` never go through that path. They copy the legacy Resorepless list.
 
 ### Cause
@@ -304,24 +109,24 @@ Measured against the vanilla meta, 25 of the 27 medium entries do not:
 
 | Problem | Count | Example |
 |---------|-------|---------|
-| 4×4 DXT stub, 152–176 B | 9 | `pew_00_lb_0033_dec.dds` 152 B vs live **1 398 256 B** |
-| mipless — flat 1024² over the client's mipped map | 13 | `pdw_02_lb_0005.dds` 524 416 B vs live **699 192 B** |
+| 4?-4 DXT stub, 152??"176 B | 9 | `pew_00_lb_0033_dec.dds` 152 B vs live **1 398 256 B** |
+| mipless ??" flat 1024?? over the client's mipped map | 13 | `pdw_02_lb_0005.dds` 524 416 B vs live **699 192 B** |
 | geometry clip mask | 1 | `pdw_00_sho_0002_cull.dds` |
 | absent from live | 1 | `pbw_00_ub_0054_dm.dds` |
 | genuinely current | **2** | `pbw_00_ub_0054.dds`, `pnw_00_ub_0001_dec.dds` |
 
-Ranger gets exactly two files from medium — `pew_00_lb_0033_dec.dds` and
-`pew_02_lb_0001.dds` — and **both are 152-byte 4×4 stubs**. A 4×4 block does erase
+Ranger gets exactly two files from medium ??" `pew_00_lb_0033_dec.dds` and
+`pew_02_lb_0001.dds` ??" and **both are 152-byte 4?-4 stubs**. A 4?-4 block does erase
 the painted shorts, but it is then smeared across the entire lower-body UV, so the
 body renders as one dead colour. That is the "shorts gone, no ass or crotch, broken
 mesh" report exactly.
 
-### Fix — rebuild the blank from the live client, and only where blanking means transparent
+### Fix ??" rebuild the blank from the live client, and only where blanking means transparent
 Two changes, and the second is what makes the feature actually work.
 
-**1. `legacy_reject_reason()`** refuses any 2018 pack file that is a ≤4×4 / <256 B
+**1. `legacy_reject_reason()`** refuses any 2018 pack file that is a ???4?-4 / <256 B
 stub, a `*_cull*` clip mask, or a different byte size than the live block. Only 2 of
-27 survive (`pbw_00_ub_0054.dds`, `pnw_00_ub_0001_dec.dds`) — genuine authored
+27 survive (`pbw_00_ub_0054.dds`, `pnw_00_ub_0001_dec.dds`) ??" genuine authored
 repaints, which beat a blank and are still copied.
 
 **2. Everything it refuses is regenerated from the live PAZ** instead of being dropped,
@@ -330,17 +135,17 @@ is decided by the pixel format, via new `transparent_payload()`:
 
 | Live format | Encoding written | Decodes to |
 |---|---|---|
-| **DXT5 / DXT3** | payload zeroed → `alpha0=alpha1=0`, index 0 | fully transparent |
+| **DXT5 / DXT3** | payload zeroed ??' `alpha0=alpha1=0`, index 0 | fully transparent |
 | **DXT1** | `00 00 01 00 FF FF FF FF` per block | fully transparent |
 | uncompressed + alpha | alpha zeroed | fully transparent |
 | `*_cull*` | (clip mask) | never touched |
 
 **DXT1 is never touched.** Tried twice on the live client, meshes broke both times:
 
-1. Zeroing a DXT1 block leaves `color0 == color1 == 0` at index 0 — **opaque black**.
+1. Zeroing a DXT1 block leaves `color0 == color1 == 0` at index 0 ??" **opaque black**.
    It paints over the body instead of revealing it.
 2. BC1 *does* have a transparent encoding (`color0 <= color1` selects 3-colour mode
-   where index 3 is transparent — `00 00 01 00 FF FF FF FF`, byte-for-byte what the
+   where index 3 is transparent ??" `00 00 01 00 FF FF FF FF`, byte-for-byte what the
    2018 pack shipped in its stubs). Writing that at the correct live size **still**
    broke meshes: first across all 157 DXT1 maps in the scan, then again with only the
    pack's 15 hand-picked names.
@@ -348,16 +153,16 @@ is decided by the pixel format, via new `transparent_payload()`:
 The block was right and the idea was still wrong. Transparency removes a painted layer
 only when the shader treats the map as an **overlay**. BDO uses DXT1 for **base diffuse**
 maps, and an alpha-tested base map that is fully transparent discards the whole mesh.
-Only alpha-carrying formats (DXT5/DXT3) can be blanked safely — those are true overlay
+Only alpha-carrying formats (DXT5/DXT3) can be blanked safely ??" those are true overlay
 layers, and zeroing their alpha makes them stop drawing without touching geometry.
 
 **Consequence, stated plainly:** built-in shorts that live on a DXT1 base map cannot be
 removed by texture censorship at all. That includes the ones under Ranger's
-`[Honor] Taritas Armor`. Removing those needs a remeshed garment — which is what the
+`[Honor] Taritas Armor`. Removing those needs a remeshed garment ??" which is what the
 Midnight XYZW collections are, and that outfit is not one of the four they cover.
 
-`pew_00_lb_0033_dec.dds` — the layer that paints the shorts under Ranger's
-`[Honor] Taritas Armor` — is live **DXT5 1024² / 1 398 256 B**. It is now emitted as a
+`pew_00_lb_0033_dec.dds` ??" the layer that paints the shorts under Ranger's
+`[Honor] Taritas Armor` ??" is live **DXT5 1024?? / 1 398 256 B**. It is now emitted as a
 correctly-sized transparent DXT5, so the shorts come off *and* the body underneath
 renders.
 
@@ -367,7 +172,7 @@ renders.
 |---|---|---|
 | minimal | 3 stale copies | 1 authored + live rebuilds |
 | medium / high | 27 attempted, 25 destructive | **10 emitted** |
-| expanded | 450 emitted, 432 **zeroed** incl. 57 clip masks | **236 emitted** — 235 DXT5 transparent + 1 authored repaint, **0 clip masks** |
+| expanded | 450 emitted, 432 **zeroed** incl. 57 clip masks | **236 emitted** ??" 235 DXT5 transparent + 1 authored repaint, **0 clip masks** |
 
 Every emitted file decodes to transparent rather than to black.
 
@@ -378,13 +183,13 @@ injected. Going from 393 files down to 249 leaves 144 stale blanks live unless t
 meta is restored first.
 
 ### Documented
-`dev/TEXTURE-BLANKING-RULES.md` — the format rules, the DXT1 trap, why `*_cull*` is
+`dev/TEXTURE-BLANKING-RULES.md` ??" the format rules, the DXT1 trap, why `*_cull*` is
 geometry, why the 2018 pack is not a source of files, the restore-before-shrinking
 workflow rule, the diagnosis checklist, and the four disproven theories so nobody
 re-runs them. `todo.txt` (the isolation checklist) is deleted; it is superseded.
 
 ### Correction to the earlier report
-The "censorship priority 500 overwrites a Midnight XYZW cull" theory is **wrong** —
+The "censorship priority 500 overwrites a Midnight XYZW cull" theory is **wrong** ??"
 Midnight ships none of the legacy filenames (checked all 27; zero collisions). The
 priority table is real but never fires here. The cause is stale pack files, not a
 layer conflict.
@@ -394,7 +199,7 @@ layer conflict.
 hardcoded for **pubes**: it listed all 19 females, tagged 5 as `native-bin` (the pubes
 native set, unrelated to genital meshes) and 9 as `EXPER`, and offered
 `[N] native bins only` / `[E] new females only`. Picking `[E]` in the 3D-vagina menu
-selected nine classes that have **no** authored mesh — all of them dropped a moment
+selected nine classes that have **no** authored mesh ??" all of them dropped a moment
 later with a "skipped" warning. Nothing was broken, but it read as if experimental
 cross-class support still existed. It does not; it was removed in 2.1.1.
 
@@ -407,7 +212,7 @@ It said "the 13 classes sharing one texture can only share a single style" witho
 naming them, so which classes were individually styleable only became clear after
 picking. It now lists both groups by name before you choose, explains that the 13 share
 `phw_01_nude_0001`, and notes that separating them would need a material rename inside
-the body PAC — the change that made bodies invisible in 2.1.0. The group option is
+the body PAC ??" the change that made bodies invisible in 2.1.0. The group option is
 kept: it is the only way Sorceress, Valkyrie, Lahn, Mystic, Maehwa and Kunoichi can
 have pubic hair at all.
 
@@ -415,7 +220,7 @@ have pubic hair at all.
 It had grown overlapping and off-topic entries: `[V]` already offered to do `[1]`,
 `[5]` was literally "do 1 + 3", `[3]`/`[4]` were OptiScaler/DLSS features rather than
 game recovery, and `[6]` only printed a paragraph. The two genuinely different actions
-— *undo the game* vs *empty the build folder* — were not visually distinguished, which
+??" *undo the game* vs *empty the build folder* ??" were not visually distinguished, which
 is the thing that actually needed to be obvious.
 
 ```
@@ -431,7 +236,7 @@ entries, the verify-game-files steps print automatically when a vanilla restore
 cannot complete, and each destructive branch states what it did *not* change.
 
 ### What censorship removal is, and is not
-It only swaps **textures**. It never installs a nude body — that is Midnight
+It only swaps **textures**. It never installs a nude body ??" that is Midnight
 (Suzu / TheGreatSage) and the genital packs. "Shorts gone but nothing underneath" was
 a destroyed map, not a half-working reveal. Keep Midnight and the genital pack on;
 censorship removal is only there to take the painted-on underwear off the outfits that
@@ -447,7 +252,7 @@ staged. Measured on Ranger in `files_to_patch`:
 
 | Path | Midnight | Genital (broken) |
 |------|----------|------------------|
-| `…/38_underwear/pew_00_uw_0001.pac` | **1051 B** dummy hide | **433698 B** full body (= nude PAC) |
+| `???/38_underwear/pew_00_uw_0001.pac` | **1051 B** dummy hide | **433698 B** full body (= nude PAC) |
 | Layer priority | 100 | **600 wins** |
 
 `copy_female_class` / `copy_male_class` had been copying the genital body PAC to
@@ -463,13 +268,13 @@ genital apply.
 ## v2.1.4 - 2026-08-06 - fix: censorship "expanded" no longer blanks geometry clip masks
 
 ### The bug
-One Ranger outfit rendered with no legs — torso floating, boots left standing on the
+One Ranger outfit rendered with no legs ??" torso floating, boots left standing on the
 ground. Reported on **Ranger set `0274`**.
 
 ### Cause
 `censorship_pack_apply.py` treated `*_cull*.dds` as painted-on censorship and ran it
 through `blank_keep_size()`, which keeps the declared byte size but zeroes the image
-payload. A `_cull` map is not a decal — it is the **geometry clip mask** that decides
+payload. A `_cull` map is not a decal ??" it is the **geometry clip mask** that decides
 which body texels survive underneath a garment. All 57 of these files are DXT1, and a
 zeroed DXT1 payload decodes to **solid black**, i.e. "cull everything". The whole body
 region under the garment was discarded, while separately-materialled pieces (boots)
@@ -493,7 +298,7 @@ already covered the culled area:
 
 | Class | Sets |
 |-------|------|
-| Ranger (`pew`) | `00_ub_0274` ← the reported break |
+| Ranger (`pew`) | `00_ub_0274` ??? the reported break |
 | Lahn (`psw`) | `00_ub_0125`, `00_ub_0219`, `02_ub_0002`, `02_ub_0003` |
 | Dosa (`prsa`) | `00_lb_0002`, `00_ub_0002` |
 | Dark Knight (`pdw`) | `00_lb_0002`, `00_ub_0002_01`, `00_sho_0002_dm` |
@@ -506,19 +311,19 @@ already covered the culled area:
 
 ### Re-applying
 The blanked textures are already inside an injected `PAD*.PAZ`, and the corrected stage
-simply *omits* them — omission cannot overwrite an existing entry. So a plain re-patch
+simply *omits* them ??" omission cannot overwrite an existing entry. So a plain re-patch
 is not enough:
 
-1. `R` menu -> `[1]` — restore the vanilla meta snapshot
+1. `R` menu -> `[1]` ??" restore the vanilla meta snapshot
 2. re-run deploy -> PartCutGen -> Meta Injector
 
 ## v2.1.3 - 2026-08-06 - body size Max ceilings + vanilla clarity
 
 ### What the numbers mean
 Each bone has **Min / Default / Max** scale multipliers in `customizationboneparamdesc`:
-- **Min** ≈ slider floor (vanilla often ~0.70–0.90)
-- **Default** ≈ neutral body (vanilla almost always **1.00**)
-- **Max** ≈ slider ceiling — **this is what presets patch** (widen-only)
+- **Min** ??? slider floor (vanilla often ~0.70??"0.90)
+- **Default** ??? neutral body (vanilla almost always **1.00**)
+- **Max** ??? slider ceiling ??" **this is what presets patch** (widen-only)
 
 Presets do **not** force body size; you still set size in beauty salon / character creation. Caps are client-side only.
 
@@ -526,14 +331,14 @@ Presets do **not** force body size; you still set size in beauty salon / charact
 | Part | Typical stock Max |
 |------|-------------------|
 | Breasts | **~1.25** (majority of tags) |
-| Thighs | peak **~1.10–1.15** (varies; some classes already ~1.35 girth) |
+| Thighs | peak **~1.10??"1.15** (varies; some classes already ~1.35 girth) |
 | Hips | **~1.00 or 1.10** (many lock at 1.00) |
 | Pelvis | peak median **~1.20** (grouped with hips as **butt**) |
 
 So **recommended butt 1.18 is above stock hip Max**, not below.
 
 ### Presets (breasts / thighs / butt = Max ceilings)
-Stock Max is **different per body part** — not “vanilla = 1.25 everywhere.”
+Stock Max is **different per body part** ??" not ???vanilla = 1.25 everywhere.???
 
 ```text
 vanilla:     1.25 / 1.15 / 1.10   ~stock Max (breasts / thighs / hips)
@@ -542,10 +347,10 @@ high:        1.65 / 1.40 / 1.19   breasts may clip outfits; thighs may collide
 extreme:     2.00 / 1.45 / 1.20   breasts clip outfits; thighs collide; butt pyramid risk
 ```
 
-Above recommended, problems are **per part** (not “everything clips clothes”):
-- **Breasts** → outfit clipping (pick outfits that won’t clip)
-- **Thighs** → thighs collide / overlap each other
-- **Butt** → lower cheek pyramid polygon spike (mesh looks broken)
+Above recommended, problems are **per part** (not ???everything clips clothes???):
+- **Breasts** ??' outfit clipping (pick outfits that won???t clip)
+- **Thighs** ??' thighs collide / overlap each other
+- **Butt** ??' lower cheek pyramid polygon spike (mesh looks broken)
 
 ### Menu
 Prints Min/Default/Max explanation, vanilla ceilings, recommended no-clip values, and per-part red/yellow tradeoff warnings on high/extreme. Custom mode reminds vanilla vs recommended numbers.
@@ -592,12 +397,12 @@ are informational: PartCutGen finished with `Saving ... DONE` and wrote
 ### Work record
 - Task: audit 3D vagina / penis for the failure that made new-class bodies vanish
 - Runtime status: **tool-validated** against the shipped pack and the live game
-  index — not yet in-game confirmed
+  index ??" not yet in-game confirmed
 
 ### Genitals do NOT have the invisible-body bug
 Checked every generated PAC against the textures the pack ships: **0 missing
 materials**. Nothing is renamed to an invented material name, so no body can lose
-its material the way the pubic alias attempt did. Males were already safe — they
+its material the way the pubic alias attempt did. Males were already safe ??" they
 never had donor reuse, and the 6 classes without an authored mesh are skipped.
 
 ### But female donor reuse was wrong in a different way
@@ -606,9 +411,9 @@ material. Copying one under another class's filename hands that class the donor'
 body and the donor's skin. Measured against the shipped pack:
 
 - All 10 authored female meshes bind exactly the atlas their vanilla body already
-  uses — proof they were authored per class.
-- **7 of the 9 donor mappings bound a different atlas**: Deadeye→Ranger,
-  Woosa/Scholar/Nova→Witch, Drakania→Dark Knight, Guardian/Corsair→Sorceress.
+  uses ??" proof they were authored per class.
+- **7 of the 9 donor mappings bound a different atlas**: Deadeye??'Ranger,
+  Woosa/Scholar/Nova??'Witch, Drakania??'Dark Knight, Guardian/Corsair??'Sorceress.
   Only Maegu and Seraph happened to match. That is the original "Deadeye body
   looks stretched" report.
 
@@ -644,7 +449,7 @@ them correctly.
 - Model: Opus 5
 - Parent: v2.0.9
 - Task: sliders applied to bones the user never selected; bodies stretching (Deadeye)
-- Runtime status: **tool-validated** against the live client — not yet in-game confirmed
+- Runtime status: **tool-validated** against the live client ??" not yet in-game confirmed
 - Scope: body sliders only. Pubic-hair per-class leakage and 3D vagina are deferred.
 
 ### Root causes found in the live game data (75 `customizationboneparamdesc` files)
@@ -657,7 +462,7 @@ them correctly.
   UpperArm and Forearm; Hip and Breast declare none and are pure girth. Raising
   the length axis lengthens limbs and torso instead of thickening them.
 - **`legs` / `spine` / `arms` were selectable at all.** They are length-dominant,
-  and they are children of Pelvis, so they already inherit its scale — selecting
+  and they are children of Pelvis, so they already inherit its scale ??" selecting
   pelvis visibly moved them regardless of the parts list.
 
 ### Fixes
@@ -668,8 +473,8 @@ them correctly.
   below what the game already allowed.
 - Groups reduced to `breasts`, `thighs`, `butt`. `legs`/`spine`/`arms` retired.
 - **`butt` now patches hip *and* pelvis together.** Measured on the live client:
-  33 of 75 body files lock `Bip01 L/R Hip` Max at ≤1.00 — the butt slider cannot
-  move at all on those classes — and in all 33 the Pelvis still has headroom.
+  33 of 75 body files lock `Bip01 L/R Hip` Max at ???1.00 ??" the butt slider cannot
+  move at all on those classes ??" and in all 33 the Pelvis still has headroom.
   Patching hip alone was a no-op for ~44% of classes, matching the long-standing
   community reports that the butt slider does nothing on newer classes.
 - Each part carries its own max. Recommended preset: breasts 2.0, thighs 1.5,
@@ -681,14 +486,14 @@ them correctly.
   Legacy configs migrate once with a visible message. An empty or retired-only
   selection resolves to *nothing*, never to "all".
 
-### Per-class pubic hair (step 2) — root cause was never the filter
+### Per-class pubic hair (step 2) ??" root cause was never the filter
 Measured from the Midnight nude PACs, which store their texture name once each:
 
 - **13 of 19 female bodies render from ONE texture, `phw_01_nude_0001`**:
   Sorceress, Kunoichi, Mystic, Lahn, Nova, Maehwa, Drakania, Maegu, Woosa,
   Scholar, Valkyrie, Deadeye, Seraph. Only Tamer, Guardian, Dark Knight,
   Corsair, Ranger and Witch own their texture. Styling that one DDS styles all
-  13 no matter what the class filter says — the filter was working; the target
+  13 no matter what the class filter says ??" the filter was working; the target
   was shared. This also matches the community reports about shared body art.
 - `NEW_FEMALE_PUBIC_BASE` guessed a donor atlas per class and was **wrong for 7
   of 9 entries** (Guardian was sent to Sorceress's atlas although it owns
@@ -724,7 +529,7 @@ One-key preset giving each class a different look, from the user's breakdown:
 full bush (Guardian, Deadeye), medium bush (Witch, Ranger), small bush
 (Drakania, Sorceress), trimmed (Corsair, Mystic), thin landing strip (Seraph,
 Woosa), shaved innie (Valkyrie, Maehwa). Dark Knight, Kunoichi, Lahn, Maegu,
-Nova, Scholar and Tamer are **omitted on purpose** — the nude body is already
+Nova, Scholar and Tamer are **omitted on purpose** ??" the nude body is already
 bare, so leaving them unselected is both the correct look and free.
 
 Known asset limit: **Corsair cannot receive pubic hair.** Its texture is
@@ -732,7 +537,7 @@ Known asset limit: **Corsair cannot receive pubic hair.** Its texture is
 clear message, and the menu warns before generating.
 
 ### Restore to vanilla (new)
-Meta Injector does not edit the original PAZ archives — it appends new ones
+Meta Injector does not edit the original PAZ archives ??" it appends new ones
 (21 files, 1.83 GB on the test machine) and rewrites `pad00000.meta`. Restoring
 the meta alone therefore leaves multi-GB orphans behind, and any later inject
 re-applies from whatever is still in `files_to_patch`, which is why a restore
@@ -744,7 +549,7 @@ could look like it did nothing.
   verifies the result references exactly the backup's PAZ set. Dry run by default;
   the current meta is saved as `pad00000.pre-restore.meta` before writing.
 - A PAZ is deleted only when it is **both** unreferenced by the restored meta
-  **and** numbered above the highest number that meta references — vanilla ships
+  **and** numbered above the highest number that meta references ??" vanilla ships
   unreferenced low-numbered archives and those are never touched.
 - `backup` snapshots a pristine meta to `pad00000.BDOAIO-VANILLA.meta` with a
   sha256 sidecar, and **runs automatically before every inject**. It refuses to
@@ -759,15 +564,15 @@ could look like it did nothing.
   Windows PowerShell 5.1.
 - Live-asset body-size runs (read-only inputs, output to scratch), diffed
   byte-for-byte against the originals across all 75 files:
-  - recommended preset (breasts 2.0 / thighs 1.5 / butt 1.4) — all changes on
+  - recommended preset (breasts 2.0 / thighs 1.5 / butt 1.4) ??" all changes on
     the 7 selected bones only;
-  - `breasts:2.0` only — breast bones only, 0 elsewhere;
+  - `breasts:2.0` only ??" breast bones only, 0 elsewhere;
   - 0 files resized, 0 `Default` changed, 0 HeightAxis components changed,
     0 ranges narrowed, 0 bytes changed outside the selected tags.
 - Live-asset pubic runs (read-only inputs, output to scratch):
-  - shared-atlas partial selection (e.g. `pnw=full_bush` alone) — SKIPPED with
+  - shared-atlas partial selection (e.g. `pnw=full_bush` alone) ??" SKIPPED with
     the full sharer list, 0 files written;
-  - whole shared group with one style (13 classes, `full_bush`) — exactly one
+  - whole shared group with one style (13 classes, `full_bush`) ??" exactly one
     styled DDS generated, 0 PACs written, 0 other atlases touched.
 - Note: Guardian has no exact hair bin, so it uses a same-size donor bin (logged
   as `same-size donor`). Placement comes from `offsets.bin` and is unaffected.
@@ -940,8 +745,8 @@ could look like it did nothing.
 ### Per-class pubic hair / female genitals
 - Options **[6]** pubic: pick **which females** get the style (ALL / native bins / new females / custom multi-select / type prefixes)
 - Options **[V]** female 3D vagina: same per-class picker
-- Options **[F]** new-females package: choose which of Seraph/Deadeye/… to apply
-- CLI: `pubic_hair_apply.py --classes phw,pdkl` · `genital_pack_apply.py --female-classes …`
+- Options **[F]** new-females package: choose which of Seraph/Deadeye/??? to apply
+- CLI: `pubic_hair_apply.py --classes phw,pdkl` ?? `genital_pack_apply.py --female-classes ???`
 - Config: `pubicHairClasses`, `genitalFemaleClasses` (empty = all)
 
 ## v2.0.1
@@ -960,7 +765,7 @@ could look like it did nothing.
 - New tier **expanded**: legacy medium pack + live PAZ scan for under-armor / decal textures on all classes/outfits
 
 ### Polish
-- **[A] Apply ALL RESTORED choices** (body → slots → pubic → censorship → genitals; optional new-females)
+- **[A] Apply ALL RESTORED choices** (body ??' slots ??' pubic ??' censorship ??' genitals; optional new-females)
 - Full wizard can run RESTORED batch after Midnight
 - **Per-class slot hide** (`slotHideClasses` / `--classes phw,pdkl`)
 - **[H] Post-patch regen helper** (heisha `run.cmd` guidance)
@@ -979,14 +784,14 @@ could look like it did nothing.
 - Pubic: synthesize class-named nude DDS from preferred Midnight base + hair bin
 - CLI: `--new-females` on `genital_pack_apply.py` / `pubic_hair_apply.py`
 - Outputs: `_genital_EXPERIMENTAL_new_females`, `_pubic_hair_EXPERIMENTAL_new_females\<style>`
-- Honesty: replaces TGS/Suzu nude PAC for those classes — not original art
+- Honesty: replaces TGS/Suzu nude PAC for those classes ??" not original art
 
 ## v1.4.1
 
 ### Donor reuse is experimental and separated
 - Genitals / pubic hair default to **NATIVE (RESTORED)** only
 - **EXPERIMENTAL-REUSE** (donor mesh/bin for missing classes) is **opt-in** in Options **[6]** / **[V]**
-- Separate `files_to_patch` folders: `_…_RESTORED_native` vs `_…_EXPERIMENTAL_reuse`
+- Separate `files_to_patch` folders: `_???_RESTORED_native` vs `_???_EXPERIMENTAL_reuse`
 - Python CLIs: `--native-only` (default) vs `--all-classes` (experimental reuse)
 - Config keys: `pubicHairReuse`, `genitalReuse` (default `false`)
 - Docs/README/FEATURE-LABELS updated to match the app
