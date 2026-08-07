@@ -2,7 +2,7 @@
 config.json
 config.local.json
 
-# Huge third-party mod payload (~1.8GB, 40k+ files) — NOT for the git tree.
+# Huge third-party mod payload (~1.8GB, 40k+ files) â€” NOT for the git tree.
 # This is intentional so clones stay small. The pack is NOT discarded:
 #   - local working copy: pack\
 #   - cloud backup: GitHub Releases BDO-AIO-v*-full.7z
@@ -11,7 +11,7 @@ config.local.json
 pack/**
 !pack/README.md
 
-# Experimental OptiScaler / Streamline binaries (large) — same backup model
+# Experimental OptiScaler / Streamline binaries (large) â€” same backup model
 # Keep warnings/docs only in git; full binaries ride in *-full.7z releases
 experimental/dlss/OptiScaler/**
 experimental/dlss/Streamline/**
@@ -41,3 +41,6 @@ tools/bdo_meta/_pubic_test/
 tools/nvidiaProfileInspector/*.pdb
 
 backup/
+# Maintainer-only site paste sheets (local machine paths; not for public repo)
+docs/LOVERSLAB-RESOURCE.md
+docs/UNDERTOW-RESOURCE.md
