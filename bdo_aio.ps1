@@ -3,7 +3,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$Script:Version = '2.2.0'
+$Script:Version = '2.2.8'
 $Script:Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script:ConfigPath = Join-Path $Script:Root 'config.json'
 $Script:PackDir = Join-Path $Script:Root 'pack'
@@ -30,7 +30,8 @@ $Script:AioPatchFolderPrefixes = @(
     '_slot_hide_',
     '_pubic_hair_',
     '_censorship_',
-    '_genital_'
+    '_genital_',
+    '_body_uncut'
 )
 
 $Script:PubicHairStyles = [ordered]@{
@@ -351,7 +352,13 @@ function Select-FemaleClasses {
             }
         }
         default {
-            if ($DefaultAll -or [string]::IsNullOrWhiteSpace($CurrentCsv)) { return '' }
+            # Say what an unrecognised key did instead of silently picking for them.
+            if ($DefaultAll -or [string]::IsNullOrWhiteSpace($CurrentCsv)) {
+                Write-Warn ("'" + $pick + "' is not an option here - using ALL females.")
+                if ($limited) { return ($Supported -join ',') }
+                return ''
+            }
+            Write-Warn ("'" + $pick + "' is not an option here - keeping: " + (Format-ClassList $CurrentCsv))
             return $CurrentCsv
         }
     }
@@ -958,7 +965,7 @@ function Configure-ModChoices {
     Write-Host ''
 
     Write-Host '  --- RESTORED (classic / NATIVE assets) ---' -ForegroundColor Green
-    Write-Host '   [2] Body size LIMITS (min/default/max + custom)  [RESTORED]' -ForegroundColor Green
+    Write-Host '   [2] Body size LIMITS (Max ceilings only + custom)  [RESTORED]' -ForegroundColor Green
     Write-Host '   [3] Apply body size patch now' -ForegroundColor Green
     Write-Host '   [4] Slot hide (gloves/boots/helmets/weapons/stockings)  [RESTORED]' -ForegroundColor Green
     Write-Host '   [5] Apply slot hide patch now' -ForegroundColor Green
@@ -1703,6 +1710,8 @@ function Configure-BodySizeLimits {
     Write-Info 'Raises only the Max (slider ceiling). Default and Min are left alone.'
     Write-Warn 'After inject: beauty salon or new character. Tamer breasts often ignore this.'
     Write-Host ''
+    Write-BodySizeRestoreSafetyNotice -Context 'body-size'
+    Write-Host ''
     Write-Host '  WHAT THE NUMBERS MEAN (read this — easy to confuse)' -ForegroundColor White
     Write-Host '  Each body bone has three scale values in the game files:' -ForegroundColor Gray
     Write-Host '    Min     = lowest the slider can go  (vanilla often ~0.70-0.90)' -ForegroundColor DarkGray
@@ -2276,13 +2285,14 @@ function Apply-AllRestoredChoices {
         if (-not (Invoke-BdoPythonChecked -Arguments $pyArgs -Label 'Pubic hair patcher')) { $allOk = $false }
     }
 
-    # 4) Censorship
+
+    # 5) Censorship
     if ([string]$Script:Config.censorshipTier -and $Script:Config.censorshipTier -ne 'off') {
         Write-Info '--- Censorship ---'
         if (-not (Apply-CensorshipPack -NoPrompt)) { $allOk = $false }
     }
 
-    # 5) Genitals (native / all-class reuse)
+    # 6) Genitals (native / all-class reuse)
     $f3d = [bool]$Script:Config.female3dVagina
     $maleMode = [string]$Script:Config.malePenisMode
     if (($f3d -or ($maleMode -and $maleMode -ne 'none')) -and (Test-Path -LiteralPath $Script:GenitalRoot)) {
@@ -2431,10 +2441,102 @@ function Clear-AioGenerated {
     return $n
 }
 
+# Body-size Max caps raise slider ceilings only. When the client is restored to
+# stock Max, the GAME clamps any character saved above that ceiling and re-saves
+# the clamped body (server + often local Beauty Album / Customization presets).
+# Salon re-edits cost pearls; this notice exists so users never learn that the hard way.
+function Write-BodySizeRestoreSafetyNotice {
+    param(
+        # body-size | restore-menu | restore-confirm | restore-done
+        [string]$Context = 'restore-menu'
+    )
+
+    Write-Host '  BODY SIZE + VANILLA RESTORE  (read before game updates)' -ForegroundColor Yellow
+    Write-Host '  -------------------------------------------------------' -ForegroundColor DarkGray
+    Write-Host '  Why restore is sometimes REQUIRED' -ForegroundColor White
+    Write-Host '    Pearl Abyss / Steam updates often fail or "wall" if pad00000.meta' -ForegroundColor Gray
+    Write-Host '    and injected PAZ files are still modded. Menu [R] -> [1] is the' -ForegroundColor Gray
+    Write-Host '    supported way to go vanilla so the launcher can update, then re-mod.' -ForegroundColor Gray
+    Write-Host ''
+    Write-Host '  What the game will destroy if you load a character under stock Max' -ForegroundColor Red
+    Write-Host '    Characters saved ABOVE vanilla Max get CLAMPED on load. The clamped' -ForegroundColor Gray
+    Write-Host '    shape is re-saved (server-side). Re-raising caps later does NOT restore' -ForegroundColor Gray
+    Write-Host '    the old size or shape (long vs round, width axes, etc.).' -ForegroundColor Gray
+    Write-Host '    Local Beauty Album / Customization presets can be OVERWRITTEN with' -ForegroundColor Gray
+    Write-Host '    that same clamped data when the game re-saves them. Loading a preset' -ForegroundColor Gray
+    Write-Host '    after clamp often does nothing useful — it is already the bad data.' -ForegroundColor Gray
+    Write-Host '    Rebuilding the look usually needs Beauty Salon (pearls / coupons).' -ForegroundColor Gray
+    Write-Host ''
+    Write-Host '  SAFE order (free — avoids salon)' -ForegroundColor Green
+    Write-Host '    1. While STILL modded: save Beauty Album / Customization presets you care about.' -ForegroundColor Cyan
+    Write-Host '    2. [R] -> [1] restore vanilla  (AIO also copies Customization\ into backup\).' -ForegroundColor Cyan
+    Write-Host '    3. Let the game launcher update / verify.' -ForegroundColor Cyan
+    Write-Host '    4. Do NOT log into characters that were above stock Max while vanilla.' -ForegroundColor Cyan
+    Write-Host '       Prefer alts, or stay at character select, until step 5 is done.' -ForegroundColor Cyan
+    Write-Host '    5. Re-apply body size (and other packs) + PartCutGen + Meta Inject FIRST.' -ForegroundColor Cyan
+    Write-Host '    6. Only THEN log those characters. Caps must be live before they load.' -ForegroundColor Cyan
+    Write-Host ''
+    Write-Host '  If you already loaded them under vanilla: values are gone. AIO cannot recover' -ForegroundColor DarkYellow
+    Write-Host '  server data. backup\Customization-* only helps if it was taken BEFORE clamp' -ForegroundColor DarkYellow
+    Write-Host '  AND you re-inject caps, restore those files, then load the preset (salon).' -ForegroundColor DarkYellow
+
+    if ($Context -eq 'body-size') {
+        Write-Host ''
+        Write-Host '  Tip: keep body-size caps injected whenever you play oversized characters.' -ForegroundColor DarkGray
+        Write-Host '  Only strip them for updates / troubleshooting, using the order above.' -ForegroundColor DarkGray
+    }
+}
+
+function Backup-BdoCustomizationPresets {
+    # Copy-only snapshot. Never deletes live presets. Used before vanilla restore.
+    $custom = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Black Desert\Customization'
+    if (-not (Test-Path -LiteralPath $custom)) {
+        Write-Warn 'No Documents\Black Desert\Customization folder — nothing to snapshot.'
+        Write-Warn 'If you use Beauty Album presets, save them in-game while STILL modded next time.'
+        return $null
+    }
+    $dest = Join-Path $Script:Root ('backup\Customization-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+    try {
+        New-Item -ItemType Directory -Path $dest -Force | Out-Null
+        Copy-Item -Path (Join-Path $custom '*') -Destination $dest -Recurse -Force -ErrorAction Stop
+        Write-Ok ('Saved Beauty Album / Customization presets to:')
+        Write-Host ("    " + $dest) -ForegroundColor Cyan
+        Write-Host '  These files are only useful if the character was NOT already clamped.' -ForegroundColor DarkGray
+        Write-Host '  After re-injecting body size caps, you may copy them back over' -ForegroundColor DarkGray
+        Write-Host '  Documents\Black Desert\Customization\ then load the preset in-game.' -ForegroundColor DarkGray
+        return $dest
+    } catch {
+        Write-Warn ('Could not back up character presets: ' + $_.Exception.Message)
+        return $null
+    }
+}
+
 # Runs tools\bdo_meta\vanilla_restore.py against the configured PAZ folder.
 # Returns $true when the tool reported success.
 function Invoke-VanillaRestoreTool {
     param([string[]]$ToolArgs)
+
+    $isRestore = $false
+    foreach ($a in @($ToolArgs)) {
+        if ([string]$a -eq 'restore') { $isRestore = $true; break }
+    }
+
+    # Character / preset risk only applies when actually restoring game files.
+    # Full safety wall is shown by Restore-UneditedGameFiles / body-size menu —
+    # here we only snapshot presets and print a short reminder (scan/backup stay quiet).
+    if ($isRestore) {
+        if ([string]$Script:Config.bodySizeParts) {
+            Write-Warn 'Body size caps are configured. Do NOT load oversized characters while vanilla.'
+            Write-Warn 'Re-inject body size + Meta Inject BEFORE those characters log in.'
+        } else {
+            Write-Warn 'After restore: update the game if needed, then re-apply AIO before playing modded looks.'
+        }
+        Write-Host ''
+        Write-Host '  Snapshotting Beauty Album / Customization presets (copy-only)...' -ForegroundColor Yellow
+        [void](Backup-BdoCustomizationPresets)
+        Write-Host ''
+    }
+
     if (-not (Ensure-Python)) { return $false }
     $tool = Join-Path $Script:Root 'tools\bdo_meta\vanilla_restore.py'
     if (-not (Test-Path -LiteralPath $tool)) {
@@ -2459,8 +2561,12 @@ function Restore-UneditedGameFiles {
     Write-Banner
     Write-Host '  RESTORE / CLEAN AIO CHANGES' -ForegroundColor Yellow
     Write-Host '  ===========================' -ForegroundColor DarkGray
-    Write-Info 'For troubleshooting and making changes easily.'
+    Write-Info 'For game updates, troubleshooting, and making changes easily.'
     Write-Warn 'True vanilla meta may still need Pearl Abyss launcher Verify/Repair.'
+    Write-Host ''
+    Write-Host '  GAME UPDATES: if the launcher stalls / "walls" on patch, restore vanilla' -ForegroundColor Yellow
+    Write-Host '  first ([1]), let it update, then re-apply AIO. Body-size users: do NOT' -ForegroundColor Yellow
+    Write-Host '  load oversized characters while the client is still vanilla.' -ForegroundColor Yellow
     Write-Host ''
     if (-not (Test-IsPazFolder $Script:Config.pazFolder)) {
         Write-Err 'Set PAZ first.'
@@ -2477,7 +2583,7 @@ function Restore-UneditedGameFiles {
     Write-Host '   The game and the build folder are two separate things:' -ForegroundColor White
     Write-Host ''
     Write-Host '   [1] RESTORE GAME TO VANILLA' -ForegroundColor Green
-    Write-Host '       Undo every change inside the game. Dry run first, no Steam verify.' -ForegroundColor DarkGray
+    Write-Host '       Needed before many game updates. Dry run first. Snapshots presets.' -ForegroundColor DarkGray
     Write-Host '   [2] CLEAR STAGED MOD FILES' -ForegroundColor Yellow
     Write-Host '       Empty files_to_patch, the folder AIO builds into before injecting.' -ForegroundColor DarkGray
     Write-Host '       Does not touch the game -- run [1] for that.' -ForegroundColor DarkGray
@@ -2501,12 +2607,21 @@ function Restore-UneditedGameFiles {
     }
     if ($c -eq '1') {
         Write-Host ''
+        Write-BodySizeRestoreSafetyNotice -Context 'restore-menu'
+        Write-Host ''
+        if (-not (Read-YesNo 'I understand: re-inject body size BEFORE loading oversized characters. Continue to dry run?' $false)) {
+            Write-Info 'Cancelled — nothing changed.'
+            Pause-Any
+            return
+        }
+        Write-Host ''
         Write-Info 'DRY RUN first — nothing is changed yet:'
         Write-Host ''
         if (-not (Invoke-VanillaRestoreTool @('restore'))) { Pause-Any; return }
         Write-Host ''
         Write-Warn 'This restores pad00000.meta from the oldest backup and deletes the'
         Write-Warn 'injected PAZ files listed above. Your AIO settings are NOT touched.'
+        Write-Warn 'After apply: update the game if needed, then re-mod BEFORE playing mains.'
         if (-not (Read-YesNo 'Restore the game to vanilla now?' $false)) {
             Write-Info 'Cancelled — nothing changed.'
             Pause-Any
@@ -2522,7 +2637,14 @@ function Restore-UneditedGameFiles {
                 $n = Clear-AioGenerated
                 Write-Ok ("Cleared $n AIO folder(s).")
             }
-            Write-Info 'Your pubic/slider choices are kept in config.json — just re-apply and inject.'
+            Write-Host ''
+            Write-Host '  NEXT STEPS (order matters — do not skip)' -ForegroundColor Yellow
+            Write-Host '  1. Close BDO if open. Run Pearl Abyss / Steam update or verify if needed.' -ForegroundColor Cyan
+            Write-Host '  2. Do NOT log oversized body characters while still vanilla.' -ForegroundColor Red
+            Write-Host '  3. Re-open AIO: re-apply body size + other packs, PartCutGen, Meta Inject.' -ForegroundColor Cyan
+            Write-Host '  4. Only after inject succeeds, log those characters again.' -ForegroundColor Cyan
+            Write-Host '  Config (pubic/slider choices) is kept in config.json for re-apply.' -ForegroundColor DarkGray
+            Write-Host '  Preset snapshots (if any): backup\Customization-* under this AIO folder.' -ForegroundColor DarkGray
         } else {
             Write-Host ''
             Write-Warn 'If the meta cannot be restored from a backup, verify the game files:'

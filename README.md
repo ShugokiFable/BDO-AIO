@@ -44,10 +44,10 @@ Details: [`docs/FEATURE-LABELS.md`](docs/FEATURE-LABELS.md)
 ### RESTORED
 | Area | Options |
 |------|---------|
-| **Body size (Max ceilings only)** | Stock Max is **per part** (not all 1.25). **vanilla** 1.25/1.15/1.10 · **recommended** 1.37/1.30/1.18 · **high** 1.65/1.40/1.19 · **extreme** 2.00/1.45/1.20. Above recommended: breasts may clip outfits, thighs may collide, butt may pyramid. Never writes Default; never HeightAxis. |
+| **Body size (Max ceilings only)** | Stock Max is **per part** (not all 1.25). **vanilla** 1.25/1.15/1.10 · **recommended** 1.37/1.30/1.18 · **high** 1.65/1.40/1.19 · **extreme** 2.00/1.45/1.20. Above recommended: breasts may clip outfits, thighs may collide, butt may pyramid. Never writes Default; never HeightAxis. **Game updates:** restore vanilla first so the launcher can patch; then re-inject body size **before** logging characters saved above stock Max — the game clamps and re-saves them (and can overwrite Beauty Album presets). AIO snapshots `Documents\Black Desert\Customization` to `backup\` on restore. |
 | **Slot hide** | Gloves / boots / helmets / weapons / stockings |
 | **Pubic hair** | Per-class styles; shared-atlas classes share one style; texture-only |
-| **Censorship tiers** | Live-client **DXT5/DXT3** transparent blanks only. **Never DXT1**, never `*_cull*`, never 2018 stubs. Default **off**. Mesh/DXT1 built-in shorts need an XYZW remesh — see [`TEXTURE-BLANKING-RULES.md`](TEXTURE-BLANKING-RULES.md). |
+| **Censorship tiers** | Live-client **DXT5/DXT3** transparent blanks only. **Never DXT1**, never `*_cull*`, never 2018 stubs. Default **off**. Mesh/DXT1 built-in shorts need an XYZW remesh — see [`dev/TEXTURE-BLANKING-RULES.md`](dev/TEXTURE-BLANKING-RULES.md). |
 | **3D vagina / penis** | Authored meshes only (10 female + 6 male). **Nude body PAC only** — does not overwrite Midnight underwear hide. |
 
 ### Not supported
@@ -73,8 +73,8 @@ Details: [`docs/FEATURE-LABELS.md`](docs/FEATURE-LABELS.md)
 4. **`6`** Full Wizard (or configure options first) → pick live **PAZ** (`pad00000.meta` inside).
 5. Finish **PartCutGen**, then **Meta Injector**.
 6. Optional: **`G`** GameOption · **`N`** NVIDIA .nip · **`X`** OptiScaler (not safe).
-7. After official game patches: **`H`** (heisha regen if inject breaks) then wizard again.
-8. If an old censorship inject left holes: **`R`** restore vanilla meta, then re-apply.
+7. Before many official patches (launcher “wall” / stuck update): **`R` → [1]** restore vanilla, let the launcher update, then re-apply AIO. **Body-size users:** do **not** log characters saved above stock Max while the client is vanilla — the game clamps and re-saves them (and can overwrite Beauty Album presets). Re-inject body size **first**, then play. AIO snapshots `Documents\Black Desert\Customization` into `backup\` on restore.
+8. After a successful re-mod: **`H`** (heisha regen if inject breaks) then wizard again if needed. If an old censorship inject left holes: **`R`** restore vanilla meta, then re-apply (same body-size order as above).
 
 **Requires separately:** [BDO Toolkit 1.3.0](https://www.undertow.club/) for Meta Injector 1.4.1 (not bundled).
 
@@ -90,14 +90,16 @@ Details: [`docs/FEATURE-LABELS.md`](docs/FEATURE-LABELS.md)
 
 ```text
 BDO-AIO/
-  START.bat
+  START.bat              <- run this
   bdo_aio.ps1
+  README.md / CREDITS.md / CHANGELOG.md
   config.example.json    <- ship this; config.json is local-only
-  TEXTURE-BLANKING-RULES.md
   pack/                  <- REQUIRED (~1.5–2 GB) in full releases
   graphics/              <- GameOption patches + nvidia .nip
   tools/                 <- bdo_meta, NPI, restored assets
   experimental/dlss/     <- optional, dangerous
+  docs/                  <- site paste sheets (Undertow / LoversLab)
+  dev/                   <- maintainer / AI notes (not needed to play)
 ```
 
 ---

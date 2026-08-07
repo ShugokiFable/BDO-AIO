@@ -1,4 +1,244 @@
+## 2.2.8 — Vanilla restore safety (body size clamp + presets)
+
+### Problem
+Restoring the client to vanilla is **required** before many Pearl Abyss / Steam updates
+(modded `pad00000.meta` / injected PAZ can stall the launcher). Characters saved **above**
+stock Max are then clamped on load; the game re-saves the clamped body. Local Beauty Album
+/ Customization presets can be overwritten with the same clamped data. Re-raising Max
+ceilings does not restore the old shape. Beauty Salon re-edits cost pearls.
+
+### Fix (warnings + snapshot only — no server recovery possible)
+- Shared safety notice on body-size menu and **[R] → [1]** (game-update context, clamp,
+  preset overwrite, free safe order).
+- Explicit confirm before dry-run: re-inject body size before loading oversized characters.
+- On every restore dry-run/apply: short reminder + copy-only snapshot of
+  `Documents\Black Desert\Customization` → `backup\Customization-<timestamp>\`.
+- Post-restore **NEXT STEPS** (update → re-inject → only then log mains).
+- Meta scan/backup no longer spam clamp warnings or Customization copies.
+
+## 2.2.7 — Body UNCUT removed
+
+`[2] -> [B] Body UNCUT` is gone, along with `body_uncut_targets.py`, its tests and its four
+config keys. It could not do the job it advertised.
+
+BDO declares cut-group membership two ways: per-file (`<CutType><File>`) and per-folder
+(`<BasicCutType><Path>`). PartCutGen's exclusion file only moves per-file entries into
+`Disable`. Vanilla garments are cut by folder — all 348 Ranger tops come from one `<Path>`
+line — so exclusions could never touch them. Measured: 80 files staged into `Disable`
+produced zero in-game change; deleting the single `<Path>` changed all 348 at once.
+
+The feature did work on Midnight/XYZW outfits, which carry real per-file cuts, but that is
+Midnight's own job and it already ships those exclusions.
+
+`tools/bdo_meta/partcut_recut.py` keeps the technique that does work — drop the folder
+`<Path>`, re-add per-file cuts for everything except a keep-list — as a dev-only tool.
+Confirmed in game: one outfit uncut, nothing else clipping. It is not wired into the
+launcher because it needs a hand-built outfit list per class and nothing in the game files
+marks a top as open-chested.
+
+Full mechanism, the three traps that cost two sessions of testing, and the unfinished
+Ranger Look 7 hunt: `dev/PARTCUT-MECHANICS.md`.
+
 # Changelog
+
+## v2.2.6 - 2026-08-06 - body uncut: stop guessing, registry only
+
+### Problem
+Free-list **skin-paint auto** uncut closed free character-creator Looks (e.g. #6, #8)
+→ breast clip. Only the free look with a real boob window (#7) should uncut.
+Look numbers are **preview slots**, not PAC IDs. Pearl (#3) stays with Midnight.
+
+### Research (Firecrawl)
+Public sites (BDOCodex, Garmoth, etc.) publish **display names / screenshots**, never
+`phw_02_ub_00xx` PAC stems. No complete free/pearl boob-window PAC catalog exists
+online. Documented in `dev/BOOB-WINDOW-OUTFITS.md`.
+
+### Fix
+- Green **[1]** = `registry` mode → only `dev/boob_window_registry.txt`
+- Registry starts **empty** (clears previous free mass list on restage)
+- Discover the #7 stem with **[4] EXACT**, then append to the registry
+- Pearl still not auto-uncut by this tool
+
+## v2.2.5 - 2026-08-06 - body uncut: free windows only + material fix
+
+### Intent
+Green **[1] Free chest WINDOWS** only uncuts **free / non-pearl** open tops.
+Pearl shop stays out of this tool — Midnight XYZW collections already remesh/uncut
+those. (A brief pearl auto-scan was tried and dropped as the recommended default.)
+
+### Fixes
+1. `pac_material_stem` prefers the garment's own class prefix (`phw` over `phm`)
+   so free female tops do not score male textures and get skipped.
+2. Free-list skin threshold default **0.28**.
+3. CLI `--pearl` remains available for power users; menu **[1]** never passes it.
+
+Re-run **[B] → [1]** → PartCutGen → Meta Injector after updating.
+
+## v2.2.4 - 2026-08-06 - body uncut: free cleavage windows only
+
+### Problem
+Open free/non-pearl tops cut the nude body at the areola (BasicCutType Upperbody).
+Uncutting *every* ub fixed windows but poked breasts through closed armor. File-only
+body cuts (Event_UB) missed free outfits.
+
+### Fix
+`body_uncut_targets.py --mode windows` (menu **[B] → [1]** default):
+
+1. Midnight **free_items** = non-pearl upperbodies  
+2. PAC material → diffuse; score **painted skin in chest UV**  
+3. Only window candidates + File body cuts (Event_UB, …)  
+4. Closed free tops stay cut  
+
+Steps: `[2]→[B]→[1]` → PartCutGen → Meta Injector.
+
+No public name→PAC list exists online; detection is measured from free_items + live textures.
+
+## v2.2.3 - 2026-08-06 - body uncut picks its own targets
+
+2.2.2 shipped broken: the menu edits silently no-op'd on CRLF line endings, so `[4]`
+and `[L]` never appeared, and pressing an unlisted key hit `default { @() }` which
+PowerShell assigns as `$null` -- crashing on `$slots.Count`. Both fixed; the switch is
+now wrapped in `@(...)`.
+
+### No more blanket wildcards
+`<prefix>_*_ub_*` disabled every cut on every upperbody garment. New
+`tools/bdo_meta/body_uncut_targets.py` reads the **vanilla** partcutdesc out of the
+archives and emits one exact pattern per garment that has a **body** cut.
+
+Two reasons it must read the archive copy, not `files_to_patch/_PartCutGen`: once an
+uncut stage exists, PartCutGen has already moved those garments into `Disable` and
+their original cut type is gone.
+
+Most cut types on ub/lb clip hair or gear, not body -- `PKW_UpperbodyHair`,
+`PSW_Cloak`, `PVW_Hel`. Disabling one of those cannot restore a breast; it only lets
+hair through a top. They are now skipped.
+
+Ranger, measured:
+
+| Mode | garments touched |
+|---|---|
+| 2.2.1 `[2]` blanket ub+lb | 13 |
+| 2.2.3 auto ub+lb | **6** |
+| 2.2.3 auto ub (chest only) | **1** — `pew_10_ub_0002_e`, cut type `Event_UB` |
+
+So chest-only is now a single outfit per class. No list, no picking.
+
+### Still manual
+Nothing in the data distinguishes a chest-window top from a closed one -- both carry a
+body cut, and uncutting a closed top is what makes the breast clip through it. If auto
+mode still clips something, `[4] EXACT outfits only` takes a typed list and `[L]`
+prints the candidates.
+
+### Not findable online
+Searched. Community sites publish item names and screenshots, never model filenames
+like `pew_10_ub_0002_e`; no public name-to-PAC mapping exists. The client's own
+thumbnails cover 97 of 348 Ranger `ub` garments and none of the `_10_` Pearl ones,
+which are exactly the ones carrying cuts. Both routes are dead ends.
+
+## v2.2.2 - 2026-08-06 - body uncut: exact outfits instead of all-or-nothing
+
+2.2.1's `[2]` fixed the cleavage seam and caused breast clipping on other outfits.
+Both are the same thing: the cut exists because the top is meant to compress the body.
+Removing it everywhere helps the outfits with a window and hurts the ones without.
+
+### `[4] EXACT outfits only`
+Enter the specific garments to uncut. Everything else keeps its vanilla cut, so
+nothing else can clip.
+
+```
+Patterns: pew_10_ub_0334*, pew_10_ub_0098_a1*
+```
+
+### `[L] List every outfit that HAS a cut`
+Reads the generated `partcutdesc.xml` and prints, per class, every ub/lb garment with
+a live cut and which cut type it uses. **Body Uncut can only ever change these** —
+anything absent already renders the whole body, so no exclusion will alter it.
+
+The list is short. Ranger has **4** upperbody garments with a cut in the entire game:
+
+| Garment | Cut type |
+|---|---|
+| `pew_10_ub_0002_e` | `Event_UB` |
+| `pew_10_ub_0098_a1` | `PKW_UpperbodyHair` |
+| `pew_10_ub_0098_b1` | `PKW_UpperbodyHair` |
+| `pew_10_ub_0334` | `PKW_LowerbodyHair_01` |
+
+So identifying the window outfit is a 4-item bisect, not a research problem.
+
+### Why there is no list of "outfits with breast windows"
+Searched. Community sites publish item names and screenshots, never model filenames
+like `pew_10_ub_0334`, and no name-to-PAC mapping exists publicly. The client's own
+`character/texture_thumbnail` covers only 97 of 348 Ranger `ub` garments and **none**
+of the `_10_` Pearl ones — which are exactly the ones that carry cuts. Both routes are
+dead ends; the `[L]` inventory plus in-game checking is the working method.
+
+## v2.2.1 - 2026-08-06 - body UNCUT: real cleavage and crotch under outfits
+
+### The problem
+An open-cleavage top showed a hard seam where the areola should be. Not censorship
+(reproduced with it off, on a vanilla inject) and not a broken mesh.
+
+BDO **deletes body geometry under whatever a garment covers**. The skin you see inside
+a cleavage window is the garment's own baked chest, and your real breast is cut away at
+the seam. Vanilla garments don't model an areola, so the cut edge lands exactly there.
+Same reason built-in shorts survive under a skirt.
+
+No texture edit can fix this — the geometry is gone, not hidden. `censorship` only ever
+swaps textures, which is why every attempt through that path failed.
+
+### The fix
+New **`[B] Body UNCUT`** in the options hub. It writes
+`files_to_patch/_body_uncut/.partcutdesc_exclusions.txt`, which PartCutGen reads and
+turns into `Disable` entries — so the cut never happens and the nude body renders
+through the opening.
+
+This is the same mechanism the XYZW collections use for their remeshed outfits, applied
+to every outfit instead of the ~36 that ship one.
+
+| Choice | Slots | Effect |
+|---|---|---|
+| `[1]` | `ub` | chest only — safest, fixes cleavage |
+| `[2]` | `ub` `lb` | recommended: chest + crotch |
+| `[3]` | `ub lb sho cloak` | everything |
+| `[X]` | — | off, stage removed |
+
+Per-class via the usual female picker. Patterns are `<prefix>_*_<slot>_*`, e.g.
+`pew_*_ub_*` — no path prefix, which PartCutGen allows.
+
+### What it actually covers (measured on the live client)
+Body cuts are rarer than expected. Across all 19 female classes only **483** garments
+carry a cut that deletes chest or crotch:
+
+| Class | ub+lb cut garments | | Class | |
+|---|---|---|---|---|
+| Sorceress | 65 | | Mystic | 23 |
+| Dark Knight | 29 | | **Ranger** | **22** |
+| Lahn / Nova | 27 | | Guardian / Drakania | 22 |
+| Tamer / Maegu | 26 | | Kunoichi | 21 |
+| Valkyrie / Maehwa | 25 | | Witch | 20 |
+| Corsair / Woosa / Scholar | 24 | | Deadeye / Seraph | 17 / 14 |
+
+`[2]` covers every one of them.
+
+**Every Ranger garment with a cut is a `_10_` Pearl Shop outfit** — `ub_0002_e`,
+`ub_0098_a1/b1`, `ub_0334*` (9 upper) and `lb_0088*`, `lb_0089_a1..a4`, `lb_0093`,
+`lb_0095_a2`, `lb_0100_a1`, `lb_0101*` (13 lower). **Zero `pew_00_*` non-Pearl armors
+have a cut at all.**
+
+So if a seam shows on a *non-Pearl* outfit, there is no cut to disable and this option
+cannot reach it — that is the garment's own baked chest geometry ending, and only a
+remesh fixes it. Other slots do carry cuts (hel 1300, cloak 808, sho 554, hand 164) but
+those clip hair, back and forearms rather than chest or crotch; `[3]` adds sho + cloak.
+
+**Trade-off, stated plainly:** an unclipped body can poke through anything tighter than
+it. That is exactly why the game cuts. Chest is usually clean; tight lowerbody armor is
+where clipping shows. Smaller body-size sliders mean less of it. Start at `[1]`.
+
+Not a workaround via armor hide — the outfit stays on.
+
+`tools/bdo_meta/test_body_uncut.ps1` covers the pattern shape, the dot prefix that keeps
+the file out of the inject, no-BOM (PartCutGen would not match the first line), and that
+a rerun replaces rather than appends.
 
 ## v2.2.0 - 2026-08-06 - minor: safe censorship + genital underwear fix + body Max presets
 
@@ -13,7 +253,7 @@ uploadable release for GitHub, Undertow, and LoversLab. Internal patches 2.1.5 a
 | **3D vagina / penis** | Nude body PAC only — never overwrite Midnight underwear hide. |
 | **Body size** | Max ceilings: vanilla / recommended / high / extreme with per-part warnings. |
 | **UI** | Cleaner `[R]` recovery; honest genital class list; clearer pubic shared-atlas menu. |
-| **Docs** | `TEXTURE-BLANKING-RULES.md` — what texture blanking can and cannot do vs XYZW remeshes. |
+| **Docs** | `dev/TEXTURE-BLANKING-RULES.md` — what texture blanking can and cannot do vs XYZW remeshes. |
 
 ### Censorship rewrite (was 2.1.4 + 2.1.6)
 - **2.1.4:** expanded live scan no longer blanks `*_cull*` clip masks (floating torso / no legs).
@@ -138,7 +378,7 @@ injected. Going from 393 files down to 249 leaves 144 stale blanks live unless t
 meta is restored first.
 
 ### Documented
-`docs/TEXTURE-BLANKING-RULES.md` — the format rules, the DXT1 trap, why `*_cull*` is
+`dev/TEXTURE-BLANKING-RULES.md` — the format rules, the DXT1 trap, why `*_cull*` is
 geometry, why the 2018 pack is not a source of files, the restore-before-shrinking
 workflow rule, the diagnosis checklist, and the four disproven theories so nobody
 re-runs them. `todo.txt` (the isolation checklist) is deleted; it is superseded.

@@ -1,0 +1,8 @@
+### BDO-AIO Look 7 (Ranger CC free preview)
+### Display name: [Ranger] Zereth / Zereth Armor
+### Type: free equipment (mob drops) — NOT Pearl Shop
+### Body UNCUT / partcut Disable: DOES NOT fix areola (nuclear 357 ub test)
+### Next: remesh PAC for Zereth chest when stem is mapped
+### PAC stem: unknown (not English filename). Candidates: free PHW phw_0*_ub_*
+### Ref: https://bdo.mmo-fashion.com/ranger-zereth/
+### Screenshots: 2026-08-06_189459295.PNG, 2026-08-06_189461102.PNG

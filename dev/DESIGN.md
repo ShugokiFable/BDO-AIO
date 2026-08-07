@@ -13,4 +13,4 @@ One unzippable folder for end users: menu + bundled Midnight content + PartCutGe
 - Python 3 on PATH
 
 ## Publish
-See PUBLISH.md. Use menu [9] to verify pack size (~1.5-2 GB) before shipping.
+See `PUBLISH.md` in this folder. Use menu [9] to verify pack size (~1.5-2 GB) before shipping.

@@ -19,7 +19,7 @@ Features that **existed in Resorepless-era tooling**, reimplemented or repackage
 
 | Feature | Menu | Notes |
 |---------|------|--------|
-| Body size min/default/max | Options **2**/**3** | Classic size patcher; custom numbers are still this feature |
+| Body size Max ceilings only | Options **2**/**3** | Widen Max only; never Min/Default. After vanilla restore (e.g. game update), re-inject before loading oversized characters |
 | Slot hide (gloves/boots/helmets/weapons/stockings) | Options **4**/**5** | Classic granular hide toggles |
 | Pubic hair styles | Options **6**/**7** | Classic bins + offsets |
 | Censorship tiers | Options **C** | Classic under-armor texture packs; **expanded** scans live PAZ for new outfits |
