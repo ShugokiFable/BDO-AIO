@@ -1,11 +1,15 @@
 ﻿# BDO-AIO state
 
-**Date:** 2026-08-07
-**Version in tree:** `2.2.8`
-**Publish:** public GitHub = **v2.2.8**. LL/Undertow: upload full.7z from this release.
+**Date:** 2026-08-09
+**Version in tree:** `2.3.0`
+**Release:** **v2.3.0**. LL/Undertow require manual upload of the matching GitHub full.7z.
 **PAZ:** `C:\Program Files (x86)\Steam\steamapps\common\Black Desert Online\PAZ`
 
-## Status: restore safety warnings + Body UNCUT removed
+## Status: safe belly slider + restore safety warnings
+
+`belly` restores the original Lower Back and Belly control (`Bip01 Spine`) with
+baseline/recommended/high/extreme Max ceilings of 1.10/1.20/1.25/1.30. X torso
+length, Default, Min, and already-larger class values remain untouched.
 
 ### 2.2.8 â€” vanilla restore / body-size footgun
 Users must restore vanilla before many game updates (launcher wall). Characters above

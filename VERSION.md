@@ -1,6 +1,12 @@
-# BDO-AIO 2.2.8
+# BDO-AIO 2.3.0
 
-- Latest public release: **v2.2.8** (GitHub / full.7z).
+- Latest public release: **v2.3.0** (GitHub / full.7z).
+- **Lower Back and Belly restored safely:** a separate `belly` ceiling targets only
+  `Bip01 Spine`. The declared X `HeightAxis` (torso length) remains untouched; only
+  Y/Z lower-back and abdomen girth can widen.
+- Conservative belly presets: baseline **1.10**, recommended **1.20**, high **1.25**,
+  extreme **1.30**. Named presets opt in automatically; custom specs remain literal.
+- Tool-validated as widen-only and length-preserving across the live 75-file customization set.
 - **Vanilla restore / body-size footgun closed (warnings only):** game updates often need
   `[R] -> [1]` first or the launcher stalls. Characters saved above stock Max are clamped
   on load under vanilla; Beauty Album / Customization presets can be overwritten with
@@ -9,8 +15,8 @@
   - Requires confirm before dry-run restore
   - Snapshots `Documents\Black Desert\Customization` -> `backup\Customization-*`
   - Prints post-restore next steps (update -> re-inject -> then log mains)
-- Full offline archive: `BDO-AIO-v2.2.8-full.7z`
-- SHA256: `2cc24893083102f3f84667a9d40ac0d5663350dcce9e6a7497e6af2b62e620e4`
+- Full offline archive: `BDO-AIO-v2.3.0-full.7z`
+- SHA256: see `BDO-AIO-v2.3.0-full.7z.sha256`
 
 ## Also retained from 2.2.0
 

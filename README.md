@@ -1,6 +1,6 @@
 # BDO Modding AIO
 
-**Current version: [v2.2.8](https://github.com/ShugokiFable/BDO-AIO/releases/tag/v2.2.8)**  
+**Current version: [v2.3.0](https://github.com/ShugokiFable/BDO-AIO/releases/tag/v2.3.0)**
 Windows menu for **Black Desert Online** client mods (PAZ / Meta Injector). **Not Skyrim.**
 
 | Download | What you get |
@@ -45,7 +45,7 @@ Details: [`docs/FEATURE-LABELS.md`](docs/FEATURE-LABELS.md)
 ### RESTORED
 | Area | Options |
 |------|---------|
-| **Body size (Max ceilings only)** | Stock Max is **per part** (not all 1.25). **vanilla** 1.25/1.15/1.10 . **recommended** 1.37/1.30/1.18 . **high** 1.65/1.40/1.19 . **extreme** 2.00/1.45/1.20. Above recommended: breasts may clip outfits, thighs may collide, butt may pyramid. Never writes Default; never HeightAxis. **Game updates:** restore vanilla first so the launcher can patch; then re-inject body size **before** logging characters saved above stock Max - the game clamps and re-saves them (and can overwrite Beauty Album presets). AIO snapshots `Documents\Black Desert\Customization` to `backup\` on restore. |
+| **Body size (Max ceilings only)** | Four safe groups: breasts / thighs / butt (hips + pelvis) / **belly** (`Bip01 Spine`). Presets: **baseline** 1.25/1.15/1.10/1.10; **recommended** 1.37/1.30/1.18/1.20; **high** 1.65/1.40/1.19/1.25; **extreme** 2.00/1.45/1.20/1.30. Belly widens Y/Z only; X torso length, Default, Min, and larger class-authored values remain untouched. **Game updates:** restore vanilla first so the launcher can patch; then re-inject body size **before** logging characters saved above stock Max—the game clamps and re-saves them (and can overwrite Beauty Album presets). AIO snapshots `Documents\Black Desert\Customization` to `backup\` on restore. |
 | **Slot hide** | Gloves / boots / helmets / weapons / stockings |
 | **Pubic hair** | Per-class styles; shared-atlas classes share one style; texture-only |
 | **Censorship tiers** | Live-client **DXT5/DXT3** transparent blanks only. **Never DXT1**, never `*_cull*`, never 2018 stubs. Default **off**. Mesh/DXT1 built-in shorts need an XYZW remesh - see [`dev/TEXTURE-BLANKING-RULES.md`](dev/TEXTURE-BLANKING-RULES.md). |
@@ -68,7 +68,7 @@ Details: [`docs/FEATURE-LABELS.md`](docs/FEATURE-LABELS.md)
 
 ## Quick start
 
-1. Download **`BDO-AIO-v2.2.8-full.7z`** from [Releases](https://github.com/ShugokiFable/BDO-AIO/releases/latest) (or use this repo + fill `pack\`).
+1. Download **`BDO-AIO-v2.3.0-full.7z`** from [Releases](https://github.com/ShugokiFable/BDO-AIO/releases/latest) (or use this repo + fill `pack\`).
 2. Extract to a short path; install **Python 3** if needed (`winget install Python.Python.3.12`).
 3. **`START.bat`** -> **`9`** verify pack (~1.5-2 GB under `pack\`).
 4. **`6`** Full Wizard (or configure options first) -> pick live **PAZ** (`pad00000.meta` inside).
@@ -117,6 +117,11 @@ Meta Injector is launched via a short-path canonical stage so deep XYZW trees do
 ---
 
 ## Changelog (latest)
+
+### v2.3.0
+- **Lower Back and Belly restored safely:** new `belly` Max control targets only `Bip01 Spine`. Its X torso-length axis remains untouched; Y/Z girth is widen-only.
+- Conservative belly ceilings: baseline **1.10**, recommended **1.20**, high **1.25**, extreme **1.30**.
+- Named presets gain belly automatically. Existing custom specs stay unchanged; reopen body-size configuration to opt in.
 
 ### v2.2.8
 - **Vanilla restore safety (body size):** game updates often need **[R] -> [1]** first. Characters saved above stock Max are **clamped** if loaded while vanilla; Beauty Album presets can be overwritten. Warnings + confirm + Customization snapshot to `backup\`. Re-inject Max ceilings **before** logging those characters.

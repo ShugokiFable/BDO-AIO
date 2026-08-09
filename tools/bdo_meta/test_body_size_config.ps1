@@ -23,12 +23,12 @@ foreach ($name in @('Get-BodySizeSpec', 'Format-BodySizeSpec', 'Get-BodySizeArg'
 }
 
 # Script-scope constants the functions rely on.
-$Script:BodySizeParts = @('breasts', 'thighs', 'butt')
+$Script:BodySizeParts = @('breasts', 'thighs', 'butt', 'belly')
 $Script:BodySizePresets = [ordered]@{
-    'vanilla'     = @{ Label = 'v'; Spec = 'breasts:1.25,thighs:1.15,butt:1.10' }
-    'recommended' = @{ Label = 'r'; Spec = 'breasts:1.37,thighs:1.30,butt:1.18' }
-    'high'        = @{ Label = 'h'; Spec = 'breasts:1.65,thighs:1.40,butt:1.19' }
-    'extreme'     = @{ Label = 'e'; Spec = 'breasts:2.00,thighs:1.45,butt:1.20' }
+    'vanilla'     = @{ Label = 'v'; Spec = 'breasts:1.25,thighs:1.15,butt:1.10,belly:1.10' }
+    'recommended' = @{ Label = 'r'; Spec = 'breasts:1.37,thighs:1.30,butt:1.18,belly:1.20' }
+    'high'        = @{ Label = 'h'; Spec = 'breasts:1.65,thighs:1.40,butt:1.19,belly:1.25' }
+    'extreme'     = @{ Label = 'e'; Spec = 'breasts:2.00,thighs:1.45,butt:1.20,belly:1.30' }
 }
 $Script:BodySizeDefaultSpec = $Script:BodySizePresets['recommended'].Spec
 
@@ -70,12 +70,13 @@ Write-Host ''
 
 Write-Host 'Get-BodySizeSpec' -ForegroundColor White
 
-Set-Parts 'breasts:2.0,thighs:1.5,butt:1.25'
+Set-Parts 'breasts:2.0,thighs:1.5,butt:1.25,belly:1.2'
 $spec = Get-BodySizeSpec
-Check 'parses all three parts' ($spec.Count -eq 3)
+Check 'parses all four parts' ($spec.Count -eq 4)
 Check 'breasts max is 2.0' ($spec['breasts'] -eq 2.0)
 Check 'thighs max is 1.5' ($spec['thighs'] -eq 1.5)
 Check 'butt max is 1.25' ($spec['butt'] -eq 1.25)
+Check 'belly max is 1.2' ($spec['belly'] -eq 1.2)
 
 Set-Parts 'breasts:2.0'
 $spec = Get-BodySizeSpec
@@ -91,14 +92,18 @@ Set-Parts 'ass:1.2,pelvis:1.4'
 $spec = Get-BodySizeSpec
 Check 'ass and pelvis merge into one butt entry' ($spec.Count -eq 1 -and $spec['butt'] -eq 1.4) ("got: " + ($spec.Keys -join ','))
 
+Set-Parts 'spine:1.2'
+$spec = Get-BodySizeSpec
+Check 'legacy spine resolves onto belly' ($spec.Count -eq 1 -and $spec['belly'] -eq 1.2) ("got: " + ($spec.Keys -join ','))
+
 Set-Parts 'breasts:2.0,legs:2.0,spine:2.0,arms:2.0'
 $spec = Get-BodySizeSpec
-Check 'retired groups are dropped' ($spec.Count -eq 1 -and $spec.Contains('breasts')) ("got: " + ($spec.Keys -join ','))
+Check 'retired limbs are dropped while legacy spine becomes belly' ($spec.Count -eq 2 -and $spec.Contains('breasts') -and $spec.Contains('belly')) ("got: " + ($spec.Keys -join ','))
 
 Set-Parts 'breasts'
 Check 'a part with no max is rejected, not defaulted' ($null -eq (Get-BodySizeSpec))
 
-Set-Parts 'legs:2.0,spine:2.0'
+Set-Parts 'legs:2.0,arms:2.0'
 Check 'a retired-only selection yields null, never all' ($null -eq (Get-BodySizeSpec))
 
 Set-Parts ''
@@ -141,7 +146,7 @@ Check 'bodySizeMax is dropped' (-not ($Script:Config.PSObject.Properties.Name -c
 
 $Script:Config = [pscustomobject]@{ bodySizeParts = 'breasts:2.0,thighs:1.5,butt:1.25'; bodySizePreset = 'recommended' }
 Update-BodySizeConfig
-Check 'a named preset re-derives its spec on version change' ($Script:Config.bodySizeParts -eq 'breasts:1.37,thighs:1.30,butt:1.18') ("got: " + $Script:Config.bodySizeParts)
+Check 'a named preset gains the belly ceiling on version change' ($Script:Config.bodySizeParts -eq 'breasts:1.37,thighs:1.30,butt:1.18,belly:1.20') ("got: " + $Script:Config.bodySizeParts)
 
 $Script:Config = [pscustomobject]@{ bodySizeParts = 'breasts:2.5'; bodySizePreset = 'custom' }
 Update-BodySizeConfig

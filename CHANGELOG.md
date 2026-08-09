@@ -1,5 +1,32 @@
 # Changelog
 
+## v2.3.0 - 2026-08-09 - safe Lower Back and Belly slider
+
+### User-facing summary
+| Area | Change |
+|------|--------|
+| **New body control** | Restores Resorepless' **Lower Back and Belly** limit as a separate `belly` setting. |
+| **Correct game bone** | Targets only `Bip01 Spine`, matching the original Resorepless v3.6f source. `Spine1` and `Spine2` remain untouched. |
+| **No torso stretching** | Never changes the spine's declared X `HeightAxis`; only Y/Z lower-back and abdomen girth can widen. |
+| **Conservative presets** | Baseline **1.10**, recommended **1.20**, high **1.25**, extreme **1.30**. |
+| **Class shapes preserved** | Widen-only: a class component already above the requested ceiling is never reduced. `Default` and `Min` remain untouched. |
+| **Compatibility** | Legacy `spine`, `stomach`, and `abdomen` names resolve to `belly`. Existing custom specs remain literal; reopen body-size configuration to add belly. Named presets gain belly automatically. |
+
+### Why this is safe now
+The old tool wrote one value across the whole `Bip01 Spine` scale vector, including
+the X torso-length axis. BDO-AIO reads `HeightAxis="X"` from each live descriptor and
+leaves it byte-for-byte unchanged. For example, a stock `Max="1.10 1.10 1.10"`
+with recommended belly becomes `Max="1.10 1.20 1.20"`—not `1.20 1.20 1.20`.
+
+### Upgrade
+1. Replace the previous AIO files with v2.3.0; keep your `config.json` and `pack\`.
+2. Open body-size configuration and choose a named preset, or add **belly** to a custom setup.
+3. Regenerate body limits, then run PartCutGen and Meta Injector normally.
+4. No vanilla restore is needed to add or raise belly. Restore first only if lowering a ceiling already injected by an older tool.
+
+SHA256: see `BDO-AIO-v2.3.0-full.7z.sha256` beside the release archive.
+
+---
 ## v2.2.8 - 2026-08-07 - vanilla restore safety (body size + game updates)
 
 **Public update from v2.2.0.** Focus: stop silent body-shape loss when you restore

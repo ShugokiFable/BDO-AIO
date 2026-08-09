@@ -3,7 +3,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$Script:Version = '2.2.8'
+$Script:Version = '2.3.0'
 $Script:Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script:ConfigPath = Join-Path $Script:Root 'config.json'
 $Script:PackDir = Join-Path $Script:Root 'pack'
@@ -108,13 +108,14 @@ $Script:SharedAtlasPrefixes = @(
 )
 $Script:Config = $null
 
-# Body size: 2.1.0 supports exactly three girth groups.
+# Body size: safe girth groups only.
 #   butt == hip + pelvis. On 33 of the game's 75 body files the hip bone's Max is
 #   locked at <=1.00 (the butt slider cannot move at all), and pelvis is the only
 #   bone there with headroom -- so they are patched as one option.
-# legs/spine/arms were dropped: those scale bone LENGTH, and they are children of
-#   pelvis, so they already inherit its scale.
-$Script:BodySizeParts = @('breasts', 'thighs', 'butt')
+#   belly == Bip01 Spine, the original Resorepless "Lower Back and Belly" control.
+#   Its declared X HeightAxis is never touched; only Y/Z girth can widen.
+# legs/arms remain dropped because their dominant effect is bone length.
+$Script:BodySizeParts = @('breasts', 'thighs', 'butt', 'belly')
 
 # Body-size presets are MAX CEILINGS only (widen-only on Max= in
 # customizationboneparamdesc). They do NOT force the body to that size.
@@ -131,13 +132,13 @@ $Script:BodySizeParts = @('breasts', 'thighs', 'butt')
 # for every body part — breasts ~1.25, thighs ~1.15, hips ~1.10). Widen-only:
 # never lowers a class that already has a higher stock Max.
 #
-# recommended = user-measured no-clip unlock (1.37 / 1.30 / 1.18)
+# recommended = user-measured no-clip unlock plus conservative belly 1.20
 # high/extreme = larger unlocks; some outfits will clip (user-only visuals)
 $Script:BodySizePresets = [ordered]@{
-    'vanilla'     = @{ Label = 'Stock Max ceilings (breasts 1.25 / thighs 1.15 / butt 1.10)'; Spec = 'breasts:1.25,thighs:1.15,butt:1.10' }
-    'recommended' = @{ Label = 'RECOMMENDED no-clip unlock (1.37 / 1.30 / 1.18)'; Spec = 'breasts:1.37,thighs:1.30,butt:1.18' }
-    'high'        = @{ Label = 'High (1.65 / 1.40 / 1.19) — breasts may clip; thighs may collide'; Spec = 'breasts:1.65,thighs:1.40,butt:1.19' }
-    'extreme'     = @{ Label = 'Extreme (2.00 / 1.45 / 1.20) — breasts clip; thighs collide; butt mesh risk'; Spec = 'breasts:2.00,thighs:1.45,butt:1.20' }
+    'vanilla'     = @{ Label = 'Baseline ceilings (1.25 / 1.15 / 1.10 / belly 1.10)'; Spec = 'breasts:1.25,thighs:1.15,butt:1.10,belly:1.10' }
+    'recommended' = @{ Label = 'RECOMMENDED (1.37 / 1.30 / 1.18 / belly 1.20)'; Spec = 'breasts:1.37,thighs:1.30,butt:1.18,belly:1.20' }
+    'high'        = @{ Label = 'High (1.65 / 1.40 / 1.19 / belly 1.25)'; Spec = 'breasts:1.65,thighs:1.40,butt:1.19,belly:1.25' }
+    'extreme'     = @{ Label = 'Extreme (2.00 / 1.45 / 1.20 / belly 1.30)'; Spec = 'breasts:2.00,thighs:1.45,butt:1.20,belly:1.30' }
 }
 
 $Script:BodySizeDefaultSpec = $Script:BodySizePresets['recommended'].Spec
@@ -381,7 +382,7 @@ function Load-Config {
             xyzwCollections = $true
             npiPath         = ''
             bodySizePreset  = 'recommended'
-            bodySizeParts   = 'breasts:1.37,thighs:1.30,butt:1.18'
+            bodySizeParts   = 'breasts:1.37,thighs:1.30,butt:1.18,belly:1.20'
             hideGloves      = $false
             hideBoots       = $false
             hideHelmets     = $false
@@ -475,8 +476,8 @@ function Update-BodySizeConfig {
     if ($spec) {
         Write-Host ''
         Write-Host ('  [MIGRATED] Body sliders "' + $spec + '" -> ' + $Script:BodySizeDefaultSpec) -ForegroundColor Yellow
-        Write-Host '             2.1.0 patches breasts/thighs/butt only, widen-only, and no' -ForegroundColor DarkGray
-        Write-Host '             longer rewrites the game Default or any bone-length axis.' -ForegroundColor DarkGray
+        Write-Host '             Body caps are widen-only and never rewrite the game Default' -ForegroundColor DarkGray
+        Write-Host '             or any declared bone-length axis.' -ForegroundColor DarkGray
         Write-Host '             Re-run menu 2 if you want different numbers.' -ForegroundColor DarkGray
     }
 }
@@ -1676,6 +1677,7 @@ function Get-BodySizeSpec {
         $bits = $token -split ':', 2
         $name = $bits[0].Trim().ToLowerInvariant()
         if ($name -in @('pelvis', 'ass', 'hips', 'hip')) { $name = 'butt' }
+        if ($name -in @('spine', 'stomach', 'abdomen')) { $name = 'belly' }
         if ($name -notin $Script:BodySizeParts) { continue }
         $max = $null
         if ($bits.Count -eq 2) { [void][double]::TryParse($bits[1].Trim(), [ref]$max) }
@@ -1726,30 +1728,34 @@ function Configure-BodySizeLimits {
     Write-Host '    Thighs   typical peak Max ~1.10-1.15 (varies; some already ~1.35 girth).' -ForegroundColor Cyan
     Write-Host '    Hips     typical Max ~1.00 or 1.10 (many classes lock hip at 1.00).' -ForegroundColor Cyan
     Write-Host '    Pelvis   typical peak Max ~1.20 (part of "butt" with hips in this AIO).' -ForegroundColor Cyan
+    Write-Host '    Belly   Bip01 Spine varies by class; many Y/Z axes already reach 1.20/1.35.' -ForegroundColor Cyan
     Write-Host '    So recommended butt 1.18 is ABOVE stock hip max (1.00/1.10), not below.' -ForegroundColor Green
     Write-Host ''
-    Write-Host '  Only three groups: breasts / thighs / butt (hip + pelvis).' -ForegroundColor Gray
-    Write-Host '  legs/spine/arms removed in 2.1.0 (those scale bone LENGTH).' -ForegroundColor DarkGray
+    Write-Host '  Four safe groups: breasts / thighs / butt (hip + pelvis) / belly.' -ForegroundColor Gray
+    Write-Host '  Belly is Bip01 Spine only. Its X torso-length axis is always untouched.' -ForegroundColor Green
+    Write-Host '  legs/arms remain unavailable because their dominant effect is bone LENGTH.' -ForegroundColor DarkGray
     Write-Host ''
-    Write-Host '  RECOMMENDED NO-CLIP UNLOCK (measured in-game)' -ForegroundColor White
-    Write-Host '    Breasts  1.37  zero outfit clip' -ForegroundColor Green
-    Write-Host '    Thighs   1.30  no thigh-on-thigh overlap' -ForegroundColor Green
-    Write-Host '    Butt     1.18  good unlock; much above this lower cheek can pyramid' -ForegroundColor Green
+    Write-Host '  RECOMMENDED CONSERVATIVE CAPS' -ForegroundColor White
+    Write-Host '    Breasts  1.37  user-measured zero outfit clip' -ForegroundColor Green
+    Write-Host '    Thighs   1.30  user-measured no thigh-on-thigh overlap' -ForegroundColor Green
+    Write-Host '    Butt     1.18  user-measured; much above this can pyramid' -ForegroundColor Green
+    Write-Host '    Belly    1.20  file-validated conservative girth cap; test your outfits' -ForegroundColor Green
     Write-Host ''
     Write-Host ("  Current preset Max: " + (Format-BodySizeSpec (Get-BodySizeSpec))) -ForegroundColor DarkCyan
     Write-Host ''
 
-    Write-Host '  PRESETS  (breasts / thighs / butt = Max ceilings — NOT all the same number)' -ForegroundColor White
-    Write-Host '    [1] vanilla       1.25 / 1.15 / 1.10   ~stock Max per part (breasts/thighs/hips)' -ForegroundColor Cyan
-    Write-Host '                      (NOT 1.25 for everything — stock hips are usually 1.00-1.10)' -ForegroundColor DarkGray
-    Write-Host '    [2] recommended   1.37 / 1.30 / 1.18   NO CLIP unlock  << default' -ForegroundColor Green
-    Write-Host '    [3] high          1.65 / 1.40 / 1.19' -ForegroundColor Yellow
+    Write-Host '  PRESETS  (breasts / thighs / butt / belly = Max ceilings)' -ForegroundColor White
+    Write-Host '    [1] baseline      1.25 / 1.15 / 1.10 / 1.10' -ForegroundColor Cyan
+    Write-Host '                      Widen-only: larger class-authored values are never lowered.' -ForegroundColor DarkGray
+    Write-Host '    [2] recommended   1.37 / 1.30 / 1.18 / 1.20   << default' -ForegroundColor Green
+    Write-Host '    [3] high          1.65 / 1.40 / 1.19 / 1.25' -ForegroundColor Yellow
     Write-Host '                      BREASTS may clip outfits (pick clothes that wont).' -ForegroundColor Red
     Write-Host '                      Thighs may start to collide/overlap each other.' -ForegroundColor Yellow
-    Write-Host '    [4] extreme       2.00 / 1.45 / 1.20' -ForegroundColor Yellow
+    Write-Host '    [4] extreme       2.00 / 1.45 / 1.20 / 1.30' -ForegroundColor Yellow
     Write-Host '                      BREASTS will clip many outfits (pick clothes that wont).' -ForegroundColor Red
     Write-Host '                      Thighs more likely to collide/overlap.' -ForegroundColor Yellow
     Write-Host '                      Butt Max 1.20 — lower cheek can pyramid-spike (mesh trash).' -ForegroundColor Red
+    Write-Host '                      Belly 1.30 may overinflate lower back/abdomen and clip.' -ForegroundColor Yellow
     Write-Host '    [5] CUSTOM        type each Max yourself' -ForegroundColor Magenta
     Write-Host '    [6] Keep current' -ForegroundColor DarkGray
     $p = Read-Choice 'Choice' @('1', '2', '3', '4', '5', '6')
@@ -1765,6 +1771,7 @@ function Configure-BodySizeLimits {
             Write-Host '    BREASTS  may clip outfits — choose outfits that will not clip.' -ForegroundColor Red
             Write-Host '    THIGHS   may collide / overlap each other.' -ForegroundColor Yellow
             Write-Host '    BUTT     1.19 is still mild; pyramid risk grows as you go higher.' -ForegroundColor DarkGray
+            Write-Host '    BELLY    1.25 widens lower back/abdomen; torso length remains stock.' -ForegroundColor DarkGray
         }
         '4' {
             $Script:Config.bodySizePreset = 'extreme'
@@ -1774,6 +1781,7 @@ function Configure-BodySizeLimits {
             Write-Host '    BREASTS  will clip many outfits — choose outfits that will not clip.' -ForegroundColor Red
             Write-Host '    THIGHS   more likely to collide / overlap each other.' -ForegroundColor Yellow
             Write-Host '    BUTT     1.20 — lower cheek mesh can pyramid-spike (looks broken).' -ForegroundColor Red
+            Write-Host '    BELLY    1.30 may overinflate the abdomen/lower back and clip outfits.' -ForegroundColor Yellow
         }
         '5' {
             Write-Host ''
@@ -1781,12 +1789,13 @@ function Configure-BodySizeLimits {
             Write-Info 'Answer y/n per part, then give that part its Max. Parts you skip are'
             Write-Info 'not written at all, so they keep exactly the values the game shipped.'
             Write-Host ''
-            Write-Host '  Vanilla Max reminder: breasts~1.25  thighs~1.10-1.15  hips~1.00-1.10' -ForegroundColor Cyan
-            Write-Host '  Recommended no-clip:  1.37 / 1.30 / 1.18' -ForegroundColor Green
+            Write-Host '  Baseline: breasts 1.25 / thighs 1.15 / butt 1.10 / belly 1.10' -ForegroundColor Cyan
+            Write-Host '  Recommended: 1.37 / 1.30 / 1.18 / 1.20' -ForegroundColor Green
             Write-Host '  Tradeoffs if you go higher:' -ForegroundColor Yellow
             Write-Host '    Breasts -> outfit clipping (pick clothes that wont clip)' -ForegroundColor Red
             Write-Host '    Thighs  -> thighs collide / overlap each other' -ForegroundColor Yellow
             Write-Host '    Butt    -> lower cheek pyramid polygon spike (mesh trash)' -ForegroundColor Red
+            Write-Host '    Belly   -> overinflated abdomen/lower back and outfit clipping' -ForegroundColor Yellow
             Write-Host ''
             $base = Get-BodySizeSpec
             $chosen = [ordered]@{}
@@ -1794,8 +1803,9 @@ function Configure-BodySizeLimits {
                 breasts = 'Breasts Max  (vanilla~1.25 | no-clip 1.37 | high 1.65 | extreme 2.00) — high = outfit clip'
                 thighs  = 'Thighs Max   (vanilla~1.10-1.15 | no-clip 1.30 | high 1.40 | extreme 1.45) — high = collide'
                 butt    = 'Butt Max     (vanilla hips~1.00-1.10 | no-clip 1.18 | high 1.19 | extreme 1.20) — high = pyramid'
+                belly   = 'Belly Max    (baseline 1.10 | recommended 1.20 | high 1.25 | extreme 1.30) — Y/Z girth only'
             }
-            $suggest = @{ breasts = 1.37; thighs = 1.30; butt = 1.18 }
+            $suggest = @{ breasts = 1.37; thighs = 1.30; butt = 1.18; belly = 1.20 }
             foreach ($part in $Script:BodySizeParts) {
                 Write-Host ('    ' + $labels[$part]) -ForegroundColor DarkGray
                 if (Read-YesNo ("Patch " + $part + "?") $true) {
@@ -1807,6 +1817,13 @@ function Configure-BodySizeLimits {
                         if (-not (Read-YesNo 'Keep this butt Max anyway?' $false)) {
                             $val = 1.18
                             Write-Info 'Clamped butt Max to 1.18 (recommended).'
+                        }
+                    }
+                    if ($part -eq 'belly' -and $val -gt 1.30) {
+                        Write-Host '  Belly Max > 1.30 can overinflate the abdomen/lower back and clip outfits.' -ForegroundColor Red
+                        if (-not (Read-YesNo 'Keep this belly Max anyway?' $false)) {
+                            $val = 1.20
+                            Write-Info 'Clamped belly Max to 1.20 (recommended).'
                         }
                     }
                     $chosen[$part] = $val

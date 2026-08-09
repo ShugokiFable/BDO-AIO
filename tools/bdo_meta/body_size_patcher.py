@@ -3,9 +3,9 @@
 BDO character-creation body size limit patcher (Resorepless-style).
 
 Extracts *customizationboneparamdesc* files from live PAZ (via pad00000.meta + ice_decipher),
-raises Min/Default/Max for body bones, writes into files_to_patch for Meta Injector.
+widens selected Min/Max components for body bones and writes Meta Injector input.
 
-Three rules, all derived from the live game data (see PART_NOTES below):
+Three rules, all derived from the live game data:
 
 1. Never write Default. Vanilla Default is per-class and anisotropic
    (e.g. Calf "1.10 0.88 1.00"); overwriting it with one uniform number
@@ -25,10 +25,10 @@ import pathlib
 import re
 import sys
 
-# Only girth-meaningful groups are supported. Length/height groups (legs, spine,
-# arms) were dropped in 2.1.0: their sliders scale bone length, which produced
-# absurd proportions, and they are children of Pelvis so they already inherit
-# its scale.
+# Only girth-meaningful groups are supported. Legs and arms remain retired: their
+# most visible effect is bone length. Belly safely restores Resorepless' "Lower
+# Back and Belly" control by targeting Bip01 Spine only; patch_xml_bytes leaves
+# its declared HeightAxis X untouched and widens only WeightAxis Y/Z.
 #
 # butt == hip + pelvis on purpose. Measured on the live client (75 body files):
 # 33 of them lock Bip01 L/R Hip Max to <= 1.00 -- the butt slider physically
@@ -40,6 +40,7 @@ BONE_GROUPS = {
     "breasts": ["Bip01 L Breast", "Bip01 R Breast"],
     "thighs": ["Bip01 L Thigh", "Bip01 R Thigh"],
     "butt": ["Bip01 L Hip", "Bip01 R Hip", "Bip01 Pelvis"],
+    "belly": ["Bip01 Spine"],
 }
 
 # Old config values that used to be separate groups.
@@ -48,24 +49,27 @@ PART_ALIASES = {
     "ass": "butt",
     "hips": "butt",
     "hip": "butt",
+    "spine": "belly",
+    "stomach": "belly",
+    "abdomen": "belly",
     "breast": "breasts",
     "thigh": "thighs",
 }
 
 # Removed in 2.1.0 -- accepted from old configs, reported, then ignored.
-RETIRED_PARTS = ("legs", "spine", "arms")
+RETIRED_PARTS = ("legs", "arms")
 
 # Per-part MAX CEILINGS only (widen Max=; never write Default/Min).
 #
 # Live vanilla Max is NOT one number for every part (restored NA client scan):
 #   breasts ~1.25 | thighs peak ~1.10-1.15 | hips ~1.00 or 1.10 | pelvis ~1.20
-# "vanilla" preset ≈ those stock ceilings (1.25 / 1.15 / 1.10). Widen-only.
+# belly/lower-spine varies by class; a 1.10 baseline never lowers larger stock axes.
 # recommended = user no-clip unlock. high/extreme may clip outfits (client-only).
 PRESETS = {
-    "vanilla": {"breasts": 1.25, "thighs": 1.15, "butt": 1.10},
-    "recommended": {"breasts": 1.37, "thighs": 1.30, "butt": 1.18},
-    "high": {"breasts": 1.65, "thighs": 1.40, "butt": 1.19},
-    "extreme": {"breasts": 2.00, "thighs": 1.45, "butt": 1.20},
+    "vanilla": {"breasts": 1.25, "thighs": 1.15, "butt": 1.10, "belly": 1.10},
+    "recommended": {"breasts": 1.37, "thighs": 1.30, "butt": 1.18, "belly": 1.20},
+    "high": {"breasts": 1.65, "thighs": 1.40, "butt": 1.19, "belly": 1.25},
+    "extreme": {"breasts": 2.00, "thighs": 1.45, "butt": 1.20, "belly": 1.30},
 }
 
 
@@ -489,8 +493,8 @@ def main() -> int:
     )
     ap.add_argument(
         "--parts",
-        default="breasts,thighs,butt",
-        help="Comma list of breasts,thighs,butt -- each optionally as name:max (e.g. breasts:2.0)",
+        default="breasts,thighs,butt,belly",
+        help="Comma list of breasts,thighs,butt,belly -- each optionally as name:max (e.g. belly:1.2)",
     )
     ap.add_argument("--min", type=float, default=None, help="Optional lower bound to widen down to (default: leave vanilla Min alone)")
     ap.add_argument("--max", type=float, default=None, help="Max for every selected part that has no name:max override")
@@ -556,7 +560,7 @@ def main() -> int:
                 return 4
         else:
             limit = args.max if args.max is not None else preset_max[part]
-        # Merge rather than overwrite: 'butt' and the old 'pelvis' can both appear.
+        # Merge rather than overwrite when aliases and canonical names both appear.
         current = parts.setdefault(part, {"max": limit})
         current["max"] = max(current["max"], limit)
         if args.min is not None:

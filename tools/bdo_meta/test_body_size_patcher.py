@@ -143,8 +143,8 @@ class BodySizePatcherTests(unittest.TestCase):
 
 
 class BodyPartSelectionTests(unittest.TestCase):
-    def test_only_three_groups_are_supported(self) -> None:
-        self.assertEqual(set(BONE_GROUPS), {"breasts", "thighs", "butt"})
+    def test_safe_girth_groups_include_belly(self) -> None:
+        self.assertEqual(set(BONE_GROUPS), {"breasts", "thighs", "butt", "belly"})
 
     def test_butt_covers_hip_and_pelvis(self) -> None:
         """33 of 75 live body files lock Hip Max at <=1.00; Pelvis carries the shape."""
@@ -157,27 +157,54 @@ class BodyPartSelectionTests(unittest.TestCase):
         self.assertEqual(resolve_part("ass"), "butt")
         self.assertEqual(resolve_part("BUTT"), "butt")
 
+    def test_belly_and_legacy_spine_resolve_onto_belly(self) -> None:
+        self.assertEqual(resolve_part("belly"), "belly")
+        self.assertEqual(resolve_part("spine"), "belly")
+
+    def test_belly_targets_only_the_original_lower_spine_bone(self) -> None:
+        bones = build_bone_values({"belly": {"max": 1.20}})
+        self.assertEqual(bones, {"Bip01 Spine": {"max": 1.20}})
+
+    def test_belly_widens_girth_without_lengthening_the_torso(self) -> None:
+        raw = (
+            b'<ParamDesc Min="0.90 0.90 0.90" Max="1.10 1.10 1.10" '
+            b'Default="1.00 1.00 1.00" BoneName="Bip01 Spine" '
+            b'HeightAxis="X" WeightAxis01="Y" WeightAxis02="Z"/>'
+        )
+        values = build_bone_values({"belly": {"max": 1.20}})
+        patched, edits, tags = patch_xml_bytes(raw, values)
+        self.assertEqual((edits, tags), (1, 1))
+        self.assertIn(b'Max="1.10 1.20 1.20"', patched)
+        self.assertIn(b'Default="1.00 1.00 1.00"', patched)
+
     def test_retired_groups_no_longer_resolve(self) -> None:
-        for name in ("legs", "spine", "arms"):
+        for name in ("legs", "arms"):
             self.assertIsNone(resolve_part(name))
 
     def test_recommended_preset_matches_the_documented_ratio(self) -> None:
         self.assertEqual(
-            PRESETS["recommended"], {"breasts": 1.37, "thighs": 1.30, "butt": 1.18}
+            PRESETS["recommended"],
+            {"breasts": 1.37, "thighs": 1.30, "butt": 1.18, "belly": 1.20},
         )
 
     def test_preset_table_is_ordered_by_size(self) -> None:
         # vanilla is per-part stock ceilings — NOT 1.25 for every bone
         self.assertEqual(
-            PRESETS["vanilla"], {"breasts": 1.25, "thighs": 1.15, "butt": 1.10}
+            PRESETS["vanilla"],
+            {"breasts": 1.25, "thighs": 1.15, "butt": 1.10, "belly": 1.10},
         )
-        self.assertEqual(PRESETS["high"], {"breasts": 1.65, "thighs": 1.40, "butt": 1.19})
         self.assertEqual(
-            PRESETS["extreme"], {"breasts": 2.00, "thighs": 1.45, "butt": 1.20}
+            PRESETS["high"],
+            {"breasts": 1.65, "thighs": 1.40, "butt": 1.19, "belly": 1.25},
+        )
+        self.assertEqual(
+            PRESETS["extreme"],
+            {"breasts": 2.00, "thighs": 1.45, "butt": 1.20, "belly": 1.30},
         )
         self.assertLess(PRESETS["vanilla"]["breasts"], PRESETS["recommended"]["breasts"])
         self.assertLess(PRESETS["vanilla"]["thighs"], PRESETS["recommended"]["thighs"])
         self.assertLess(PRESETS["vanilla"]["butt"], PRESETS["recommended"]["butt"])
+        self.assertLess(PRESETS["vanilla"]["belly"], PRESETS["recommended"]["belly"])
         self.assertLess(PRESETS["recommended"]["breasts"], PRESETS["high"]["breasts"])
         self.assertLess(PRESETS["high"]["breasts"], PRESETS["extreme"]["breasts"])
 

@@ -38,10 +38,15 @@ $seven = 'C:\Program Files\7-Zip\7z.exe'
 & $seven a -t7z -mx=5 -mmt=on $out `
   "$root\*" `
   "-xr!config.json" `
+  "-xr!.claude" `
+  "-xr!backup" `
   "-xr!__pycache__" `
   "-xr!*.pyc" `
   "-xr!.git" `
   "-xr!files_to_patch"
+
+# `.claude` is machine-local tooling state. `backup\` may contain the user's
+# private Beauty Album / Customization presets. Neither belongs in a release.
 
 Get-FileHash $out -Algorithm SHA256 | ForEach-Object {
   "$($_.Hash.ToLower())  $(Split-Path $out -Leaf)" |
