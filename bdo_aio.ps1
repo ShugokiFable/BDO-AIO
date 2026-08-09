@@ -108,41 +108,23 @@ $Script:SharedAtlasPrefixes = @(
 )
 $Script:Config = $null
 
-# Body size: safe girth groups only.
-#   butt == hip + pelvis. On 33 of the game's 75 body files the hip bone's Max is
-#   locked at <=1.00 (the butt slider cannot move at all), and pelvis is the only
-#   bone there with headroom -- so they are patched as one option.
-#   belly == Bip01 Spine, the original Resorepless "Lower Back and Belly" control.
-#   Its declared X HeightAxis is never touched; only Y/Z girth can widen.
-# legs/arms remain dropped because their dominant effect is bone length.
-$Script:BodySizeParts = @('breasts', 'thighs', 'butt', 'belly')
-
-# Body-size presets are MAX CEILINGS only (widen-only on Max= in
-# customizationboneparamdesc). They do NOT force the body to that size.
-#
-# Live vanilla (restored NA client scan of all 75 boneparam files):
-#   Default is almost always 1.00 (neutral).
-#   Min is typically ~0.70 breasts / ~0.90 thighs-hips (floor of the slider).
-#   Max (ceiling) is per-class; typical peaks:
-#     breasts ~1.25 (majority), some classes already higher on Y/Z
-#     thighs  ~1.10-1.15 peak (girth varies; some already 1.35)
-#     hips    ~1.00 or 1.10 (many classes lock hip Max at 1.00)
-#     pelvis  ~1.20 peak median
-# "vanilla" preset ≈ typical STOCK Max ceilings per part (NOT the same number
-# for every body part — breasts ~1.25, thighs ~1.15, hips ~1.10). Widen-only:
-# never lowers a class that already has a higher stock Max.
-#
-# Belly Z/depth reaches 1.35 in 30 live class descriptors, so any preset meant
-# to unlock the last slider must exceed 1.35. Recommended adds 0.10 headroom.
-# high/extreme = larger unlocks; some outfits will clip (user-only visuals)
-$Script:BodySizePresets = [ordered]@{
-    'vanilla'     = @{ Label = 'Baseline ceilings (1.25 / 1.15 / 1.10 / belly 1.35)'; Spec = 'breasts:1.25,thighs:1.15,butt:1.10,belly:1.35' }
-    'recommended' = @{ Label = 'RECOMMENDED (1.37 / 1.30 / 1.18 / belly 1.45)'; Spec = 'breasts:1.37,thighs:1.30,butt:1.18,belly:1.45' }
-    'high'        = @{ Label = 'High (1.65 / 1.40 / 1.19 / belly 1.60)'; Spec = 'breasts:1.65,thighs:1.40,butt:1.19,belly:1.60' }
-    'extreme'     = @{ Label = 'Extreme (2.00 / 1.45 / 1.20 / belly 1.75)'; Spec = 'breasts:2.00,thighs:1.45,butt:1.20,belly:1.75' }
+$Script:BodySizeSchema = 2
+$Script:BodySizeAxes = @(
+    'breasts.x', 'breasts.y', 'breasts.z',
+    'thighs.y', 'thighs.z',
+    'butt.x', 'butt.y', 'butt.z',
+    'pelvis.y', 'pelvis.z',
+    'belly.x', 'belly.z'
+)
+$Script:BodySizeAxisDefaults = [ordered]@{
+    'breasts.x' = 1.55; 'breasts.y' = 1.55; 'breasts.z' = 1.55
+    'thighs.y' = 1.35; 'thighs.z' = 1.35
+    'butt.x' = 1.20; 'butt.y' = 1.20; 'butt.z' = 1.20
+    'pelvis.y' = 1.40; 'pelvis.z' = 1.40
+    'belly.x' = 1.28; 'belly.z' = 1.45
 }
-
-$Script:BodySizeDefaultSpec = $Script:BodySizePresets['recommended'].Spec
+$Script:BodySizeRecommendedSpec = 'breasts.x:1.55,breasts.y:1.55,breasts.z:1.55,thighs.y:1.35,thighs.z:1.35,butt.x:1.20,butt.y:1.20,butt.z:1.20,pelvis.y:1.40,pelvis.z:1.40,belly.x:1.28,belly.z:1.45'
+$Script:BodySizeDefaultSpec = $Script:BodySizeRecommendedSpec
 
 # Files we may place in game root for experimental OptiScaler (uninstall list)
 $Script:OptiProxyNames = @('dxgi.dll', 'winmm.dll', 'version.dll', 'd3d12.dll', 'dbghelp.dll', 'wininet.dll', 'winhttp.dll')
@@ -382,8 +364,9 @@ function Load-Config {
             armor           = 'A'
             xyzwCollections = $true
             npiPath         = ''
+            bodySizeSchema  = $Script:BodySizeSchema
             bodySizePreset  = 'recommended'
-            bodySizeParts   = 'breasts:1.37,thighs:1.30,butt:1.18,belly:1.45'
+            bodySizeParts   = $Script:BodySizeRecommendedSpec
             hideGloves      = $false
             hideBoots       = $false
             hideHelmets     = $false
@@ -409,12 +392,13 @@ function Load-Config {
             lastRun         = $null
         }
     }
-    foreach ($p in @('pazFolder', 'gender', 'armor', 'xyzwCollections', 'npiPath', 'bodySizePreset', 'bodySizeParts', 'hideGloves', 'hideBoots', 'hideHelmets', 'hideWeapons', 'hideStockings', 'slotHideClasses', 'pubicHairStyle', 'pubicHairStyles', 'pubicHairReuse', 'pubicHairClasses', 'censorshipTier', 'female3dVagina', 'genitalFemaleClasses', 'genitalReuse', 'malePenisMode', 'penisWarrior', 'penisBerserker', 'penisMusa', 'penisWizard', 'penisNinja', 'penisStriker', 'heishaRoot', 'lastRun')) {
+    foreach ($p in @('pazFolder', 'gender', 'armor', 'xyzwCollections', 'npiPath', 'bodySizeSchema', 'bodySizePreset', 'bodySizeParts', 'hideGloves', 'hideBoots', 'hideHelmets', 'hideWeapons', 'hideStockings', 'slotHideClasses', 'pubicHairStyle', 'pubicHairStyles', 'pubicHairReuse', 'pubicHairClasses', 'censorshipTier', 'female3dVagina', 'genitalFemaleClasses', 'genitalReuse', 'malePenisMode', 'penisWarrior', 'penisBerserker', 'penisMusa', 'penisWizard', 'penisNinja', 'penisStriker', 'heishaRoot', 'lastRun')) {
         if (-not ($Script:Config.PSObject.Properties.Name -contains $p)) {
             $val = switch ($p) {
                 'gender' { 'F' }
                 'armor'  { 'A' }
                 'xyzwCollections' { $true }
+                'bodySizeSchema' { 0 }
                 'bodySizePreset' { 'recommended' }
                 'bodySizeParts' { $Script:BodySizeDefaultSpec }
                 'hideGloves' { $false }
@@ -450,36 +434,94 @@ function Load-Config {
     Update-BodySizeConfig
 }
 
-# 2.1.0 migration. Pre-2.1.0 configs stored a single min/default/max applied to
-# every part, including legs/spine/arms, and overwrote the game's per-class
-# Default -- that is what stretched bodies. Those settings have no equivalent
-# under the new widen-only model, so a legacy config is moved to the
-# recommended preset once. A config already using the name:max form is kept.
+function Convert-BodySizeSpec {
+    param([string]$Raw)
+    if ([string]::IsNullOrWhiteSpace($Raw)) { return $null }
+    $out = [ordered]@{}
+    $culture = [Globalization.CultureInfo]::InvariantCulture
+    foreach ($token in ($Raw -split '[,;]+')) {
+        $token = $token.Trim()
+        if (-not $token) { continue }
+        $bits = $token -split ':', 2
+        if ($bits.Count -ne 2) { return $null }
+        $name = $bits[0].Trim().ToLowerInvariant()
+        $value = 0.0
+        if (-not [double]::TryParse($bits[1].Trim(), [Globalization.NumberStyles]::Float, $culture, [ref]$value)) { return $null }
+        if ([double]::IsNaN($value) -or [double]::IsInfinity($value) -or $value -lt 1.0 -or $value -gt 99.0) { return $null }
+
+        $expanded = [ordered]@{}
+        if ($name.Contains('.')) {
+            if ($name -notin $Script:BodySizeAxes) { return $null }
+            $expanded[$name] = $value
+        } else {
+            if ($name -in @('breast')) { $name = 'breasts' }
+            if ($name -in @('thigh')) { $name = 'thighs' }
+            if ($name -in @('ass', 'hips', 'hip', 'pelvis')) { $name = 'butt' }
+            if ($name -in @('spine', 'stomach', 'abdomen')) { $name = 'belly' }
+            switch ($name) {
+                'breasts' { foreach ($axis in @('x', 'y', 'z')) { $expanded['breasts.' + $axis] = $value } }
+                'thighs' { foreach ($axis in @('y', 'z')) { $expanded['thighs.' + $axis] = $value } }
+                'butt' {
+                    foreach ($axis in @('x', 'y', 'z')) { $expanded['butt.' + $axis] = $value }
+                    foreach ($axis in @('y', 'z')) { $expanded['pelvis.' + $axis] = $value }
+                }
+                'belly' { $expanded['belly.z'] = $value }
+                { $_ -in @('legs', 'arms') } { continue }
+                default { return $null }
+            }
+        }
+        foreach ($key in $expanded.Keys) {
+            if ($out.Contains($key)) { return $null }
+            $out[$key] = $expanded[$key]
+        }
+    }
+    if ($out.Count -eq 0) { return $null }
+    return $out
+}
+
+function ConvertTo-BodySizeSpecString {
+    param($Spec)
+    if (-not $Spec -or $Spec.Count -eq 0) { return '' }
+    $culture = [Globalization.CultureInfo]::InvariantCulture
+    return (($Spec.Keys | ForEach-Object { $_ + ':' + ([double]$Spec[$_]).ToString('0.##', $culture) }) -join ',')
+}
+
+# Schema 2 migration. Named presets become the new Recommended axis matrix.
+# Legacy Custom scalars expand once into the exact axes they used to represent;
+# belly scalar migrates to Z only and never infers the new Spine-X exception.
 function Update-BodySizeConfig {
     foreach ($dead in @('bodySizeMin', 'bodySizeDefault', 'bodySizeMax')) {
         if ($Script:Config.PSObject.Properties.Name -contains $dead) {
             $Script:Config.PSObject.Properties.Remove($dead)
         }
     }
-    # A named preset always re-derives its spec, so tuning a preset's numbers in a
-    # new version reaches users who picked that preset. Only 'custom' is literal.
-    $preset = [string]$Script:Config.bodySizePreset
-    if ($preset -and $Script:BodySizePresets.Contains($preset)) {
-        $Script:Config.bodySizeParts = $Script:BodySizePresets[$preset].Spec
-        return
+    $oldSchema = 0
+    if ($Script:Config.PSObject.Properties.Name -contains 'bodySizeSchema') {
+        $oldSchema = [int]$Script:Config.bodySizeSchema
+    } else {
+        Add-Member -InputObject $Script:Config -NotePropertyName bodySizeSchema -NotePropertyValue 0
     }
-
-    $spec = [string]$Script:Config.bodySizeParts
-    if ($spec -and $spec.Contains(':')) { return }
-
-    $Script:Config.bodySizeParts = $Script:BodySizeDefaultSpec
-    $Script:Config.bodySizePreset = 'recommended'
-    if ($spec) {
+    $preset = [string]$Script:Config.bodySizePreset
+    $oldSpec = [string]$Script:Config.bodySizeParts
+    if ($preset -ne 'custom') {
+        $Script:Config.bodySizePreset = 'recommended'
+        $Script:Config.bodySizeParts = $Script:BodySizeRecommendedSpec
+    } else {
+        $parsed = Convert-BodySizeSpec $oldSpec
+        if ($null -eq $parsed) {
+            $Script:Config.bodySizePreset = 'recommended'
+            $Script:Config.bodySizeParts = $Script:BodySizeRecommendedSpec
+        } else {
+            $Script:Config.bodySizeParts = ConvertTo-BodySizeSpecString $parsed
+        }
+    }
+    $Script:Config.bodySizeSchema = $Script:BodySizeSchema
+    if ($oldSchema -lt $Script:BodySizeSchema -and $oldSpec) {
         Write-Host ''
-        Write-Host ('  [MIGRATED] Body sliders "' + $spec + '" -> ' + $Script:BodySizeDefaultSpec) -ForegroundColor Yellow
-        Write-Host '             Body caps are widen-only and never rewrite the game Default' -ForegroundColor DarkGray
-        Write-Host '             or any declared bone-length axis.' -ForegroundColor DarkGray
-        Write-Host '             Re-run menu 2 if you want different numbers.' -ForegroundColor DarkGray
+        Write-Host ('  [MIGRATED] Body slider schema ' + $oldSchema + ' -> ' + $Script:BodySizeSchema) -ForegroundColor Yellow
+        Write-Host ('             ' + $oldSpec) -ForegroundColor DarkGray
+        Write-Host ('          -> ' + [string]$Script:Config.bodySizeParts) -ForegroundColor DarkGray
+        Write-Host '             Belly X is never inferred from an old scalar; configure it explicitly.' -ForegroundColor DarkGray
     }
 }
 
@@ -492,6 +534,7 @@ function Save-Config {
         armor           = [string]$Script:Config.armor
         xyzwCollections = [bool]$Script:Config.xyzwCollections
         npiPath         = [string]$Script:Config.npiPath
+        bodySizeSchema  = [int]$Script:Config.bodySizeSchema
         bodySizePreset  = [string]$Script:Config.bodySizePreset
         bodySizeParts   = [string]$Script:Config.bodySizeParts
         hideGloves      = [bool]$Script:Config.hideGloves
@@ -1666,189 +1709,119 @@ function Read-FloatValue {
     }
 }
 
-# The parts string is the single source of truth: "name:max" pairs, e.g.
-# "breasts:2.0,thighs:1.5,butt:1.25". Returns $null when it is unusable.
+# The schema-2 string is the single source of truth: region.axis:max pairs.
 function Get-BodySizeSpec {
-    $raw = [string]$Script:Config.bodySizeParts
-    if (-not $raw) { return $null }
-    $out = [ordered]@{}
-    foreach ($token in ($raw -split '[,;]+')) {
-        $token = $token.Trim()
-        if (-not $token) { continue }
-        $bits = $token -split ':', 2
-        $name = $bits[0].Trim().ToLowerInvariant()
-        if ($name -in @('pelvis', 'ass', 'hips', 'hip')) { $name = 'butt' }
-        if ($name -in @('spine', 'stomach', 'abdomen')) { $name = 'belly' }
-        if ($name -notin $Script:BodySizeParts) { continue }
-        $max = $null
-        if ($bits.Count -eq 2) { [void][double]::TryParse($bits[1].Trim(), [ref]$max) }
-        if ($null -eq $max -or $max -lt 1.0 -or $max -gt 99.0) { continue }
-        if ($out.Contains($name)) {
-            if ($max -gt $out[$name]) { $out[$name] = $max }
-        } else {
-            $out[$name] = $max
-        }
-    }
-    if ($out.Count -eq 0) { return $null }
-    return $out
+    return Convert-BodySizeSpec ([string]$Script:Config.bodySizeParts)
 }
 
 function Format-BodySizeSpec {
     param($Spec)
     if (-not $Spec) { return '(none)' }
-    return (($Spec.Keys | ForEach-Object { '{0} max {1:0.##}' -f $_, $Spec[$_] }) -join ', ')
+    $culture = [Globalization.CultureInfo]::InvariantCulture
+    return (($Spec.Keys | ForEach-Object { $_ + ' max ' + ([double]$Spec[$_]).ToString('0.##', $culture) }) -join ', ')
 }
 
 function Get-BodySizeArg {
     $spec = Get-BodySizeSpec
     if (-not $spec) { return $null }
-    return (($spec.Keys | ForEach-Object { '{0}:{1}' -f $_, $spec[$_] }) -join ',')
+    return ConvertTo-BodySizeSpecString $spec
 }
+
+
 
 function Configure-BodySizeLimits {
     Write-Banner
-    Write-Host '  BODY SIZE LIMITS  [RESTORED — all classes via live PAZ]' -ForegroundColor White
-    Write-Host '  -----------------------------------------------------' -ForegroundColor DarkGray
-    Write-Info 'Patches ALL customizationboneparamdesc files in the live game (every class).'
-    Write-Info 'Raises only the Max (slider ceiling). Default and Min are left alone.'
-    Write-Warn 'After inject: beauty salon or new character. Tamer breasts often ignore this.'
+    Write-Host '  BODY SIZE MAX CEILINGS  [axis-aware, all classes]' -ForegroundColor White
+    Write-Host '  -------------------------------------------------' -ForegroundColor DarkGray
+    Write-Info 'Raises selected Max slider ceilings only. It never forces a body shape.'
+    Write-Info 'Min and Default remain exactly as authored by the game.'
+    Write-Warn 'After injection, test in Beauty Salon or on a new character.'
     Write-Host ''
     Write-BodySizeRestoreSafetyNotice -Context 'body-size'
     Write-Host ''
-    Write-Host '  WHAT THE NUMBERS MEAN (read this — easy to confuse)' -ForegroundColor White
-    Write-Host '  Each body bone has three scale values in the game files:' -ForegroundColor Gray
-    Write-Host '    Min     = lowest the slider can go  (vanilla often ~0.70-0.90)' -ForegroundColor DarkGray
-    Write-Host '    Default = neutral body             (vanilla almost always 1.00)' -ForegroundColor DarkGray
-    Write-Host '    Max     = highest the slider can go (the ceiling — THIS is what we patch)' -ForegroundColor DarkGray
-    Write-Host '  Preset numbers below are Max ceilings only. They do NOT force your body' -ForegroundColor Gray
-    Write-Host '  to that size. You still set size in character creation / beauty salon.' -ForegroundColor Gray
-    Write-Host '  Caps are client-side (your machine only).' -ForegroundColor Gray
+    Write-Host '  RECOMMENDED AXES' -ForegroundColor White
+    Write-Host '    Breasts          X/Y/Z  1.55' -ForegroundColor Green
+    Write-Host '    Thighs            Y/Z    1.35  (X leg length untouched)' -ForegroundColor Green
+    Write-Host '    Butt cheeks       X/Y/Z  1.20' -ForegroundColor Green
+    Write-Host '    Front pelvis      Y/Z    1.40  (X length untouched)' -ForegroundColor Green
+    Write-Host '    Belly/lower back  X      1.28  (intentional HeightAxis exception)' -ForegroundColor Yellow
+    Write-Host '                       Z      1.45  (last belly-depth slider; Y untouched)' -ForegroundColor Green
     Write-Host ''
-    Write-Host '  VANILLA MAX CEILINGS (restored live client scan, all classes)' -ForegroundColor White
-    Write-Host '    Breasts  typical Max ~1.25 (majority). Some classes already higher on Y/Z.' -ForegroundColor Cyan
-    Write-Host '    Thighs   typical peak Max ~1.10-1.15 (varies; some already ~1.35 girth).' -ForegroundColor Cyan
-    Write-Host '    Hips     typical Max ~1.00 or 1.10 (many classes lock hip at 1.00).' -ForegroundColor Cyan
-    Write-Host '    Pelvis   typical peak Max ~1.20 (part of "butt" with hips in this AIO).' -ForegroundColor Cyan
-    Write-Host '    Belly   Bip01 Spine varies by class; many Y/Z axes already reach 1.20/1.35.' -ForegroundColor Cyan
-    Write-Host '    So recommended butt 1.18 is ABOVE stock hip max (1.00/1.10), not below.' -ForegroundColor Green
-    Write-Host ''
-    Write-Host '  Four safe groups: breasts / thighs / butt (hip + pelvis) / belly.' -ForegroundColor Gray
-    Write-Host '  Belly is Bip01 Spine only. Its X torso-length axis is always untouched.' -ForegroundColor Green
-    Write-Host '  legs/arms remain unavailable because their dominant effect is bone LENGTH.' -ForegroundColor DarkGray
-    Write-Host ''
-    Write-Host '  RECOMMENDED CONSERVATIVE CAPS' -ForegroundColor White
-    Write-Host '    Breasts  1.37  user-measured zero outfit clip' -ForegroundColor Green
-    Write-Host '    Thighs   1.30  user-measured no thigh-on-thigh overlap' -ForegroundColor Green
-    Write-Host '    Butt     1.18  user-measured; much above this can pyramid' -ForegroundColor Green
-    Write-Host '    Belly    1.45  +0.10 over stock Z/depth peak; test your outfits' -ForegroundColor Green
-    Write-Host ''
-    Write-Host ("  Current preset Max: " + (Format-BodySizeSpec (Get-BodySizeSpec))) -ForegroundColor DarkCyan
-    Write-Host ''
+    Write-Host '  [1] RECOMMENDED' -ForegroundColor Green
+    Write-Host '  [2] CUSTOM       choose every supported axis separately' -ForegroundColor Magenta
+    Write-Host '  [3] Keep current' -ForegroundColor DarkGray
+    $choice = Read-Choice 'Choice' @('1', '2', '3')
 
-    Write-Host '  PRESETS  (breasts / thighs / butt / belly = Max ceilings)' -ForegroundColor White
-    Write-Host '    [1] baseline      1.25 / 1.15 / 1.10 / 1.35' -ForegroundColor Cyan
-    Write-Host '                      Widen-only: larger class-authored values are never lowered.' -ForegroundColor DarkGray
-    Write-Host '    [2] recommended   1.37 / 1.30 / 1.18 / 1.45   << default' -ForegroundColor Green
-    Write-Host '    [3] high          1.65 / 1.40 / 1.19 / 1.60' -ForegroundColor Yellow
-    Write-Host '                      BREASTS may clip outfits (pick clothes that wont).' -ForegroundColor Red
-    Write-Host '                      Thighs may start to collide/overlap each other.' -ForegroundColor Yellow
-    Write-Host '    [4] extreme       2.00 / 1.45 / 1.20 / 1.75' -ForegroundColor Yellow
-    Write-Host '                      BREASTS will clip many outfits (pick clothes that wont).' -ForegroundColor Red
-    Write-Host '                      Thighs more likely to collide/overlap.' -ForegroundColor Yellow
-    Write-Host '                      Butt Max 1.20 — lower cheek can pyramid-spike (mesh trash).' -ForegroundColor Red
-    Write-Host '                      Belly 1.75 may overinflate lower back/abdomen and clip.' -ForegroundColor Yellow
-    Write-Host '    [5] CUSTOM        type each Max yourself' -ForegroundColor Magenta
-    Write-Host '    [6] Keep current' -ForegroundColor DarkGray
-    $p = Read-Choice 'Choice' @('1', '2', '3', '4', '5', '6')
+    switch ($choice) {
+        '1' {
+            $Script:Config.bodySizeSchema = $Script:BodySizeSchema
+            $Script:Config.bodySizePreset = 'recommended'
+            $Script:Config.bodySizeParts = $Script:BodySizeRecommendedSpec
+        }
+        '2' {
+            Write-Host ''
+            Write-Host '  CUSTOM BREAST AXES' -ForegroundColor White
+            Write-Host '    X = length / forward projection' -ForegroundColor Cyan
+            Write-Host '    Y = width' -ForegroundColor Cyan
+            Write-Host '    Z = height' -ForegroundColor Cyan
+            Write-Host '    Observed stock peak is uneven: X 1.30, Y/Z 1.55.' -ForegroundColor Yellow
+            Write-Host '    These are independent ceilings, not a required anatomical ratio.' -ForegroundColor Gray
+            Write-Host '    Balanced absolute:  1.55 / 1.55 / 1.55' -ForegroundColor Green
+            Write-Host '    Equal +0.20 test:   1.50 / 1.75 / 1.75' -ForegroundColor Cyan
+            Write-Host '    Equal +0.25 test:   1.55 / 1.80 / 1.80' -ForegroundColor Cyan
+            Write-Host '    Different classes and meshes can react differently.' -ForegroundColor Yellow
+            Write-Host ''
 
-    switch ($p) {
-        '1' { $Script:Config.bodySizePreset = 'vanilla';     $Script:Config.bodySizeParts = $Script:BodySizePresets['vanilla'].Spec }
-        '2' { $Script:Config.bodySizePreset = 'recommended'; $Script:Config.bodySizeParts = $Script:BodySizePresets['recommended'].Spec }
-        '3' {
-            $Script:Config.bodySizePreset = 'high'
-            $Script:Config.bodySizeParts = $Script:BodySizePresets['high'].Spec
-            Write-Host ''
-            Write-Host '  HIGH tradeoffs (client-side only):' -ForegroundColor Yellow
-            Write-Host '    BREASTS  may clip outfits — choose outfits that will not clip.' -ForegroundColor Red
-            Write-Host '    THIGHS   may collide / overlap each other.' -ForegroundColor Yellow
-            Write-Host '    BUTT     1.19 is still mild; pyramid risk grows as you go higher.' -ForegroundColor DarkGray
-            Write-Host '    BELLY    1.60 widens lower back/abdomen; torso length remains stock.' -ForegroundColor DarkGray
-        }
-        '4' {
-            $Script:Config.bodySizePreset = 'extreme'
-            $Script:Config.bodySizeParts = $Script:BodySizePresets['extreme'].Spec
-            Write-Host ''
-            Write-Host '  EXTREME tradeoffs (client-side only):' -ForegroundColor Yellow
-            Write-Host '    BREASTS  will clip many outfits — choose outfits that will not clip.' -ForegroundColor Red
-            Write-Host '    THIGHS   more likely to collide / overlap each other.' -ForegroundColor Yellow
-            Write-Host '    BUTT     1.20 — lower cheek mesh can pyramid-spike (looks broken).' -ForegroundColor Red
-            Write-Host '    BELLY    1.75 may overinflate the abdomen/lower back and clip outfits.' -ForegroundColor Yellow
-        }
-        '5' {
-            Write-Host ''
-            Write-Host '  CUSTOM (you are typing Max ceilings, not body size)' -ForegroundColor Magenta
-            Write-Info 'Answer y/n per part, then give that part its Max. Parts you skip are'
-            Write-Info 'not written at all, so they keep exactly the values the game shipped.'
-            Write-Host ''
-            Write-Host '  Baseline: breasts 1.25 / thighs 1.15 / butt 1.10 / belly 1.35' -ForegroundColor Cyan
-            Write-Host '  Recommended: 1.37 / 1.30 / 1.18 / 1.45' -ForegroundColor Green
-            Write-Host '  Tradeoffs if you go higher:' -ForegroundColor Yellow
-            Write-Host '    Breasts -> outfit clipping (pick clothes that wont clip)' -ForegroundColor Red
-            Write-Host '    Thighs  -> thighs collide / overlap each other' -ForegroundColor Yellow
-            Write-Host '    Butt    -> lower cheek pyramid polygon spike (mesh trash)' -ForegroundColor Red
-            Write-Host '    Belly   -> overinflated abdomen/lower back and outfit clipping' -ForegroundColor Yellow
-            Write-Host ''
-            $base = Get-BodySizeSpec
+            $current = Get-BodySizeSpec
             $chosen = [ordered]@{}
-            $labels = @{
-                breasts = 'Breasts Max  (vanilla~1.25 | no-clip 1.37 | high 1.65 | extreme 2.00) — high = outfit clip'
-                thighs  = 'Thighs Max   (vanilla~1.10-1.15 | no-clip 1.30 | high 1.40 | extreme 1.45) — high = collide'
-                butt    = 'Butt Max     (vanilla hips~1.00-1.10 | no-clip 1.18 | high 1.19 | extreme 1.20) — high = pyramid'
-                belly   = 'Belly Max    (stock depth peaks 1.35 | recommended 1.45 | high 1.60 | extreme 1.75) — Y/Z girth only'
+            $groups = [ordered]@{
+                'Breasts' = @('breasts.x', 'breasts.y', 'breasts.z')
+                'Thighs (X leg length is protected)' = @('thighs.y', 'thighs.z')
+                'Butt cheeks' = @('butt.x', 'butt.y', 'butt.z')
+                'Front pelvis / groin (X length is protected)' = @('pelvis.y', 'pelvis.z')
+                'Belly / lower back (Y is untouched)' = @('belly.x', 'belly.z')
             }
-            $suggest = @{ breasts = 1.37; thighs = 1.30; butt = 1.18; belly = 1.45 }
-            foreach ($part in $Script:BodySizeParts) {
-                Write-Host ('    ' + $labels[$part]) -ForegroundColor DarkGray
-                if (Read-YesNo ("Patch " + $part + "?") $true) {
-                    $default = $suggest[$part]
-                    if ($base -and $base.Contains($part)) { $default = $base[$part] }
-                    $val = Read-FloatValue -Prompt ("  " + $part + " Max ceiling") -Default $default -MinAllowed 1.0 -MaxAllowed 5.0
-                    if ($part -eq 'butt' -and $val -gt 1.20) {
-                        Write-Host '  Butt Max > 1.20 often pyramid-spikes the lower cheek mesh.' -ForegroundColor Red
-                        if (-not (Read-YesNo 'Keep this butt Max anyway?' $false)) {
-                            $val = 1.18
-                            Write-Info 'Clamped butt Max to 1.18 (recommended).'
+            foreach ($group in $groups.Keys) {
+                Write-Host ('  ' + $group) -ForegroundColor White
+                foreach ($axisKey in $groups[$group]) {
+                    $default = [double]$Script:BodySizeAxisDefaults[$axisKey]
+                    if ($current -and $current.Contains($axisKey)) { $default = [double]$current[$axisKey] }
+                    if (-not (Read-YesNo ('Patch ' + $axisKey + '?') $true)) { continue }
+                    $value = Read-FloatValue -Prompt ($axisKey + ' Max ceiling') -Default $default -MinAllowed 1.0 -MaxAllowed 5.0
+                    if ($axisKey -eq 'belly.x') {
+                        Write-Warn 'belly.x intentionally changes the Spine X HeightAxis; it can lengthen the lower torso and move the groin down.'
+                        if ($value -gt 1.28 -and -not (Read-YesNo ('Keep belly.x ' + $value + ' above Recommended 1.28?') $false)) {
+                            $value = 1.28
                         }
                     }
-                    if ($part -eq 'belly' -and $val -gt 1.75) {
-                        Write-Host '  Belly Max > 1.75 can overinflate the abdomen/lower back and clip outfits.' -ForegroundColor Red
-                        if (-not (Read-YesNo 'Keep this belly Max anyway?' $false)) {
-                            $val = 1.45
-                            Write-Info 'Clamped belly Max to 1.45 (recommended).'
-                        }
+                    if ($axisKey.StartsWith('butt.') -and $value -gt 1.20) {
+                        Write-Warn 'Butt values above 1.20 can pyramid-spike lower-cheek polygons on some classes.'
+                        if (-not (Read-YesNo ('Keep ' + $axisKey + ' ' + $value + '?') $false)) { $value = 1.20 }
                     }
-                    $chosen[$part] = $val
+                    $chosen[$axisKey] = $value
                 }
                 Write-Host ''
             }
             if ($chosen.Count -eq 0) {
-                Write-Err 'Nothing selected — keeping your previous settings.'
+                Write-Err 'Nothing selected - keeping the previous body-size settings.'
             } else {
+                $Script:Config.bodySizeSchema = $Script:BodySizeSchema
                 $Script:Config.bodySizePreset = 'custom'
-                $Script:Config.bodySizeParts = (($chosen.Keys | ForEach-Object { '{0}:{1}' -f $_, $chosen[$_] }) -join ',')
+                $Script:Config.bodySizeParts = ConvertTo-BodySizeSpecString $chosen
                 Write-Ok ('Custom saved: ' + (Format-BodySizeSpec $chosen))
             }
         }
-        '6' { Write-Info 'Keeping existing settings.' }
+        '3' { Write-Info 'Keeping existing settings.' }
     }
 
     Save-Config
     Write-Host ''
     Write-Ok 'Body size settings saved.'
-    Write-Host ("  Preset : " + $Script:Config.bodySizePreset) -ForegroundColor Gray
-    Write-Host ("  Applies: " + (Format-BodySizeSpec (Get-BodySizeSpec))) -ForegroundColor Gray
-    Write-Host '  Untouched: game Default, every bone-length axis, and every part above' -ForegroundColor DarkGray
-    Write-Host '             that you did not pick.' -ForegroundColor DarkGray
+    Write-Host ('  Preset : ' + [string]$Script:Config.bodySizePreset) -ForegroundColor Gray
+    Write-Host ('  Applies: ' + (Format-BodySizeSpec (Get-BodySizeSpec))) -ForegroundColor Gray
+    Write-Host '  Restore is unnecessary when keeping/raising the same axes.' -ForegroundColor DarkGray
+    Write-Host '  Restore once before an exact Recommended test if an older injection used' -ForegroundColor Yellow
+    Write-Host '  breasts above 1.55 or widened Belly Y, because widen-only cannot undo them.' -ForegroundColor Yellow
     Write-Host ''
     if (Read-YesNo 'Apply body size patch to game files_to_patch now?' $true) {
         Apply-BodySizePatch
