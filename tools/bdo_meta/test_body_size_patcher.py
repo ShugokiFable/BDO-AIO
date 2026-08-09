@@ -177,6 +177,19 @@ class BodyPartSelectionTests(unittest.TestCase):
         self.assertIn(b'Max="1.10 1.20 1.20"', patched)
         self.assertIn(b'Default="1.00 1.00 1.00"', patched)
 
+    def test_recommended_belly_unlocks_stock_1_35_depth_slider(self) -> None:
+        """The last UI slider is Z; 30 live class descriptors already cap it at 1.35."""
+        raw = (
+            b'<ParamDesc Min="0.90 0.90 0.90" Max="1.10 1.20 1.35" '
+            b'Default="1.00 1.00 1.00" BoneName="Bip01 Spine" '
+            b'HeightAxis="X" WeightAxis01="Y" WeightAxis02="Z"/>'
+        )
+        values = build_bone_values({"belly": {"max": PRESETS["recommended"]["belly"]}})
+        patched, edits, tags = patch_xml_bytes(raw, values)
+        self.assertEqual((edits, tags), (1, 1))
+        self.assertIn(b'Max="1.10 1.45 1.45"', patched)
+        self.assertIn(b'Default="1.00 1.00 1.00"', patched)
+
     def test_retired_groups_no_longer_resolve(self) -> None:
         for name in ("legs", "arms"):
             self.assertIsNone(resolve_part(name))
@@ -184,22 +197,22 @@ class BodyPartSelectionTests(unittest.TestCase):
     def test_recommended_preset_matches_the_documented_ratio(self) -> None:
         self.assertEqual(
             PRESETS["recommended"],
-            {"breasts": 1.37, "thighs": 1.30, "butt": 1.18, "belly": 1.20},
+            {"breasts": 1.37, "thighs": 1.30, "butt": 1.18, "belly": 1.45},
         )
 
     def test_preset_table_is_ordered_by_size(self) -> None:
         # vanilla is per-part stock ceilings — NOT 1.25 for every bone
         self.assertEqual(
             PRESETS["vanilla"],
-            {"breasts": 1.25, "thighs": 1.15, "butt": 1.10, "belly": 1.10},
+            {"breasts": 1.25, "thighs": 1.15, "butt": 1.10, "belly": 1.35},
         )
         self.assertEqual(
             PRESETS["high"],
-            {"breasts": 1.65, "thighs": 1.40, "butt": 1.19, "belly": 1.25},
+            {"breasts": 1.65, "thighs": 1.40, "butt": 1.19, "belly": 1.60},
         )
         self.assertEqual(
             PRESETS["extreme"],
-            {"breasts": 2.00, "thighs": 1.45, "butt": 1.20, "belly": 1.30},
+            {"breasts": 2.00, "thighs": 1.45, "butt": 1.20, "belly": 1.75},
         )
         self.assertLess(PRESETS["vanilla"]["breasts"], PRESETS["recommended"]["breasts"])
         self.assertLess(PRESETS["vanilla"]["thighs"], PRESETS["recommended"]["thighs"])

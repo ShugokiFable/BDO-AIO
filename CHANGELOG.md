@@ -1,5 +1,35 @@
 # Changelog
 
+## v2.3.1 - 2026-08-09 - lower-belly depth-slider hotfix candidate
+
+### Root cause
+
+The v2.3.0 `belly` mapping and deployment were correct, but its preset numbers
+were not. The last Lower Back and Belly control is the `WeightAxis02="Z"` depth
+axis on `Bip01 Spine`. A restored live-meta comparison found that **30 of 75**
+current class descriptors already ship with a Z maximum of **1.35**. Because the
+patcher is widen-only, v2.3.0 values of 1.20/1.25/1.30 could not add any travel
+to that slider on those classes.
+
+### Fix
+
+| Preset | v2.3.0 belly | v2.3.1 belly | Meaning |
+|--------|---------------|---------------|---------|
+| Baseline | 1.10 | **1.35** | Covers the highest observed stock Z ceiling. |
+| Recommended | 1.20 | **1.45** | Adds conservative 0.10 depth/width headroom. |
+| High | 1.25 | **1.60** | Larger lower-belly/lower-back range; outfit testing required. |
+| Extreme | 1.30 | **1.75** | Strong range; clipping/overinflation risk. |
+
+- `Bip01 Spine` remains the only belly bone patched. `Spine1` and `Spine2` stay untouched.
+- X `HeightAxis` torso length, `Default`, and `Min` remain byte-for-byte unchanged.
+- No vanilla restore is needed to raise an already injected 1.25 ceiling to 1.45+
+  because the patcher only widens. Reconfigure belly, regenerate, and inject again.
+- Regression coverage now starts from the real stock `Max="1.10 1.20 1.35"`
+  descriptor and requires recommended to produce `Max="1.10 1.45 1.45"`.
+
+**Runtime status:** tool-validated candidate; the user still needs to confirm the
+last slider gains visible travel in the Beauty Salon before public release.
+
 ## v2.3.0 - 2026-08-09 - safe Lower Back and Belly slider
 
 ### User-facing summary

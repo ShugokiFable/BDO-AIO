@@ -1,8 +1,8 @@
 ﻿# Publish status — public sites vs local tree
 
 **Checked:** 2026-08-09
-**Local working copy:** `C:\Users\karlo\Documents\Apps\BDO-AIO` → **2.3.0**
-**GitHub release:** **v2.3.0** (`main` + tag + full.7z + SHA256 sidecar)
+**Local/source candidate:** **v2.3.1**, lower-belly depth fix awaiting in-game confirmation
+**GitHub release:** **v2.3.0** remains public (`main` + tag + full.7z + SHA256 sidecar)
 
 ---
 
@@ -16,3 +16,6 @@
 
 **Archive backup:** `Z:\Backup\BDO-mods-assets\BDO-AIO-v2.3.0-full.7z`
 **SHA256:** `BDO-AIO-v2.3.0-full.7z.sha256` beside the archive
+
+Do not build or publish a v2.3.1 archive until the last `Bip01 Spine` Z/depth
+slider is visibly confirmed to gain travel above the old maximum.

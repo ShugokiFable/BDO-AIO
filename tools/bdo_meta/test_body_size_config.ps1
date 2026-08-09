@@ -22,15 +22,17 @@ foreach ($name in @('Get-BodySizeSpec', 'Format-BodySizeSpec', 'Get-BodySizeArg'
     Invoke-Expression $fn.Extent.Text
 }
 
-# Script-scope constants the functions rely on.
-$Script:BodySizeParts = @('breasts', 'thighs', 'butt', 'belly')
-$Script:BodySizePresets = [ordered]@{
-    'vanilla'     = @{ Label = 'v'; Spec = 'breasts:1.25,thighs:1.15,butt:1.10,belly:1.10' }
-    'recommended' = @{ Label = 'r'; Spec = 'breasts:1.37,thighs:1.30,butt:1.18,belly:1.20' }
-    'high'        = @{ Label = 'h'; Spec = 'breasts:1.65,thighs:1.40,butt:1.19,belly:1.25' }
-    'extreme'     = @{ Label = 'e'; Spec = 'breasts:2.00,thighs:1.45,butt:1.20,belly:1.30' }
+# Load the real launcher assignments instead of mirroring preset constants in
+# the test. This catches a stale UI preset even when the Python patcher is right.
+foreach ($variableName in @('BodySizeParts', 'BodySizePresets', 'BodySizeDefaultSpec')) {
+    $assignment = $ast.FindAll({
+        param($node)
+        $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+            $node.Left.Extent.Text -eq ('$Script:' + $variableName)
+    }, $true) | Select-Object -First 1
+    if (-not $assignment) { throw ('$Script:' + $variableName + ' was not found in bdo_aio.ps1.') }
+    Invoke-Expression $assignment.Extent.Text
 }
-$Script:BodySizeDefaultSpec = $Script:BodySizePresets['recommended'].Spec
 
 $failures = New-Object System.Collections.Generic.List[string]
 
@@ -146,7 +148,8 @@ Check 'bodySizeMax is dropped' (-not ($Script:Config.PSObject.Properties.Name -c
 
 $Script:Config = [pscustomobject]@{ bodySizeParts = 'breasts:2.0,thighs:1.5,butt:1.25'; bodySizePreset = 'recommended' }
 Update-BodySizeConfig
-Check 'a named preset gains the belly ceiling on version change' ($Script:Config.bodySizeParts -eq 'breasts:1.37,thighs:1.30,butt:1.18,belly:1.20') ("got: " + $Script:Config.bodySizeParts)
+Check 'recommended raises the stock 1.35 belly depth ceiling' ($Script:BodySizePresets['recommended'].Spec -eq 'breasts:1.37,thighs:1.30,butt:1.18,belly:1.45') ("got: " + $Script:BodySizePresets['recommended'].Spec)
+Check 'a named preset gains the corrected belly ceiling on version change' ($Script:Config.bodySizeParts -eq 'breasts:1.37,thighs:1.30,butt:1.18,belly:1.45') ("got: " + $Script:Config.bodySizeParts)
 
 $Script:Config = [pscustomobject]@{ bodySizeParts = 'breasts:2.5'; bodySizePreset = 'custom' }
 Update-BodySizeConfig

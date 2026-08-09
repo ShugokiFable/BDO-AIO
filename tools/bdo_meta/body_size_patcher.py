@@ -63,13 +63,14 @@ RETIRED_PARTS = ("legs", "arms")
 #
 # Live vanilla Max is NOT one number for every part (restored NA client scan):
 #   breasts ~1.25 | thighs peak ~1.10-1.15 | hips ~1.00 or 1.10 | pelvis ~1.20
-# belly/lower-spine varies by class; a 1.10 baseline never lowers larger stock axes.
-# recommended = user no-clip unlock. high/extreme may clip outfits (client-only).
+# Belly/lower-spine varies by class and 30 current descriptors already use a
+# 1.35 Z/depth ceiling. Recommended must exceed that stock peak or the last UI
+# slider receives no extra travel on those classes. High/extreme may clip outfits.
 PRESETS = {
-    "vanilla": {"breasts": 1.25, "thighs": 1.15, "butt": 1.10, "belly": 1.10},
-    "recommended": {"breasts": 1.37, "thighs": 1.30, "butt": 1.18, "belly": 1.20},
-    "high": {"breasts": 1.65, "thighs": 1.40, "butt": 1.19, "belly": 1.25},
-    "extreme": {"breasts": 2.00, "thighs": 1.45, "butt": 1.20, "belly": 1.30},
+    "vanilla": {"breasts": 1.25, "thighs": 1.15, "butt": 1.10, "belly": 1.35},
+    "recommended": {"breasts": 1.37, "thighs": 1.30, "butt": 1.18, "belly": 1.45},
+    "high": {"breasts": 1.65, "thighs": 1.40, "butt": 1.19, "belly": 1.60},
+    "extreme": {"breasts": 2.00, "thighs": 1.45, "butt": 1.20, "belly": 1.75},
 }
 
 
