@@ -1,5 +1,46 @@
 # Changelog
 
+## v2.4.0 - 2026-08-09 - axis-aware body slider controls
+
+### Simpler workflow
+
+- Replaced Baseline/Recommended/High/Extreme with **Recommended**, **Custom**, and **Keep current**.
+- Split the old merged butt setting into independent **butt-cheek** and **front pelvis/groin** controls.
+- Added 12 explicit axis ceilings across five regions.
+
+### Recommended axis matrix
+
+| Region | Max ceilings |
+|---|---|
+| Breasts | X/Y/Z 1.55 |
+| Thighs | Y/Z 1.35; X leg length untouched |
+| Butt cheeks | X/Y/Z 1.20 |
+| Front pelvis/groin | Y/Z 1.40; X untouched |
+| Belly/lower back | X 1.28, Z 1.45; Y untouched |
+
+### Breast Custom guidance
+
+- X is length/forward projection, Y is width, and Z is height.
+- Documents the uneven observed stock peak: X 1.30 versus Y/Z 1.55.
+- Shows balanced 1.55/1.55/1.55, equal +0.20 (1.50/1.75/1.75), and equal +0.25 (1.55/1.80/1.80) examples.
+- Treats these as independent testable ceilings, not a universally correct anatomical ratio.
+
+### Migration and safety
+
+- Added body-size configuration schema 2 with canonical `region.axis:value` entries.
+- Legacy Custom values migrate automatically. Old Belly scalars become Belly Z only and never infer Belly X.
+- `Min` and `Default` can no longer be written, including through old command-line flags.
+- Patching remains widen-only and exact-byte-length preserving.
+- Spine X is the sole intentional `HeightAxis` exception and is clearly warned in the launcher.
+- Generation validates all descriptors before replacing the completed body-size package.
+
+### Validation
+
+- Python axis suite: 18 tests passed.
+- PowerShell schema/migration/UI suite passed under Windows PowerShell 5.1 with BOM verification.
+- Read-only live PAZ audit: 75 descriptors, 3,136 target tags, 2,383 Max edits, zero violations.
+- In-game cross-class and outfit appearance remains user-testable rather than claimed as proven.
+
 ## v2.3.1 - 2026-08-09 - lower-belly depth-slider hotfix candidate
 
 ### Root cause

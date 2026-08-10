@@ -1,38 +1,29 @@
-# BDO-AIO 2.3.1 hotfix candidate
+# BDO-AIO 2.4.0
 
-- Latest public release remains **v2.3.0** until the corrected slider is confirmed in-game.
-- **v2.3.1 lower-belly depth fix:** live vanilla data shows 30 of 75 descriptors
-  already cap `Bip01 Spine` Z/depth at **1.35**. The v2.3.0 belly presets were
-  therefore too low to unlock the last slider on those classes.
-- **Lower Back and Belly restored safely:** a separate `belly` ceiling targets only
-  `Bip01 Spine`. The declared X `HeightAxis` (torso length) remains untouched; only
-  Y/Z lower-back and abdomen girth can widen.
-- Corrected belly presets: baseline **1.35**, recommended **1.45**, high **1.60**,
-  extreme **1.75**. Named presets opt in automatically; custom specs remain literal.
-- Tool-validated as widen-only and length-preserving across the live 75-file customization set.
-- **Vanilla restore / body-size footgun closed (warnings only):** game updates often need
-  `[R] -> [1]` first or the launcher stalls. Characters saved above stock Max are clamped
-  on load under vanilla; Beauty Album / Customization presets can be overwritten with
-  clamped data. Salon rebuilds cost pearls. The app now:
-  - Explains the safe free order on body-size menu and restore
-  - Requires confirm before dry-run restore
-  - Snapshots `Documents\Black Desert\Customization` -> `backup\Customization-*`
-  - Prints post-restore next steps (update -> re-inject -> then log mains)
-- Candidate is intentionally not packaged or published until the user confirms the
-  last slider gains visible travel in-game. v2.3.0 remains the rollback release.
+## Axis-aware body slider controls
 
-## Also retained from 2.2.0
+The body-size workflow now has only **Recommended**, **Custom**, and **Keep current**. Recommended unlocks five regions with explicit axis ceilings:
 
-- Censorship rewrite: live-client blanks, **DXT5/DXT3 only**, never DXT1, never `*_cull*`.
-  Default **off**. See `dev/TEXTURE-BLANKING-RULES.md`.
-- Genital packs write the nude body PAC only - no underwear overwrite.
-- Body Max presets: vanilla / recommended / high / extreme.
-- Midnight deploy + PartCutGen + Meta Injector wizard, `[R]` recovery menu.
+| Region | Recommended Max ceilings |
+|---|---|
+| Breasts | X/Y/Z 1.55 |
+| Thighs | Y/Z 1.35; X leg length untouched |
+| Butt cheeks | X/Y/Z 1.20 |
+| Front pelvis/groin | Y/Z 1.40; X length untouched |
+| Belly/lower back | X 1.28, Z 1.45; Y untouched |
 
-## Upgrade note
+Custom exposes each supported axis separately. Breast help explains X length/projection, Y width, Z height, the uneven observed stock caps (X 1.30 versus Y/Z 1.55), and balanced versus equal-additive test values.
 
-If you previously injected a larger censorship set, restore vanilla meta first (`[R]`), then
-re-apply - files the new run omits otherwise stay live.
+## Safety and migration
 
-**Body size users:** after any vanilla restore (including for game updates), re-inject body
-size **before** logging characters that were above stock Max.
+- Only `Max` is patched. `Min` and `Default` are never modified.
+- Values are widen-only and exact descriptor byte length is preserved.
+- Spine X is the sole intentional `HeightAxis` exception. It can lengthen the lower torso and shift the groin downward.
+- Schema-1 Custom values migrate into explicit axes. Old Belly scalars become Belly Z only and never infer the new Belly X setting.
+- A vanilla restore is unnecessary when keeping or raising the same ceilings. Restore once before testing exact Recommended values if an older injection used breasts above 1.55 or widened Belly Y.
+
+## Validation status
+
+The Python and PowerShell suites pass. A read-only live PAZ audit found 75 descriptors; all 75 patched successfully in memory with 3,136 target tags, 2,383 Max edits, and zero byte-length, Min, Default, protected-axis, or widen-only violations.
+
+In-game appearance across classes and outfits still requires user testing.

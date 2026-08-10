@@ -1,6 +1,6 @@
 # BDO Modding AIO
 
-**Current tree: v2.3.1 hotfix candidate. Latest public release: [v2.3.0](https://github.com/ShugokiFable/BDO-AIO/releases/tag/v2.3.0).**
+**Current tree: v2.4.0. Latest release: [v2.4.0](https://github.com/ShugokiFable/BDO-AIO/releases/tag/v2.4.0).**
 Windows menu for **Black Desert Online** client mods (PAZ / Meta Injector). **Not Skyrim.**
 
 | Download | What you get |
@@ -45,7 +45,7 @@ Details: [`docs/FEATURE-LABELS.md`](docs/FEATURE-LABELS.md)
 ### RESTORED
 | Area | Options |
 |------|---------|
-| **Body size (Max ceilings only)** | Four safe groups: breasts / thighs / butt (hips + pelvis) / **belly** (`Bip01 Spine`). Belly presets now account for the live stock Z/depth peak of 1.35: **baseline** 1.25/1.15/1.10/1.35; **recommended** 1.37/1.30/1.18/1.45; **high** 1.65/1.40/1.19/1.60; **extreme** 2.00/1.45/1.20/1.75. Belly widens Y/Z only; X torso length, Default, Min, and larger class-authored values remain untouched. **Game updates:** restore vanilla first so the launcher can patch; then re-inject body size **before** logging characters saved above stock Max—the game clamps and re-saves them (and can overwrite Beauty Album presets). AIO snapshots `Documents\Black Desert\Customization` to `backup\` on restore. |
+| **Body size (Max ceilings only)** | **Recommended** or per-axis **Custom** for five regions. Recommended: breasts X/Y/Z 1.55; thighs Y/Z 1.35; butt cheeks X/Y/Z 1.20; front pelvis/groin Y/Z 1.40; belly X 1.28 and Z 1.45. Thigh X, Pelvis X, and Belly Y stay untouched. Belly X is the sole intentional `HeightAxis` exception and can lengthen the lower torso. Only Max widens; Min/Default and higher class values remain. Restore once before an exact Recommended test if an older injection used breasts above 1.55 or widened Belly Y. |
 | **Slot hide** | Gloves / boots / helmets / weapons / stockings |
 | **Pubic hair** | Per-class styles; shared-atlas classes share one style; texture-only |
 | **Censorship tiers** | Live-client **DXT5/DXT3** transparent blanks only. **Never DXT1**, never `*_cull*`, never 2018 stubs. Default **off**. Mesh/DXT1 built-in shorts need an XYZW remesh - see [`dev/TEXTURE-BLANKING-RULES.md`](dev/TEXTURE-BLANKING-RULES.md). |
@@ -117,6 +117,12 @@ Meta Injector is launched via a short-path canonical stage so deep XYZW trees do
 ---
 
 ## Changelog (latest)
+
+### v2.4.0
+- Simplified body limits to **Recommended**, **Custom**, and **Keep current**.
+- Five independent regions with 12 explicit axis ceilings, including separate butt cheeks and front pelvis/groin.
+- Custom breast help explains X projection, Y width, Z height, stock 1.30/1.55/1.55 caps, and balanced/equal-additive examples.
+- Schema-2 migration, Max-only enforcement, atomic generation, and read-only 75-descriptor validation.
 
 ### v2.3.1 candidate
 - Fixes the last Lower Back and Belly depth slider receiving no extra travel on classes whose stock Z maximum is already **1.35**.
