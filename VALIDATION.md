@@ -1,4 +1,4 @@
-# BDO-AIO v2.4.0 validation
+# BDO-AIO v2.4.1 validation
 
 Date: 2026-08-09
 
@@ -8,6 +8,7 @@ Date: 2026-08-09
 - Recommended/Custom schema-2 launcher configuration and legacy migration.
 - Max-only, widen-only, exact-byte patching.
 - Read-only live PAZ descriptor audit. No game or deployed patch files were written.
+- Butt-cheek versus pelvis-Z wording regression checks.
 
 ## Commands and results
 
@@ -19,8 +20,8 @@ Date: 2026-08-09
 | `test_launcher_static.ps1`, `test_meta_inject_launcher.ps1`, `test_pubic_config.ps1` | 0 | Launcher parse/call graph, Meta Injector argument isolation, and pubic configuration suites passed. |
 | `python -B tools\bdo_meta\_verify_presets_vs_stock.py --paz "...\Black Desert Online\PAZ"` | 0 | 75 descriptors, 75 changed in memory, 3,136 target tags, 2,383 Max edits, 0 violations. |
 | `git diff --check` | 0 | No whitespace errors before commit. |
-| `7z t BDO-AIO-v2.4.0-full.7z` | 0 | 42,142 files tested; archive integrity passed. |
-| release exclusion audit | 0 | No `config.json`, `.claude`, backups, live staging, Python caches, or `files_to_patch` entries. |
+| `7z t BDO-AIO-v2.4.1-full.7z` | pending | Run after packaging. |
+| release exclusion audit | pending | Run after packaging. |
 
 ## Live audit invariants
 
@@ -39,8 +40,8 @@ DIFF REVIEW: PASS
 PYTHON TESTS: PASS
 POWERSHELL TESTS: PASS
 READ-ONLY LIVE DESCRIPTOR AUDIT: PASS
-PACKAGE: PASS (232,362,576 bytes; SHA-256 c3399ee92c44fe7810badd0133ac388015fbb192099b7b9021134e7b16e45778)
-REMOTE RELEASE: PASS (public asset downloaded, checksum matched, 7-Zip retest passed)
+PACKAGE: PENDING
+REMOTE RELEASE: PENDING
 UNRESOLVED: cross-class and outfit appearance requires in-game user testing
 FINAL: PASS (tool-validated; runtime appearance pending)
 ```

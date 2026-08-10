@@ -1,8 +1,8 @@
 ﻿# Publish status — public sites vs local tree
 
 **Checked:** 2026-08-09
-**Local/source version:** **v2.4.0**, axis-aware body slider update validated and published
-**GitHub release:** **v2.4.0** is public with the complete offline archive and checksum
+**Local/source candidate:** **v2.4.1**, wording hotfix awaiting publication
+**GitHub release:** **v2.4.0** remains public until the v2.4.1 tag and assets complete
 
 ---
 

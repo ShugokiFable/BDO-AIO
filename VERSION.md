@@ -1,4 +1,11 @@
-# BDO-AIO 2.4.0
+# BDO-AIO 2.4.1
+
+## Wording hotfix
+
+The launcher now explicitly says that **Butt cheeks** controls cheek shape and
+roundness rather than total ass size. **Front pelvis/groin Z (`pelvis.z`)** is
+identified as the main overall pelvis/ass-size control affecting the front groin
+and rear. Slider mappings and values are unchanged from 2.4.0.
 
 ## Axis-aware body slider controls
 

@@ -1,6 +1,6 @@
 # BDO Modding AIO
 
-**Current tree: v2.4.0. Latest release: [v2.4.0](https://github.com/ShugokiFable/BDO-AIO/releases/tag/v2.4.0).**
+**Current tree: v2.4.1. Latest release: [v2.4.1](https://github.com/ShugokiFable/BDO-AIO/releases/tag/v2.4.1).**
 Windows menu for **Black Desert Online** client mods (PAZ / Meta Injector). **Not Skyrim.**
 
 | Download | What you get |
@@ -117,6 +117,11 @@ Meta Injector is launched via a short-path canonical stage so deep XYZW trees do
 ---
 
 ## Changelog (latest)
+
+### v2.4.1
+
+- Wording hotfix: **Butt cheeks** means cheek shape/roundness, while **Front pelvis/groin Z** is the main overall pelvis/ass-size control.
+- No body-slider values or mappings changed from v2.4.0.
 
 ### v2.4.0
 - Simplified body limits to **Recommended**, **Custom**, and **Keep current**.

@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.4.1 - 2026-08-09 - body-control wording hotfix
+
+- Clarified that **Butt cheeks** controls cheek shape/roundness, not total ass size.
+- Clarified that **Front pelvis/groin Z (`pelvis.z`)** is the main overall pelvis/ass-size control and affects both the front groin and rear.
+- Added the explanation to the Recommended summary, Custom introduction, and the live `pelvis.z` prompt.
+- Added PowerShell regression checks so both explanations must remain in the launcher.
+- No slider mappings, ceilings, patch output, or migration behavior changed from v2.4.0.
+
 ## v2.4.0 - 2026-08-09 - axis-aware body slider controls
 
 ### Simpler workflow

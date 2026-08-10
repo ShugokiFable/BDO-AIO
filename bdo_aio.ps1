@@ -1742,8 +1742,8 @@ function Configure-BodySizeLimits {
     Write-Host '  RECOMMENDED AXES' -ForegroundColor White
     Write-Host '    Breasts          X/Y/Z  1.55' -ForegroundColor Green
     Write-Host '    Thighs            Y/Z    1.35  (X leg length untouched)' -ForegroundColor Green
-    Write-Host '    Butt cheeks       X/Y/Z  1.20' -ForegroundColor Green
-    Write-Host '    Front pelvis      Y/Z    1.40  (X length untouched)' -ForegroundColor Green
+    Write-Host '    Butt cheeks       X/Y/Z  1.20  (cheek shape / roundness, not overall ass size)' -ForegroundColor Green
+    Write-Host '    Front pelvis      Y/Z    1.40  (Z drives overall pelvis / ass size; X untouched)' -ForegroundColor Green
     Write-Host '    Belly/lower back  X      1.28  (intentional HeightAxis exception)' -ForegroundColor Yellow
     Write-Host '                       Z      1.45  (last belly-depth slider; Y untouched)' -ForegroundColor Green
     Write-Host ''
@@ -1759,6 +1759,9 @@ function Configure-BodySizeLimits {
             $Script:Config.bodySizeParts = $Script:BodySizeRecommendedSpec
         }
         '2' {
+            Write-Host ''
+            Write-Host '  Butt cheeks change cheek shape / roundness, not overall ass size.' -ForegroundColor Cyan
+            Write-Host '  pelvis.z is the main overall pelvis / ass-size control; it affects front groin and rear.' -ForegroundColor Cyan
             Write-Host ''
             Write-Host '  CUSTOM BREAST AXES' -ForegroundColor White
             Write-Host '    X = length / forward projection' -ForegroundColor Cyan
@@ -1793,6 +1796,9 @@ function Configure-BodySizeLimits {
                         if ($value -gt 1.28 -and -not (Read-YesNo ('Keep belly.x ' + $value + ' above Recommended 1.28?') $false)) {
                             $value = 1.28
                         }
+                    }
+                    if ($axisKey -eq 'pelvis.z') {
+                        Write-Info 'pelvis.z mainly controls overall pelvis / ass size; it affects the front groin and rear.'
                     }
                     if ($axisKey.StartsWith('butt.') -and $value -gt 1.20) {
                         Write-Warn 'Butt values above 1.20 can pyramid-spike lower-cheek polygons on some classes.'

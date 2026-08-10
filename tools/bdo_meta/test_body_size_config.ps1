@@ -130,6 +130,8 @@ Check 'breast X meaning is explained' ($menuText -match 'X = length / forward pr
 Check 'uneven stock breast caps are explained' ($menuText -match 'X 1\.30.*Y/Z 1\.55')
 Check 'equal additive test is shown' ($menuText -match '1\.55 / 1\.80 / 1\.80')
 Check 'Spine X exception is explicit' ($menuText -match 'intentional.*HeightAxis')
+Check 'butt is explained as cheek shape' ($menuText -match 'cheek shape / roundness, not overall ass size')
+Check 'pelvis Z is explained as overall ass size' ($menuText -match 'pelvis\.z is the main overall pelvis / ass-size control')
 Write-Host ''
 
 if ($failures.Count -gt 0) {
