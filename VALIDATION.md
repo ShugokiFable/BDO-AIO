@@ -41,7 +41,7 @@ PYTHON TESTS: PASS
 POWERSHELL TESTS: PASS
 READ-ONLY LIVE DESCRIPTOR AUDIT: PASS
 PACKAGE: PASS (232,356,266 bytes; SHA-256 7753daa2b71fb8ce816a4a7b9ab108bd0983d7f20e7005b732661a33706f90b7)
-REMOTE RELEASE: PENDING
+REMOTE RELEASE: PASS (public asset downloaded, checksum matched, 7-Zip retest passed)
 UNRESOLVED: cross-class and outfit appearance requires in-game user testing
 FINAL: PASS (tool-validated; runtime appearance pending)
 ```

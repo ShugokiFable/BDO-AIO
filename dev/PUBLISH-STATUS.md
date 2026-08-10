@@ -1,8 +1,8 @@
 ﻿# Publish status — public sites vs local tree
 
 **Checked:** 2026-08-09
-**Local/source candidate:** **v2.4.1**, wording hotfix awaiting publication
-**GitHub release:** **v2.4.0** remains public until the v2.4.1 tag and assets complete
+**Local/source version:** **v2.4.1**, wording hotfix validated and published
+**GitHub release:** **v2.4.1** is public with the complete offline archive and checksum
 
 ---
 
@@ -10,9 +10,19 @@
 
 | Channel | URL | Status |
 |---------|-----|--------|
-| **GitHub** | https://github.com/ShugokiFable/BDO-AIO/releases/tag/v2.4.0 | Primary download |
+| **GitHub** | https://github.com/ShugokiFable/BDO-AIO/releases/tag/v2.4.1 | Primary download |
 | **LoversLab** | https://www.loverslab.com/files/file/50558-bdo-aio-—-midnight-nudehide-meta-injector-wizard-black-desert-online/ | Upload full.7z manually (see docs/LOVERSLAB-RESOURCE.md) |
 | **Undertow** | https://www.undertow.club/downloads/bdo-aio-—-midnight-nude-hide-meta-injector-wizard.9468/ | Upload full.7z manually (see docs/UNDERTOW-RESOURCE.md) |
+
+## v2.4.1 publication evidence
+
+- Tagged source commit: `5d9c193`.
+- Published: `2026-08-10T00:37:52Z` (`2026-08-09` America/Halifax).
+- Archive: `BDO-AIO-v2.4.1-full.7z` — 232,356,266 bytes.
+- SHA-256: `7753daa2b71fb8ce816a4a7b9ab108bd0983d7f20e7005b732661a33706f90b7`.
+- Sidecar: `BDO-AIO-v2.4.1-full.7z.sha256` — 90 bytes.
+- The public archive was downloaded after publication, matched the local hash,
+  and passed a fresh 7-Zip integrity test.
 
 ## v2.4.0 publication evidence
 
