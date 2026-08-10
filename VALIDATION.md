@@ -19,6 +19,8 @@ Date: 2026-08-09
 | `test_launcher_static.ps1`, `test_meta_inject_launcher.ps1`, `test_pubic_config.ps1` | 0 | Launcher parse/call graph, Meta Injector argument isolation, and pubic configuration suites passed. |
 | `python -B tools\bdo_meta\_verify_presets_vs_stock.py --paz "...\Black Desert Online\PAZ"` | 0 | 75 descriptors, 75 changed in memory, 3,136 target tags, 2,383 Max edits, 0 violations. |
 | `git diff --check` | 0 | No whitespace errors before commit. |
+| `7z t BDO-AIO-v2.4.0-full.7z` | 0 | 42,142 files tested; archive integrity passed. |
+| release exclusion audit | 0 | No `config.json`, `.claude`, backups, live staging, Python caches, or `files_to_patch` entries. |
 
 ## Live audit invariants
 
@@ -37,7 +39,8 @@ DIFF REVIEW: PASS
 PYTHON TESTS: PASS
 POWERSHELL TESTS: PASS
 READ-ONLY LIVE DESCRIPTOR AUDIT: PASS
-PACKAGE/REMOTE RELEASE: PENDING
+PACKAGE: PASS (232,362,576 bytes; SHA-256 c3399ee92c44fe7810badd0133ac388015fbb192099b7b9021134e7b16e45778)
+REMOTE RELEASE: PENDING
 UNRESOLVED: cross-class and outfit appearance requires in-game user testing
 FINAL: PASS (tool-validated; runtime appearance pending)
 ```
