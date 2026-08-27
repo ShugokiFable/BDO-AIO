@@ -38,11 +38,21 @@ Structural validation is complete. Cross-class/outfit appearance remains an
 explicit user runtime test and is not claimed as automated proof.
 
 
-## 2026-08-27 - v2.4.2 source pushed, release not yet cut
+## 2026-08-27 - v2.4.2 PUBLISHED on GitHub
 
-`main` is at **2.4.2** (commit for "catch a rolled-back client version"). CI green.
-The latest **GitHub release** is still **v2.4.1** - no `full.7z` has been built or
-uploaded for 2.4.2, and LoversLab/Undertow are untouched.
+| Item | Value |
+|------|-------|
+| Tag | `v2.4.2` on commit `27c474c` |
+| CI on that SHA | green (PowerShell + PSScriptAnalyzer, JSON + Python) |
+| Release | https://github.com/ShugokiFable/BDO-AIO/releases/tag/v2.4.2 |
+| Asset | `BDO-AIO-v2.4.2-full.7z` - 207,272,976 bytes, 42,146 files |
+| sha256 | `d95e54464a4f3a93917e63e2732d54d7f0db9f51b066065896d84cd6491b6cfd` |
+| Verified | built / published / `.sha256` all agree; archive passes `7z t` |
+| Backup | `Z:\Backup\BDO-mods-assets\BDO-AIO-v2.4.2-full.7z` |
+| README | bumped to v2.4.2 |
 
-To publish 2.4.2: build the offline archive + checksum, create the GitHub release from
-`docs/releases/v2.4.2.md`, then upload the same archive to LL and Undertow.
+Archive excludes `config.json` (machine-specific), `backup/`, `__pycache__`, `.git`,
+`.claude` - same exclusions as v2.4.1.
+
+**Still to do (manual, needs your logins):** upload the same `full.7z` to LoversLab and
+Undertow and paste the short changelog. Neither has been touched.
