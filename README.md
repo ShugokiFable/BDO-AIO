@@ -1,6 +1,6 @@
 # BDO Modding AIO
 
-**Current tree: v2.4.1. Latest release: [v2.4.1](https://github.com/ShugokiFable/BDO-AIO/releases/tag/v2.4.1).**
+**Current tree: v2.4.2. Latest release: [v2.4.2](https://github.com/ShugokiFable/BDO-AIO/releases/tag/v2.4.2).**
 Windows menu for **Black Desert Online** client mods (PAZ / Meta Injector). **Not Skyrim.**
 
 | Download | What you get |
@@ -117,6 +117,15 @@ Meta Injector is launched via a short-path canonical stage so deep XYZW trees do
 ---
 
 ## Changelog (latest)
+
+### v2.4.2
+
+- Fixes mods silently reverting with the game reporting **corrupted files**. Nothing was corrupt: `pad00000.meta` carries the client version at offset 0, an inject left it reading an older version than the installed client, and the launcher re-downloaded ~1 GB of patches and replaced the meta.
+- Meta Injector runs now record the client version **before** injecting and re-check it after. On a mismatch the AIO says **DO NOT LAUNCH**.
+- New `verify` step proves every block resolves inside an archive that exists, before you launch.
+- Restoring a vanilla snapshot taken on a **different client version** is now refused - it causes the same wipe.
+- After a game patch: let the launcher finish, start the game once, re-snapshot vanilla, then re-apply.
+- No body-slider values, packs, or pipeline behaviour changed from v2.4.1.
 
 ### v2.4.1
 
