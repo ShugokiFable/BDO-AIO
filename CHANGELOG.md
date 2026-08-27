@@ -1,4 +1,24 @@
-# Changelog
+## 2.4.2 - Catch a rolled-back client version before it wipes your mods
+
+Symptom: mods reverted on their own and the game reported corrupted files. Cause: the
+meta header carries the client version at offset 0, Meta Injector wrote a stale value
+(3418 -> 3412), and the launcher concluded the client had rolled back - re-downloading
+six patches and replacing `pad00000.meta`, which wiped the injection and stranded
+1.65 GB of archives. Nothing was actually corrupt, and PartCutGen was not at fault.
+
+- Meta Injector runs now record the client version **before** injecting and re-check it
+  after. On a mismatch the AIO says DO NOT LAUNCH and points at restore.
+- New `verify` command: `--expect-version N` catches the regression, and it also proves
+  every block resolves inside an archive that exists.
+- `restore` refuses a snapshot whose `meta_version` differs from the live meta (exit 5).
+- `backup` records `meta_version` and judges the meta instead of refusing whenever a
+  `BDO_AIO_INJECT` folder happens to exist.
+- `scan` reports the client version and no longer prints `INJECTED` when the meta
+  references zero injected archives.
+- Startup warns when the client version changed since the last inject.
+- Dropped the old "restore vanilla first when the launcher walls on a patch" advice.
+
+Full write-up: `dev/CLIENT-PATCH-RULES.md`.
 
 ## v2.4.1 - 2026-08-09 - body-control wording hotfix
 

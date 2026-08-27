@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import pathlib
 import tempfile
+import struct
+import shutil
 import unittest
+
+from vanilla_restore import meta_version, contiguous_game_max, meta_is_injected
 
 from vanilla_restore import AIO_BACKUP_NAME, find_backups, human, orphan_paz
 
@@ -75,6 +79,55 @@ class HumanTests(unittest.TestCase):
     def test_units(self) -> None:
         self.assertEqual(human(1024 ** 2), "1.0 MB")
         self.assertTrue(human(2 * 1024 ** 3).endswith("GB"))
+
+
+class MetaVersionTests(unittest.TestCase):
+    """The client version at offset 0 is what makes a stale snapshot dangerous."""
+
+    def setUp(self) -> None:
+        self.dir = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.dir, True)
+
+    def test_reads_uint32_le_at_offset_zero(self) -> None:
+        p = self.dir / "pad00000.meta"
+        p.write_bytes(struct.pack("<I", 3418) + bytes(64))
+        self.assertEqual(meta_version(p), 3418)
+
+    def test_distinguishes_two_client_versions(self) -> None:
+        a, b = self.dir / "a.meta", self.dir / "b.meta"
+        a.write_bytes(struct.pack("<I", 3412) + bytes(16))
+        b.write_bytes(struct.pack("<I", 3418) + bytes(16))
+        # restore must refuse exactly this pairing
+        self.assertNotEqual(meta_version(a), meta_version(b))
+
+
+class InjectedDetectionTests(unittest.TestCase):
+    """State comes from the meta, never from leftover folders on disk."""
+
+    def setUp(self) -> None:
+        self.dir = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.dir, True)
+
+    def _paz(self, numbers) -> None:
+        for n in numbers:
+            (self.dir / f"PAD{n:05d}.PAZ").write_bytes(b"")
+
+    def test_contiguous_run_stops_at_the_first_gap(self) -> None:
+        self._paz([1, 2, 3, 4, 61337, 61338])
+        self.assertEqual(contiguous_game_max(self.dir), 4)
+
+    def test_clean_meta_is_not_injected_even_with_orphans_present(self) -> None:
+        # the exact 2026-08-27 case: archives on disk, meta references none of them
+        self._paz([1, 2, 3, 4, 61337, 61338])
+        (self.dir / "BDO_AIO_INJECT").mkdir()
+        self.assertFalse(meta_is_injected(self.dir, {1, 2, 3, 4}))
+
+    def test_meta_referencing_appended_archives_is_injected(self) -> None:
+        self._paz([1, 2, 3, 4, 61337])
+        self.assertTrue(meta_is_injected(self.dir, {1, 2, 3, 4, 61337}))
+
+    def test_no_paz_on_disk_is_not_called_injected(self) -> None:
+        self.assertFalse(meta_is_injected(self.dir, {1, 2}))
 
 
 if __name__ == "__main__":

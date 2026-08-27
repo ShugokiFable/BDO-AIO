@@ -1,4 +1,17 @@
-# BDO-AIO 2.4.1
+# BDO-AIO 2.4.2
+
+## Surviving client patches
+
+A BDO patch replaces `pad00000.meta` wholesale, wiping any injection and orphaning its
+archives. The meta header also carries the client version, so restoring an old snapshot
+makes the launcher re-download the meta and report corrupted files.
+
+- `restore` refuses a snapshot from a different client version, with the correct order.
+- New `verify` proves every block resolves before you launch; Meta Injector runs it.
+- `scan` reports the client version and no longer mislabels a clean meta as injected.
+- Startup warns when the client patched since your last inject.
+
+Details: `dev/CLIENT-PATCH-RULES.md`.
 
 ## Wording hotfix
 

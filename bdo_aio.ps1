@@ -3,7 +3,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$Script:Version = '2.3.1'
+$Script:Version = '2.4.2'
 $Script:Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script:ConfigPath = Join-Path $Script:Root 'config.json'
 $Script:PackDir = Join-Path $Script:Root 'pack'
@@ -389,10 +389,11 @@ function Load-Config {
             penisNinja      = 'none'
             penisStriker    = 'none'
             heishaRoot      = ''
+            lastMetaVersion = 0
             lastRun         = $null
         }
     }
-    foreach ($p in @('pazFolder', 'gender', 'armor', 'xyzwCollections', 'npiPath', 'bodySizeSchema', 'bodySizePreset', 'bodySizeParts', 'hideGloves', 'hideBoots', 'hideHelmets', 'hideWeapons', 'hideStockings', 'slotHideClasses', 'pubicHairStyle', 'pubicHairStyles', 'pubicHairReuse', 'pubicHairClasses', 'censorshipTier', 'female3dVagina', 'genitalFemaleClasses', 'genitalReuse', 'malePenisMode', 'penisWarrior', 'penisBerserker', 'penisMusa', 'penisWizard', 'penisNinja', 'penisStriker', 'heishaRoot', 'lastRun')) {
+    foreach ($p in @('pazFolder', 'gender', 'armor', 'xyzwCollections', 'npiPath', 'bodySizeSchema', 'bodySizePreset', 'bodySizeParts', 'hideGloves', 'hideBoots', 'hideHelmets', 'hideWeapons', 'hideStockings', 'slotHideClasses', 'pubicHairStyle', 'pubicHairStyles', 'pubicHairReuse', 'pubicHairClasses', 'censorshipTier', 'female3dVagina', 'genitalFemaleClasses', 'genitalReuse', 'malePenisMode', 'penisWarrior', 'penisBerserker', 'penisMusa', 'penisWizard', 'penisNinja', 'penisStriker', 'heishaRoot', 'lastMetaVersion', 'lastRun')) {
         if (-not ($Script:Config.PSObject.Properties.Name -contains $p)) {
             $val = switch ($p) {
                 'gender' { 'F' }
@@ -423,6 +424,7 @@ function Load-Config {
                 'penisNinja' { 'none' }
                 'penisStriker' { 'none' }
                 'heishaRoot' { '' }
+                'lastMetaVersion' { 0 }
                 default { $null }
             }
             if ($null -eq $val -and $p -ne 'lastRun') {
@@ -559,6 +561,7 @@ function Save-Config {
         penisNinja      = [string]$Script:Config.penisNinja
         penisStriker    = [string]$Script:Config.penisStriker
         heishaRoot      = [string]$Script:Config.heishaRoot
+        lastMetaVersion = [int]$Script:Config.lastMetaVersion
         lastRun         = $Script:Config.lastRun
     }
     $json = $out | ConvertTo-Json -Depth 4
@@ -2160,6 +2163,13 @@ function Run-MetaInjector {
     Write-Info 'Checking for a vanilla meta backup...'
     [void](Invoke-VanillaRestoreTool @('backup'))
 
+    # The meta header carries the client version the launcher checks. Record it
+    # BEFORE injecting: if the injector writes an older number back, the launcher
+    # decides the client rolled back and re-downloads the meta, wiping every mod.
+    # Measured 2026-08-27: 3418 -> 3412 triggered a 1 GB re-patch.
+    $metaVersionBefore = Get-BdoMetaVersion -PazFolder $paz
+    if ($metaVersionBefore) { Write-Info ("Client version before inject: " + $metaVersionBefore) }
+
     Write-Host ''
     Write-Host '  If the game breaks, menu [R] -> [1] restores vanilla without Steam.' -ForegroundColor Yellow
     Write-Host '  The AIO passes a canonical short-path stage; no XYZW collection is deleted.' -ForegroundColor Green
@@ -2175,6 +2185,22 @@ function Run-MetaInjector {
         $process = Start-Process -FilePath $shortExe -WorkingDirectory ($pazDrive + '\') `
             -ArgumentList ('-files "{0}"' -f $stage) -PassThru -Wait
         Write-Ok ("Meta Injector closed (process exit code " + $process.ExitCode + ").")
+        # A meta that points past the end of an archive is exactly what the client
+        # reports as corrupted data. Prove it resolves before the game is launched.
+        if ($metaVersionBefore) {
+            $Script:Config.lastMetaVersion = $metaVersionBefore
+            Save-Config
+        }
+        Write-Info 'Verifying the injected meta before you launch...'
+        $verifyArgs = @('verify')
+        if ($metaVersionBefore) { $verifyArgs += @('--expect-version', [string]$metaVersionBefore) }
+        if (-not (Invoke-VanillaRestoreTool $verifyArgs)) {
+            Write-Host ''
+            Write-Err 'THE INJECTED META DID NOT VERIFY. DO NOT LAUNCH THE GAME.'
+            Write-Warn 'Launching now would make the launcher re-patch and wipe the injection.'
+            Write-Host '  Fix: [R] -> restore vanilla, then re-run PartCutGen + Meta Injector.' -ForegroundColor Cyan
+            Write-Host ''
+        }
         $region = Get-BdoClientRegion
         $metaPatcher = $pazDrive + '\Meta Patcher.exe'
         if ($region -in @('NA', 'EU')) {
@@ -2561,9 +2587,15 @@ function Restore-UneditedGameFiles {
     Write-Info 'For game updates, troubleshooting, and making changes easily.'
     Write-Warn 'True vanilla meta may still need Pearl Abyss launcher Verify/Repair.'
     Write-Host ''
-    Write-Host '  GAME UPDATES: if the launcher stalls / "walls" on patch, restore vanilla' -ForegroundColor Yellow
-    Write-Host '  first ([1]), let it update, then re-apply AIO. Body-size users: do NOT' -ForegroundColor Yellow
-    Write-Host '  load oversized characters while the client is still vanilla.' -ForegroundColor Yellow
+    Write-Host '  GAME UPDATES - ORDER MATTERS' -ForegroundColor Yellow
+    Write-Host '  A client patch replaces Paz\pad00000.meta outright, so any injection made' -ForegroundColor Yellow
+    Write-Host '  before the patch is wiped and its archives are left orphaned. Also: the meta' -ForegroundColor Yellow
+    Write-Host '  header carries the client version, so restoring a snapshot taken on an OLDER' -ForegroundColor Yellow
+    Write-Host '  client makes the launcher think you are out of date and re-download it.' -ForegroundColor Yellow
+    Write-Host '    1. Let the launcher finish patching and start the game once.' -ForegroundColor Cyan
+    Write-Host '    2. [2] Re-snapshot vanilla on the NEW client version.' -ForegroundColor Cyan
+    Write-Host '    3. Re-apply AIO, PartCutGen, Meta Injector.' -ForegroundColor Cyan
+    Write-Host '  Body-size users: do NOT load oversized characters while the client is vanilla.' -ForegroundColor Yellow
     Write-Host ''
     if (-not (Test-IsPazFolder $Script:Config.pazFolder)) {
         Write-Err 'Set PAZ first.'
@@ -3530,6 +3562,55 @@ function Show-VerifyPack {
     Pause-Any
 }
 
+function Get-BdoMetaVersion {
+    <#
+      The client version the launcher checks, stored as a uint32 at offset 0 of
+      pad00000.meta. Four bytes -- no need to parse 861k blocks.
+    #>
+    param([string]$PazFolder)
+    $meta = Join-Path $PazFolder 'pad00000.meta'
+    if (-not (Test-Path -LiteralPath $meta)) { return 0 }
+    try {
+        $fs = [System.IO.File]::OpenRead($meta)
+        try {
+            $buf = New-Object byte[] 4
+            if ($fs.Read($buf, 0, 4) -ne 4) { return 0 }
+            return [BitConverter]::ToUInt32($buf, 0)
+        } finally { $fs.Dispose() }
+    } catch { return 0 }
+}
+
+function Warn-IfClientPatched {
+    <#
+      A client patch replaces pad00000.meta outright, which silently wipes every
+      injection and strands its archives on disk. Measured 2026-08-27: client
+      3412 -> 3418 did exactly that, and the only visible symptom was the game
+      reporting corrupted files. Say it out loud instead.
+    #>
+    if (-not (Test-IsPazFolder $Script:Config.pazFolder)) { return }
+    $now = Get-BdoMetaVersion -PazFolder ([string]$Script:Config.pazFolder)
+    if ($now -eq 0) { return }
+    $seen = 0
+    if ($Script:Config.PSObject.Properties.Name -contains 'lastMetaVersion') {
+        $seen = [int]$Script:Config.lastMetaVersion
+    }
+    if ($seen -and $seen -ne $now) {
+        Write-Host ''
+        Write-Warn ("THE GAME PATCHED since your last inject (client " + $seen + " -> " + $now + ").")
+        Write-Host '  A patch replaces pad00000.meta, so your mods are no longer live and their' -ForegroundColor Yellow
+        Write-Host '  archives are orphaned on disk. Any vanilla snapshot from the old client is' -ForegroundColor Yellow
+        Write-Host '  now STALE - restoring it would make the launcher re-download the meta.' -ForegroundColor Yellow
+        Write-Host '  Do: [R] scan -> delete orphans -> re-snapshot vanilla -> re-apply AIO.' -ForegroundColor Cyan
+        Write-Host ''
+        $Script:Config.lastMetaVersion = $now
+        Save-Config
+        Pause-Any
+    } elseif (-not $seen) {
+        $Script:Config.lastMetaVersion = $now
+        Save-Config
+    }
+}
+
 function Show-MainMenu {
     while ($true) {
         Write-Banner
@@ -3588,6 +3669,7 @@ function Show-MainMenu {
 
 try {
     Load-Config
+    Warn-IfClientPatched
     Show-MainMenu
 } catch {
     Write-Host ''

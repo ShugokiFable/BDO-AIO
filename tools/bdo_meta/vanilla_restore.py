@@ -25,6 +25,7 @@ import json
 import pathlib
 import re
 import shutil
+import struct
 import sys
 import tempfile
 
@@ -45,6 +46,18 @@ def sha256(path: pathlib.Path) -> str:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
+
+def meta_version(path: pathlib.Path) -> int:
+    """Client version stamped in the meta header (uint32 LE at offset 0).
+
+    The launcher reads this to decide whether the client is up to date. Restoring a
+    snapshot taken under an older client writes that older number back, the launcher
+    sees the client as out of date, re-downloads Paz/pad00000.meta, and every
+    injection is silently wiped. Measured on 2026-08-27: a 3412 snapshot restored
+    onto a 3418 install did exactly that.
+    """
+    with open(path, "rb") as f:
+        return struct.unpack("<I", f.read(4))[0]
 
 
 def referenced_paz(meta_path: pathlib.Path, ice: IceDecipher) -> set[int]:
@@ -95,6 +108,7 @@ def cmd_scan(paz: pathlib.Path, ice: IceDecipher) -> int:
 
     cur_refs = referenced_paz(current, ice)
     log(f"current meta      : {current.stat().st_size} bytes, {len(cur_refs)} PAZ referenced, max {max(cur_refs)}")
+    log(f"client/meta version: {meta_version(current)}")
 
     backups = find_backups(paz)
     if not backups:
@@ -120,9 +134,48 @@ def cmd_scan(paz: pathlib.Path, ice: IceDecipher) -> int:
     log(f"deletable PAZ     : {len(orphans)}  ({human(total)})")
     if not injected and not orphans:
         log("state             : VANILLA (meta references nothing extra)")
+    elif not injected:
+        # A failed or patched-over inject leaves archives behind while the meta is
+        # clean. Calling that "INJECTED" sent a whole debugging session down the
+        # wrong path -- the meta is what the game reads, so the meta decides.
+        log("state             : VANILLA META + ORPHAN ARCHIVES")
+        log("                    The meta references none of them, so no mod is live.")
+        log("                    Run 'restore --apply' to delete them and reclaim the space.")
     else:
         log("state             : INJECTED")
     return 0
+
+
+def contiguous_game_max(paz: pathlib.Path) -> int:
+    """Highest PAZ index in the game's own unbroken 1..N run.
+
+    The patcher ships PAD00001..PADnnnnn with no gaps. Meta Injector appends its
+    archives far above that run (e.g. PAD61337+), so the first gap separates game
+    data from injected data.
+    """
+    on_disk = set()
+    for path in paz.iterdir():
+        match = PAZ_FILE.match(path.name)
+        if match:
+            on_disk.add(int(match.group(1)))
+    top = 0
+    for number in sorted(on_disk):
+        if number == top + 1:
+            top = number
+        elif number > top + 1:
+            break
+    return top
+
+
+def meta_is_injected(paz: pathlib.Path, refs: set[int]) -> bool:
+    """True when the META ITSELF references archives past the game's own run.
+
+    Judge by what the meta references, never by leftover staging folders on disk:
+    a failed inject can leave both the folder and orphan PAZ behind while the meta
+    was rolled back by the launcher and is perfectly vanilla.
+    """
+    top = contiguous_game_max(paz)
+    return bool(top) and any(r > top for r in refs)
 
 
 def cmd_backup(paz: pathlib.Path, ice: IceDecipher, force: bool) -> int:
@@ -147,9 +200,9 @@ def cmd_backup(paz: pathlib.Path, ice: IceDecipher, force: bool) -> int:
     if source == current and len(cur_refs) != len(src_refs):
         log("[FATAL] unexpected mismatch reading the current meta")
         return 3
-    if source == current and (paz / "BDO_AIO_INJECT").exists():
-        log("[FATAL] Refusing to snapshot the current meta as 'vanilla': this game has")
-        log("        already been injected and no pre-inject backup exists.")
+    if source == current and meta_is_injected(paz, cur_refs):
+        log("[FATAL] Refusing to snapshot the current meta as 'vanilla': it references")
+        log(f"        archives above the game's own run (max {max(cur_refs)}), so it is injected.")
         log("        Verify/repair the game first, then run backup again.")
         return 4
 
@@ -161,10 +214,12 @@ def cmd_backup(paz: pathlib.Path, ice: IceDecipher, force: bool) -> int:
         "bytes": target.stat().st_size,
         "paz_referenced": len(src_refs),
         "paz_max": max(src_refs),
+        "meta_version": meta_version(target),
     }
     (paz / AIO_BACKUP_INFO).write_text(json.dumps(info, indent=2), encoding="utf-8")
     log(f"[OK] vanilla meta snapshot written from {why}: {target.name}")
     log(f"     sha256={info['sha256'][:16]}...  {len(src_refs)} PAZ referenced, max {info['paz_max']}")
+    log(f"     client/meta version={info['meta_version']}")
     return 0
 
 
@@ -187,6 +242,20 @@ def cmd_restore(paz: pathlib.Path, ice: IceDecipher, delete_paz: bool, apply: bo
     log(f"restore source    : {pristine.name}")
     log(f"  references      : {len(keep)} PAZ, max {max(keep)}")
     log(f"  current adds    : {len(injected)} injected PAZ reference(s)")
+    back_ver, cur_ver = meta_version(pristine), meta_version(current)
+    log(f"  meta version    : backup {back_ver} vs live {cur_ver}")
+    if back_ver != cur_ver:
+        log("")
+        log(f"[FATAL] STALE SNAPSHOT. This backup was taken under client {back_ver};")
+        log(f"        the installed client is {cur_ver}. Restoring it stamps {back_ver} back")
+        log("        into the meta header, so the launcher decides the client is out of")
+        log("        date, re-downloads Paz/pad00000.meta, and wipes every injection.")
+        log("")
+        log("        Do this instead:")
+        log("          1. Delete this stale snapshot and let the launcher finish patching.")
+        log("          2. Launch the game once so the launcher stops repairing.")
+        log("          3. Run 'backup' again to snapshot the CURRENT clean meta.")
+        return 5
     if missing:
         log(f"  [WARN] backup references {len(missing)} PAZ the current meta does not.")
         log("         The backup may be older than a game patch; verify game files if the game misbehaves.")
@@ -236,13 +305,74 @@ def cmd_restore(paz: pathlib.Path, ice: IceDecipher, delete_paz: bool, apply: bo
     return 5
 
 
+def cmd_verify(paz: pathlib.Path, ice: IceDecipher, expect: int = 0) -> int:
+    """Prove the live meta is internally consistent BEFORE the game is launched.
+
+    A meta that points past the end of an archive, or at an archive that is not on
+    disk, is what the client reports as corrupted data. Checking it here costs one
+    parse and turns a mystery crash into a message.
+    """
+    current = paz / "pad00000.meta"
+    if not current.is_file():
+        log(f"[FATAL] {current} not found")
+        return 2
+
+    sizes = {}
+    for path in paz.iterdir():
+        match = PAZ_FILE.match(path.name)
+        if match:
+            sizes[int(match.group(1))] = path.stat().st_size
+
+    tmp = pathlib.Path(tempfile.mkdtemp())
+    try:
+        shutil.copy2(current, tmp / "pad00000.meta")
+        meta = MetaFile(tmp, ice)
+        absent, overflow, ok = {}, [], 0
+        for block in meta.fileBlocks:
+            size = sizes.get(block.pazNum)
+            if size is None:
+                absent[block.pazNum] = absent.get(block.pazNum, 0) + 1
+            elif block.fileOffset + (block.zsize or block.size) > size:
+                overflow.append(block)
+            else:
+                ok += 1
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    live = meta_version(current)
+    log(f"client/meta version: {live}")
+    if expect and live != expect:
+        log("")
+        log(f"[FAIL] The meta header now says client {live}, but it said {expect} before this run.")
+        log("       The launcher reads that number. A lower value makes it believe the client")
+        log("       rolled back, so it re-downloads Paz/pad00000.meta and every mod is wiped.")
+        log("       Measured 2026-08-27: 3418 -> 3412 cost a 1 GB re-patch and the whole injection.")
+        log("")
+        log("       DO NOT LAUNCH. Restore, then re-inject:")
+        log("         vanilla_restore.py restore --apply --paz \"<PAZ>\"")
+        return 1
+    log(f"blocks readable    : {ok}")
+    log(f"missing archives   : {sum(absent.values())} block(s) across {len(absent)} PAZ {sorted(absent)[:8]}")
+    log(f"past end of archive: {len(overflow)}")
+    if absent or overflow:
+        log("")
+        log("[FAIL] This meta is NOT safe to play. The client will report corrupted data.")
+        log("       Restore with: vanilla_restore.py restore --apply")
+        return 1
+    log("")
+    log("[OK] every block resolves inside an archive that exists. Safe to launch.")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Back up / restore the live BDO meta")
-    ap.add_argument("command", choices=["scan", "backup", "restore"])
+    ap.add_argument("command", choices=["scan", "backup", "restore", "verify"])
     ap.add_argument("--paz", required=True)
     ap.add_argument("--apply", action="store_true", help="restore: actually write (default is a dry run)")
     ap.add_argument("--keep-paz", action="store_true", help="restore: leave injected PAZ files on disk")
     ap.add_argument("--force", action="store_true", help="backup: overwrite an existing AIO snapshot")
+    ap.add_argument("--expect-version", type=int, default=0,
+                    help="verify: fail if the meta header no longer reports this client version")
     args = ap.parse_args()
 
     paz = pathlib.Path(args.paz)
@@ -259,6 +389,8 @@ def main() -> int:
         return cmd_scan(paz, ice)
     if args.command == "backup":
         return cmd_backup(paz, ice, args.force)
+    if args.command == "verify":
+        return cmd_verify(paz, ice, args.expect_version)
     return cmd_restore(paz, ice, not args.keep_paz, args.apply)
 
 
