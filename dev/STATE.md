@@ -1,42 +1,44 @@
-﻿# BDO-AIO state
+# BDO-AIO state
 
-**Date:** 2026-08-09
-**Version in tree:** `2.3.1` hotfix candidate
-**Release:** latest public is still **v2.3.0**. Do not upload v2.3.1 to GitHub/LL/Undertow until the user confirms the last belly slider in-game.
-**PAZ:** `C:\Program Files (x86)\Steam\steamapps\common\Black Desert Online\PAZ`
+**Date:** 2026-08-27
+**Version in tree / on `main`:** `2.4.2`
+**Latest GitHub *release*:** `v2.4.1` - 2.4.2 source is pushed, no release archive built yet.
+**PAZ:** `<STEAM>\steamapps\common\Black Desert Online\Paz`
 
-## Status: lower-belly depth hotfix awaiting runtime confirmation
+## Status: client-version rollback fixed; user's game is clean vanilla
 
-`belly` restores the original Lower Back and Belly control (`Bip01 Spine`) with
-corrected baseline/recommended/high/extreme Max ceilings of 1.35/1.45/1.60/1.75.
-The correction is required because 30 of 75 live vanilla descriptors already have
-Z/depth Max 1.35, so v2.3.0's lower values could not unlock the final UI slider.
-X torso length, Default, Min, and already-larger class values remain untouched.
+A client patch (3412 -> 3418) plus an inject run left the meta reporting an older
+client version than the one installed. The launcher treated that as a rollback,
+re-downloaded ~1 GB of patches and replaced `pad00000.meta`, wiping the injection and
+leaving 1.65 GB of orphaned archives. The visible symptom was "corrupted files".
+Nothing was corrupt. PartCutGen was suspected and cleared.
 
-### 2.2.8 â€” vanilla restore / body-size footgun
-Users must restore vanilla before many game updates (launcher wall). Characters above
-stock Max get clamped on load; presets can be overwritten. Launcher now warns on body-size
-menu and **[R] â†’ [1]**, requires confirm, snapshots Customization presets to `backup\`,
-and prints post-restore order: update â†’ re-inject caps â†’ only then log oversized chars.
+2.4.2 records the client version before injecting and re-checks it after, refuses to
+restore a snapshot from a different client version, and adds `verify`. Full write-up:
+`dev/CLIENT-PATCH-RULES.md`.
 
-### 2.2.7 â€” Body UNCUT removed
-`[2] -> [B] Body UNCUT` is **gone**. Folder-level BasicCutType cannot be fixed via
-PartCutGen exclusions. See `dev/PARTCUT-MECHANICS.md`. Cleavage/Look 7 shelved; use
-Midnight outfits for open windows.
+## Live machine state (2026-08-27)
 
-Normal feature set: Midnight deploy, censorship tiers, genital packs, body size, pubic
-hair, slot hide, PartCutGen, Meta Injector.
+- `pad00000.meta` verified: 861,376 blocks, 0 missing archives, 0 overruns, version 3418.
+- Vanilla snapshot exists again (`pad00000.BDOAIO-VANILLA.meta`, `meta_version: 3418`).
+  There was **none at all** before - any restore would have needed a Steam repair.
+- 19 orphaned `PAD6133x-6135x.PAZ` deleted, 1.65 GB reclaimed.
+- `files_to_patch` still holds the user's five stages plus a freshly generated
+  `_PartCutGen/character/partcutdesc.xml`.
+- **Mods are not currently applied.** The pipeline has not been re-run since the patch.
 
-## If the game still has a modified partcutdesc
+## Next
 
-Run `[4]` PartCutGen then `[5]` Meta Injector. `[4]` regenerates `partcutdesc.xml` from the
-staged exclusions, which drops any hand edit. `[R] -> [1]` restores vanilla meta outright
-(remember body-size re-inject order).
+1. User re-runs deploy -> PartCutGen -> Meta Injector.
+2. Watch for `Client version before inject: 3418` and the post-inject check. If it
+   reports a mismatch, Meta Injector reproduces the bug and it is worth reporting to
+   that tool's author - the AIO can only detect it, not prevent it.
 
 ## Do not repeat
 
-1. Verify class prefixes against `bdo_aio.ps1` `$Script:FemaleClasses` before any test.
-   `phw` is **Sorceress**; Ranger is `pew`.
-2. Do not blank DXT1 or `*_cull*` textures â€” see `dev/TEXTURE-BLANKING-RULES.md`.
-3. Do not re-add exclusion-based Body UNCUT for vanilla outfits. Structurally cannot work.
-4. Do not load oversized body characters under vanilla Max (game update path).
+1. Verify class prefixes against `$Script:FemaleClasses` - `phw` is Sorceress, `pew` is
+   Ranger. Assuming otherwise invalidated an entire test campaign.
+2. Never blank DXT1 or `*_cull*` textures - `dev/TEXTURE-BLANKING-RULES.md`.
+3. Judge injected/vanilla state from the **meta**, never from folders or stray archives
+   on disk. Two guards used disk artefacts as a proxy and both were wrong.
+4. Never restore a vanilla snapshot taken under a different client version.

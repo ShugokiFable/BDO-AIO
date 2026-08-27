@@ -1,7 +1,7 @@
-﻿# Publish status — public sites vs local tree
+# Publish status — public sites vs local tree
 
-**Checked:** 2026-08-09
-**Local/source version:** **v2.4.1**, wording hotfix validated and published
+**Checked:** 2026-08-27
+**Local/source version:** **v2.4.2** (pushed to `main`; no release archive built yet)
 **GitHub release:** **v2.4.1** is public with the complete offline archive and checksum
 
 ---
@@ -36,3 +36,13 @@
 
 Structural validation is complete. Cross-class/outfit appearance remains an
 explicit user runtime test and is not claimed as automated proof.
+
+
+## 2026-08-27 - v2.4.2 source pushed, release not yet cut
+
+`main` is at **2.4.2** (commit for "catch a rolled-back client version"). CI green.
+The latest **GitHub release** is still **v2.4.1** - no `full.7z` has been built or
+uploaded for 2.4.2, and LoversLab/Undertow are untouched.
+
+To publish 2.4.2: build the offline archive + checksum, create the GitHub release from
+`docs/releases/v2.4.2.md`, then upload the same archive to LL and Undertow.
